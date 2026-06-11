@@ -1,0 +1,15 @@
+item_link_mapping:
+  folder.path:
+    can_contain: ["folder.path", "task"]
+    can_link: ["config", "connection"]
+  folder.config:
+    can_contain: ["folder.config", "config"]
+  folder.asset:
+    can_contain:
+      ["folder.asset", "config", "table", "column", "database", "schema"]
+  table:
+    can_contain: ["column"]
+  database:
+    can_contain: ["schema"]
+  schema:
+    can_contain: ["table"]
