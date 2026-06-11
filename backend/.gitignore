@@ -12,7 +12,7 @@ build/
 wheels/
 sdist/
 MANIFEST
-operators/
+
 # ── Virtual environments ───────────────────────────────────────────────────────
 .venv/
 venv/
