@@ -1,0 +1,270 @@
+{
+    "columns": [
+        
+        
+        {
+            "name": "name",
+            "datatype": "string",
+            "required": true,
+            "min_length": 1,
+            "max_length": 255,
+            "regex": "^[a-zA-Z0-9_\\-]+\\.usecase$",
+            "description": "Name of usecase with alphanumeric characters, hyphens and underscores and name must end with .usecase",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "tab": {
+                "name": "Overview",
+                "order": 1
+            }
+        },
+        {
+            "name": "description",
+            "datatype": "string",
+            "required": false,
+            "max_length": 5000,
+            "description": "Description of the usecase",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "viewerType": "markdown",
+            "tab": {
+                "name": "Overview",
+                "order": 2
+            }
+        },
+        {
+            "name": "prompt",
+            "datatype": "string",
+            "required": false,
+            "max_length": 10000,
+            "description": "Prompt passed by the user for generating the operator using AI",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "viewerType": "markdown",
+            "tab": {
+                "name": "Overview",
+                "order": 3
+            }
+        },
+        {
+            "name": "guide_docs",
+            "datatype": "string",
+            "required": false,
+            "max_length": 10000,
+            "description": "Guide docs",
+            "editorType": "monaco",
+            "editorMonacoFormat": ".md",
+            "viewerType": "markdown",
+            "tab": {
+                "name": "Overview",
+                "order": 4
+            }
+        },
+        {
+            "name": "install_docs",
+            "datatype": "string",
+            "required": false,
+            "max_length": 10000,
+            "description": "Install docs",
+            "editorType": "monaco",
+            "editorMonacoFormat": ".md",
+            "viewerType": "markdown",
+            "tab": {
+                "name": "Overview",
+                "order": 5
+            }
+        },
+        {
+            "name": "payloads",
+            "datatype": "any",
+            "required": false,
+            "max_length": 200000,
+            "description": "Code to execute",
+            "editorType": "monaco",
+            "editorMonacoFormat": "python"
+        },
+        {
+            "name": "skills",
+            "datatype": "any",
+            "required": false,
+            "max_length": 200000,
+            "description": "skill to execute",
+            "editorType": "monaco",
+            "editorMonacoFormat": ".md",
+            "viewerType": "markdown"
+        },
+        {
+            "name": "version_compatibility",
+            "datatype": "object",
+            "required": false,
+            "description": "Which Core versions this item runs on. Uses glob patterns: \"0.*\" = any 0.x, \"1.2.*\" = any 1.2.x.",
+            "editorType": "monaco",
+            "editorMonacoFormat": "json",
+            "sample_placeholder": {
+                "core": [
+                    "0.*"
+                ]
+            },
+            "tab": {
+                "name": "Version",
+                "order": 1
+            },
+            "default": {
+                "core": [
+                    "0.*"
+                ]
+            },
+            "properties": {
+                "core": {
+                    "type": "array",
+                    "items": "string",
+                    "description": "Version glob patterns, e.g. [\"0.*\", \"1.*\"]. Empty = all versions."
+                }
+            },
+            "tooltip": "Specify core version globs in the core array.\n\nExamples:\n\u2022 [\"0.*\"] \u2014 any 0.x release\n\u2022 [\"0.*\", \"1.*\"] \u2014 0.x or 1.x\n\u2022 [\"1.2.*\"] \u2014 only 1.2.x\n\u2022 [] \u2014 compatible with all versions\n\nPatterns use wildcard (*) matching on each version segment.",
+            "ui_display_name": "Version Compatibility"
+        },
+        {
+            "name": "version_details",
+            "datatype": "object",
+            "required": false,
+            "description": "Source, versioning, and publishing metadata. version field required for explicit versioning mode.",
+            "editorType": "monaco",
+            "editorMonacoFormat": "json",
+            "tab": {
+                "name": "Version",
+                "order": 2
+            },
+            "default": {
+                "version": "0.1.0",
+                "versioning_mode": "implicit"
+            },
+            "properties": {
+                "version": {
+                    "type": "string",
+                    "description": "Semantic version string, e.g. \"1.2.3\""
+                },
+                "versioning_mode": {
+                    "type": "enum",
+                    "enum_values": [
+                        "implicit",
+                        "explicit"
+                    ],
+                    "description": "implicit = auto-increment, explicit = manual version field required"
+                },
+                "channel": {
+                    "type": "string",
+                    "description": "Release channel, e.g. \"stable\", \"beta\""
+                },
+                "released_at": {
+                    "type": "string",
+                    "description": "ISO 8601 timestamp, e.g. \"2024-01-15T00:00:00Z\""
+                },
+                "changelog": {
+                    "type": "string",
+                    "description": "Release notes or changelog text"
+                },
+                "deprecated": {
+                    "type": "boolean",
+                    "description": "Mark this item as deprecated"
+                }
+            },
+            "ui_display_name": "Version Details"
+        },
+        {
+            "name": "image_url",
+            "datatype": "string",
+            "required": false,
+            "max_length": 500,
+            "description": "URL to a custom icon/image for this item in the marketplace",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "tab": {
+                "name": "Metadata",
+                "order": 1
+            }
+        },
+        {
+            "name": "tags",
+            "datatype": "array",
+            "items": "string",
+            "required": false,
+            "max_items": 20,
+            "description": "Searchable tags (e.g. [\"python\", \"sql\", \"etl\"])",
+            "tab": {
+                "name": "Metadata",
+                "order": 2
+            }
+        },
+        {
+            "name": "category",
+            "datatype": "array",
+            "required": false,
+            "description": "Top-level category (e.g. 'AI', 'Data', 'DevOps')",
+            "tab": {
+                "name": "Metadata",
+                "order": 3
+            },
+            "items": "string"
+        },
+        {
+            "name": "division",
+            "datatype": "string",
+            "required": false,
+            "max_length": 100,
+            "description": "Division or team within the publisher organization",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "tab": {
+                "name": "Metadata",
+                "order": 4
+            }
+        },
+        {
+            "name": "publisher",
+            "datatype": "string",
+            "required": false,
+            "max_length": 100,
+            "description": "Publishing entity. Use 'LeastAction' for official items.",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "tab": {
+                "name": "Metadata",
+                "order": 5
+            }
+        },
+        {
+            "name": "verified",
+            "datatype": "boolean",
+            "required": false,
+            "description": "True if verified/endorsed by the marketplace",
+            "tab": {
+                "name": "Metadata",
+                "order": 6
+            }
+        }
+    ],
+    "projection_fields": [
+        "name",
+        "description",
+        "project_laui"
+    ],
+    "preview_fields": [
+        "list"
+    ],
+    "item_type_visual_config": {
+        "icon": "Cases",
+        "color": "#8b5cf6"
+    },
+    "unique_constraints": [
+        "name",
+        "publisher"
+    ],
+    "indexes": [
+        {
+            "fields": [
+                "name",
+                "parent_laui"
+            ]
+        }
+    ]
+}

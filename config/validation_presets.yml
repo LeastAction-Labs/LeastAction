@@ -1,0 +1,43 @@
+# Copyright (c) 2026 LeastAction Labs, Inc.
+# This file is part of LeastAction and is licensed under the
+# LeastAction Source License (see LICENSE.md) or, for files
+# marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
+# Use of this file outside those terms is not permitted.
+
+default:
+  label: "Standard"
+  deny_imports:
+    - ctypes
+    - threading
+    - multiprocessing
+    - marshal
+    - pty
+    - tty
+    - signal
+  block_rules:
+    B102: ["exec_used", "DANGEROUS_PATTERN"]
+    B301: ["pickle", "DANGEROUS_PATTERN"]
+    B307: ["eval_used", "DANGEROUS_PATTERN"]
+    B403: ["import pickle", "DENIED_IMPORT"]
+    B603: ["subprocess_without_shell", "DANGEROUS_PATTERN"]
+    B605: ["start_process_with_a_shell", "DANGEROUS_PATTERN"]
+    B606: ["start_process_with_no_shell", "DANGEROUS_PATTERN"]
+  warning_rules:
+    B404: ["import subprocess", "DENIED_IMPORT"]
+    B602: ["subprocess_popen_with_shell", "DANGEROUS_PATTERN"]
+  attr_call_rules:
+    - ["head", "ctypes", "Use of '{chain}()' is not allowed"]
+    - ["exact", "marshal.loads", "Use of '{chain}()' is not allowed"]
+    - ["exact", "marshal.load", "Use of '{chain}()' is not allowed"]
+    - ["prefix", "sys.modules.", "sys.modules manipulation is not allowed"]
+    - ["prefix", "os.environ", "Access to os.environ is not allowed"]
+    - ["prefix", "socket.", "Use of '{chain}()' is not allowed"]
+    - ["exact", "threading.Thread", "Use of '{chain}' is not allowed"]
+    - ["exact", "multiprocessing.Process", "Use of '{chain}' is not allowed"]
+    - ["prefix", "signal.", "Use of '{chain}()' is not allowed"]
+  checks:
+    async_blocked: true
+    dunder_blocked: true
+    cyclic_import_check: true
+    secret_leak_check: true
+    logger_check: true

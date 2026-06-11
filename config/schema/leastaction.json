@@ -1,0 +1,23 @@
+{
+    "indexes": [
+        {
+            "fields": ["tags"]
+        },
+        {
+            "fields": ["name"],
+            "sort": "text"
+        },
+        {
+            "fields": ["pk"]
+        },
+        {
+            "fields": ["pk","deleted_at"]
+        },
+        {
+            "fields": ["item_type"]
+        },
+        {
+            "fields": ["item_type","deleted_at"]
+        }
+    ]
+}

@@ -1,0 +1,76 @@
+{
+    "columns": [
+        
+        
+        {
+            "name": "name",
+            "datatype": "string",
+            "required": true,
+            "min_length": 1,
+            "max_length": 255,
+            "description": "Display name for the report",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text"
+        },
+        {
+            "name": "description",
+            "datatype": "string",
+            "required": false,
+            "max_length": 1000,
+            "description": "Optional report description",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text"
+        },
+        {
+            "name": "connection_laui",
+            "datatype": "ObjectId",
+            "required": true,
+            "description": "connection.gcp item with embed_secret, host, and embed_domain fields"
+        },
+        {
+            "name": "embed_path",
+            "datatype": "string",
+            "required": true,
+            "description": "Looker embed path e.g. /dashboards/42 or /looks/5",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text"
+        },
+        {
+            "name": "skill_laui",
+            "datatype": "ObjectId",
+            "required": false,
+            "description": "Skill to auto-load when a user chats about this report"
+        },
+        {
+            "name": "notes",
+            "datatype": "string",
+            "required": false,
+            "max_length": 2000,
+            "description": "Recent notes or context about this report — shown to users in the viewer",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text"
+        },
+        {
+            "name": "tags",
+            "datatype": "array",
+            "items": "string",
+            "required": false,
+            "description": "Tags for classification and discovery"
+        }
+    ],
+    "projection_fields": [
+        "name",
+        "description",
+        "deleted_at",
+        "parent_laui",
+        "project_laui",
+        "skill_laui",
+        "tags"
+    ],
+    "item_type_visual_config": {
+        "icon": "Insights",
+        "color": "#4285f4"
+    },
+    "unique_constraints": ["parent_laui", "name"],
+    "indexes": [{"fields": ["name", "parent_laui"]}]
+}

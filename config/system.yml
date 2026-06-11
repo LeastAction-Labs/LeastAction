@@ -1,0 +1,126 @@
+# Copyright (c) 2026 LeastAction Labs, Inc.
+# This file is part of LeastAction and is licensed under the
+# LeastAction Source License (see LICENSE.md) or, for files
+# marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
+# Use of this file outside those terms is not permitted.
+
+core_version: 0.0.0
+# System Configuration
+logs:
+  # Root directory for all logs (API, TASK, etc.). This is resolved
+  # relative to the project root by `Config.logs_dir` if not absolute.
+  directory: "./logs"
+
+project_scheduler_interval : 5 # format : project_name_cron_interval : interval in seconds
+action_timeout_seconds : 300
+celery:
+  broker_url: redis://localhost:6379/0
+  result_backend: redis://localhost:6379/1
+  api_client_base_url : http://backend:8000/api/v1
+  # Directories
+  operators_dir: /tmp/la/operators
+  actions_dir: /tmp/la/actions
+  # Default timeouts (seconds)
+  task:
+    soft_time_limit: 6000
+    hard_time_limit: 6600
+
+  action:
+    soft_time_limit: 1200
+    hard_time_limit: 1500
+  # Completion polling
+  check_completion_timeout_seconds: 3600
+  poll_interval_seconds : 2.5
+  # Worker behavior
+  worker:
+    prefetch_multiplier: 1
+    acks_late: false
+    track_started: true
+    reject_on_worker_lost: false
+    acks_on_failure_or_timeout: false
+    max_tasks_per_child: 150
+    max_memory_per_child: 524288  
+    cancel_long_running_tasks_on_connection_loss: false
+    send_task_events: true
+    send_sent_event: true
+
+  # process manager will handle
+  worker_profiles:
+    task_worker:
+      concurrency: 5
+      pool: prefork
+
+    action_worker:
+      concurrency: 3
+      pool: prefork
+  # Queues (optional, future-proof)
+  queues:
+    task_queue: la_tasks
+    action_queue: la_actions
+    cron_queue: la_crons
+
+stale_heartbeat_multiplier: 5  # stale if delta > multiplier * celery.poll_interval_seconds
+
+enforce_connection_operator_mapping: false
+connection_operator_mapping:
+  connection.AWSIAMRole:
+    - operator.AWSIAMRole
+  connection.python:
+    - operator.python
+    - operator.spark
+  connection.docker:
+    - operator.docker
+  connection.kubernetes:
+    - operator.kubernetes
+  connection.spark:
+    - operator.spark
+  connection.databricks:
+    - operator.spark
+    - operator.python
+  connection.anthropic:
+    - operator.anthropic
+  connection.slack:
+    - operator.slack
+  connection.postgresql:
+    - operator.postgresql
+  connection.mysql:
+    - operator.mysql
+    - operator.python
+  connection.AWS:
+    - operator.AWS
+  connection.gcp:
+    - operator.bigquery
+    - operator.python
+  connection.azure:
+    - operator.python
+  connection.leastaction:
+    - operator.leastaction
+  connection.airflow:
+    - operator.airflow
+  connection.tableau:
+    - operator.python
+
+email_totp: false
+smtp:
+  host: smtp.gmail.com
+  port: 587
+  secure: false
+
+# Explorer View (Report Explorer) branding
+explore_view:
+  name: "Report Explorer"
+  # logo_url: URL to an image shown in the Report Explorer header.
+  # Any publicly accessible image works. Default uses ui-avatars.com
+  # which generates a letter-based avatar — no account required.
+  # Examples:
+  #   logo_url: "https://ui-avatars.com/api/?name=Acme&background=7c3aed&color=fff&size=32&bold=true&rounded=true"
+  #   logo_url: "https://logo.clearbit.com/yourcompany.com"
+  #   logo_url: "https://your-cdn.com/logo.png"
+  logo_url: "https://placehold.co/80x32/7c3aed/ffffff?text=YourLogo&font=sans"
+  logo_width: "100"   # px value (e.g. "80") or "auto" to preserve aspect ratio
+  logo_height: "40"    # px value for the logo height in the header
+
+urls:
+  core_backend_url: http://localhost:8000
+  core_frontend_url: http://localhost:5173
+  marketplace_url: https://dev.leastactionlabs.com

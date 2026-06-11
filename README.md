@@ -175,8 +175,8 @@ Clone the repo, then build and run. All you need is Docker (>= 24, with
 Compose v2):
 
 ```bash
-git clone https://github.com/LeastAction-Labs/LeastAction-POC.git
-cd LeastAction-POC
+git clone https://github.com/LeastAction-Labs/LeastAction.git
+cd LeastAction
 docker compose up -d
 ```
 
@@ -184,7 +184,7 @@ The first `up` builds the `backend` and `frontend` images locally; the Celery
 workers reuse the backend image by tag. Subsequent runs reuse the built
 images — pass `--build` to rebuild after changing source.
 
-Open **http://localhost:8080** — login `admin@example.com` / `admin123`.
+Open **http://localhost:8080** — login username `admin123` / password `admin123`.
 
 Everything is served from one origin: the UI, the API (`/api/`), and the MCP
 endpoint (`/mcp/`). RSA signing keys are generated automatically on first run.

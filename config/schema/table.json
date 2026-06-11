@@ -1,0 +1,93 @@
+{
+    "columns": [
+        
+        
+        {
+          "name": "name",
+          "datatype": "string",
+          "required": true,
+          "regex": "^[a-zA-Z0-9_\\-\\.]+$",
+          "description": "Unique table name within its schema/database"
+        },
+        {
+          "name": "source_system",
+          "datatype": "string",
+          "required": true,
+          "description": "Origin: 'GLUE', 'REDSHIFT', 'POSTGRES', 'SNOWFLAKE'"
+        },
+        {
+          "name": "location_uri",
+          "datatype": "string",
+          "required": true,
+          "description": "Physical path: s3://bucket/path/ or jdbc connection string"
+        },
+        {
+          "name": "status",
+          "datatype": "string",
+          "required": true,
+          "default": "ACTIVE",
+          "description": "Lifecycle: 'ACTIVE', 'DEPRECATED', 'STALE', 'BROKEN'"
+        },
+        {
+          "name": "last_sync_at",
+          "datatype": "datetime",
+          "required": false,
+          "description": "Timestamp of the last successful ETL completion"
+        },
+        {
+          "name": "row_count",
+          "datatype": "int",
+          "required": false,
+          "description": "Total records at last sync"
+        },
+        {
+          "name": "load_strategy",
+          "datatype": "string",
+          "required": true,
+          "default": "INCREMENTAL",
+          "description": "Pattern: 'FULL_REFRESH', 'INCREMENTAL', 'SCD_TYPE_2'"
+        },
+        {
+          "name": "quality_score",
+          "datatype": "float",
+          "required": false,
+          "description": "Data quality metric (e.g., % of rows passing validation)"
+        },
+        {
+          "name": "schema_definition",
+          "datatype": "object",
+          "required": false,
+          "description": "JSON representation of columns and data types"
+        },
+        {
+          "name": "etl_watermarks",
+          "datatype": "object",
+          "required": false,
+          "default": {},
+          "description": "Storage for last_processed_id or max_updated_at values"
+        },
+        {
+          "name": "lineage_metadata",
+          "datatype": "object",
+          "required": false,
+          "default": {},
+          "description": "Map of upstream source tables and transformation job IDs"
+        }
+    ],
+    "projection_fields": [
+        "name",
+        "source_system",
+        "status",
+        "last_sync_at",
+        "row_count",
+        "quality_score",
+        "parent_laui",
+        "project_laui"
+    ],
+    "item_type_visual_config": {
+      "icon": "TableChart",
+      "color": "#4f46e5"
+    },
+    "unique_constraints": ["source_system", "name"],
+    "indexes": []
+}

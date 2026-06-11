@@ -1,0 +1,457 @@
+{
+  "columns": [
+    {
+      "name": "name",
+      "datatype": "string",
+      "required": true,
+      "description": "Name of the task to be displayed.",
+      "max_length": 255
+    },
+    {
+      "name": "partition",
+      "datatype": "string",
+      "required": false,
+      "default": "ALL"
+    },
+    {
+      "name": "project_instance",
+      "datatype": "string",
+      "required": false,
+      "description": "Cron or APIs will use this ip address for routing tasks",
+      "default": null
+    },
+    {
+      "name": "description",
+      "datatype": "string",
+      "required": false,
+      "description": "Description of task",
+      "default": null,
+      "max_length": 10000
+    },
+    {
+      "name": "operator_laui",
+      "datatype": "ObjectId",
+      "required": true,
+      "description": "Id of the operator being executed"
+    },
+    {
+      "name": "start_date",
+      "datatype": "datetime",
+      "required": false,
+      "description": "The start datetime for the execution of task",
+      "default": null
+    },
+    {
+      "name": "end_date",
+      "datatype": "datetime",
+      "required": false,
+      "description": "The end datetime for the execution of task",
+      "default": null
+    },
+    {
+      "name": "logical_date",
+      "datatype": "datetime",
+      "required": false,
+      "description": "The next/current run logical datetime for the execution of task",
+      "default": null
+    },
+    {
+      "name":"retry_run_date",
+      "datatype": "datetime",
+      "required": false,
+      "description": "The retry run datetime for the execution of a failed task",
+      "default": null
+    },
+    {
+      "name":"can_retry",
+      "datatype": "boolean",
+      "required": false,
+      "description": "",
+      "default": false
+    },
+    {
+      "name": "frequency",
+      "datatype": "string",
+      "required": false,
+      "description": "Cron expression for task execution frequency",
+      "default": "ADHOC"
+    },
+    {
+      "name": "data_interval_start",
+      "datatype": "datetime",
+      "required": false,
+      "description": "The next/current run logical datetime for the execution of task, updated at start",
+      "default": null
+    },
+    {
+      "name": "data_interval_end",
+      "datatype": "datetime",
+      "required": false,
+      "description": "The next/current run logical datetime + frequency for the execution of task, updated at start",
+      "default": null
+    },
+    {
+      "name": "prev_interval_start",
+      "datatype": "datetime",
+      "required": false,
+      "description": "The previous run logical datetime for the execution of task, updated at end",
+      "default": null
+    },
+    {
+      "name": "prev_interval_end",
+      "datatype": "datetime",
+      "required": false,
+      "description": "The previous run logical datetime + frequency for the execution of task, updated at end",
+      "default": null
+    },
+    {
+      "name": "last_run_date",
+      "datatype": "datetime",
+      "required": false,
+      "description": "The date calculated based on start date and frequency",
+      "default": null
+      },
+      {
+      "name": "next_run_date",
+      "datatype": "datetime",
+      "required": false,
+      "description": "The date calculated based on start date and frequency",
+      "default": null
+      },
+    {
+      "name": "task_instance_start_date",
+      "datatype": "datetime",
+      "required": false,
+      "description": "The previous/current start run datetime for the execution of task, updated at start",
+      "default": null
+    },
+    {
+      "name": "task_instance_end_date",
+      "datatype": "datetime",
+      "required": false,
+      "description": "The previous/current end run datetime for the execution of task, updated at end",
+      "default": null
+    },
+    {
+      "name": "last_system_updated_date",
+      "datatype": "datetime",
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "latest_heartbeat",
+      "datatype": "datetime",
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "last_run_output",
+      "datatype": "object",
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "actions",
+      "datatype": "object",
+      "required": false,
+      "default": {
+        "create_actions": [],
+        "pre_actions": [],
+        "running_actions": [],
+        "post_actions": []
+      }
+    },
+    {
+      "name": "actions_status",
+      "datatype": "object",
+      "required": false,
+      "default": {
+        "pre_actions": [],
+        "running_actions": [],
+        "post_actions": []
+      }
+    },
+    {
+      "name": "payload_laui",
+      "datatype": "ObjectId",
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "payload",
+      "datatype": "any",
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "connection_laui",
+      "datatype": "ObjectId",
+      "required": true
+    },
+    {
+      "name": "state",
+      "datatype": "enum",
+      "enum_values": [
+        "created",
+        "scheduled",
+        "queued_for_connection",
+        "queued_in_redis",
+        "running",
+        "success",
+        "error",
+        "timeout",
+        "cancelled",
+        "fail"
+      ],
+      "required": false,
+      "description": "The state of execution of the task",
+      "default": "created"
+    },
+    {
+      "name": "user_set_state",
+      "datatype": "enum",
+      "enum_values": ["cancel"],
+      "required": false,
+      "description": "The user set state of execution of the task",
+      "default": null
+    },
+    {
+      "name": "attached_config_lauis",
+      "datatype": "array",
+      "required": false,
+      "default": []
+    },
+    {
+      "name": "config",
+      "datatype": "object",
+      "required": false,
+      "description": "Final config last used after all mishmash",
+      "default": {}
+    },
+    {
+      "name": "prev_interval_config",
+      "datatype": "object",
+      "required": false,
+      "description": "Final config last used after all mishmash",
+      "default": {}
+    },
+    {
+      "name": "iteration",
+      "datatype": "int",
+      "required": false,
+      "description": "Count of execution of task in its lifetime",
+      "default": 0
+    },
+    {
+      "name": "duration",
+      "datatype": "int",
+      "required": false,
+      "description": "Time taken for the task to finish execution",
+      "default": null
+    },
+    {
+      "name": "executor",
+      "datatype": "string",
+      "required": false,
+      "description": "Celery worker that executed the task",
+      "default": null
+    },
+    {
+      "name": "task_instance",
+      "datatype": "string",
+      "required": false,
+      "description": "Instance on which task is executed",
+      "default": null
+    },
+    {
+      "name": "task_reschedule_count",
+      "datatype": "int",
+      "required": false,
+      "description": "How many times task has been rescheduled",
+      "default": 0
+    },
+    {
+      "name": "session_id",
+      "datatype": "string",
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "last_run_session_id",
+      "datatype": "string",
+      "required": false,
+      "default": null
+    },
+    {
+      "name": "total_retries",
+      "datatype": "int",
+      "required": false,
+      "default": 0
+    },
+    {
+      "name": "retry_interval",
+      "datatype": "int",
+      "required": false,
+      "default": 0
+    },
+    {
+      "name": "retry_number",
+      "datatype": "int",
+      "required": false,
+      "default": 0
+    },
+    {
+      "name": "priority",
+      "datatype": "int",
+      "required": false,
+      "default": 1
+    }
+  ],
+  "projection_fields" : ["name","partition","frequency","state","actions_status","priority","retry_number","prev_interval_start","logical_date","last_run_date","next_run_date","duration","actions","parent_laui","project_laui"] ,
+  "ui_preview_fields": ["name","partition","frequency","state","actions_status","priority","retry_number","logical_date","last_run_date","next_run_date","duration"],
+  "item_type_visual_config": {
+    "icon": "Task",
+    "color": "#3b82f6"
+  },
+  "projection_fields_config": {
+    "state": {
+      "display_type": "status_icon",
+      "enum_colors": {
+        "created": "#94a3b8",
+        "scheduled": "#60a5fa",
+        "queued_for_connection": "#a78bfa",
+        "queued_in_redis": "#c084fc",
+        "running": "#fbbf24",
+        "success": "#4ade80",
+        "error": "#f87171",
+        "timeout": "#fb923c",
+        "cancelled": "#64748b",
+        "fail": "#dc2626"
+      }
+    }
+  },
+  "projection_graph_card_config": {
+    "header": {
+      "field": "state",
+      "display_type": "status_bar",
+      "enum_colors": {
+        "created": "#94a3b8",
+        "scheduled": "#60a5fa",
+        "queued_for_connection": "#a78bfa",
+        "queued_in_redis": "#c084fc",
+        "running": "#fbbf24",
+        "success": "#4ade80",
+        "error": "#f87171",
+        "timeout": "#fb923c",
+        "cancelled": "#64748b",
+        "fail": "#dc2626"
+      }
+    },
+    "body1": {
+      "fields": ["icon", "name", "operator"]
+    },
+    "body2": {
+      "fields": [
+        {
+          "name": "logical_date",
+          "label": "logical_date:",
+          "format": "datetime",
+          "display_type": "text"
+        },
+        {
+          "name": "last_run_date",
+          "label": "last_run_date:",
+          "format": "datetime",
+          "display_type": "text"
+        }
+      ]
+    },
+    "bottom": {
+      "display_type": "badges",
+      "fields": ["actions"],
+      "enum_colors": {
+        "running": "#fbbf24",
+        "success": "#4ade80",
+        "error": "#f87171"
+      }
+    }
+  },
+  "unique_constraints": ["name","project_laui","account_laui","partition"],
+  "indexes": [
+    {
+      "fields":["project_laui","deleted_at","state","user_set_state","logical_date","start_date","end_date"],
+      "filter":{
+        "state":["scheduled","success"]
+      }
+    },
+    {
+      "fields":["project_laui","deleted_at","user_set_state","total_retries","retry_number","start_date","end_date","last_run_date","retry_interval"],
+      "filter":{
+        "state":["error","timeout"]
+      }
+    }
+  ],
+  "system_update_fields": [
+    "logical_date",
+    "last_run_date",
+    "last_system_updated_date",
+    "latest_heartbeat",
+    "last_run_output",
+    "payload",
+    "config",
+    "state",
+    "user_set_state",
+    "iteration",
+    "duration",
+    "task_instance",
+    "last_run_session_id",
+    "retry_number",
+    "actions_status",
+    "task_instance_start_date",
+    "task_instance_end_date",
+    "session_id",
+    "data_interval_start",
+    "data_interval_end",
+    "prev_interval_start",
+    "prev_interval_end",
+    "next_run_date",
+    "executor"
+  ],
+  "user_update_fields": [
+    "project_instance",
+    "description",
+    "operator_laui",
+    "start_date",
+    "end_date",
+    "logical_date",
+    "retry_run_date",
+    "can_retry",
+    "frequency",
+    "actions",
+    "payload_laui",
+    "payload",
+    "connection_laui",
+    "state",
+    "user_set_state",
+    "attached_config_lauis",
+    "config",
+    "prev_interval_config",
+    "task_reschedule_count",
+    "total_retries",
+    "retry_interval",
+    "priority",
+    "workflow_laui",
+    "next_run_date"
+  ],
+  "version_fields":[
+    "description",
+    "connection_laui",
+    "payload",
+    "payload_laui",
+    "config",
+    "actions",
+    "frequency",
+    "config",
+    "operator_laui"
+  ]
+}

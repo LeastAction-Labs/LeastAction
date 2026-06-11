@@ -1,0 +1,70 @@
+{
+    "columns": [
+        
+        
+        {
+          "name": "name",
+          "datatype": "string",
+          "required": true,
+          "min_length": 1,
+          "max_length": 255,
+          "regex": "^[a-zA-Z0-9_\\-\\s]+$",
+          "description": "Folder name with alphanumeric characters, spaces, hyphens, and underscores",
+          "tab": { "name": "Overview", "order": 1 }
+        },
+        {
+          "name": "description",
+          "datatype": "string",
+          "required": false,
+          "max_length": 1000,
+          "default": "",
+          "description": "Optional folder description",
+          "tab": { "name": "Overview", "order": 2 }
+        },
+        {
+            "name": "folder_metadata",
+            "datatype": "object",
+            "required": false,
+            "max_length": 1000,
+            "default": {},
+            "description": "Optional folder metadata",
+            "tab": { "name": "Overview", "order": 3 }
+          },
+        {
+            "name": "skill_laui",
+            "datatype": "ObjectId",
+            "required": false,
+            "description": "Skill to auto-load when a user chats about reports in this folder",
+            "tab": { "name": "Overview", "order": 4 }
+          }
+
+      ] ,
+    "projection_fields" : ["name","description","deleted_at","folder_metadata","parent_laui","project_laui","skill_laui"] ,
+    "ui_preview_fields": ["name","description"],
+    "form_excluded_fields": ["folder_metadata"],
+    "item_type_visual_config": {
+      "icon": "Folder",
+      "color": "#10b981"
+    },
+    "unique_constraints": ["parent_laui", "name" ],
+	  "version_fields":["description"],
+    "indexes": [
+      {
+        "indexes": [{"fields":["name","project_laui"]},{"fields":["name","parent_laui"]}]
+      }
+    ],
+    "validation_rules": [
+      {
+        "rule": "path_consistency",
+        "description": "Path should be consistent with parent_folder_laui relationship"
+      },
+      {
+        "rule": "no_circular_references", 
+        "description": "Parent folder cannot be a descendant of current folder"
+      },
+      {
+        "rule": "unique_name_per_parent",
+        "description": "Folder names must be unique within the same parent folder"
+      }
+    ]
+}

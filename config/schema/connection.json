@@ -1,0 +1,97 @@
+{
+    "columns": [
+        {
+            "name": "name",
+            "datatype": "string",
+            "required": true,
+            "min_length": 1,
+            "max_length": 255,
+            "regex": "^[a-zA-Z0-9_\\-\\s]+$",
+            "description": "Folder name with alphanumeric characters, spaces, hyphens, and underscores",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "tab": { "name": "Overview", "order": 1 }
+        },
+        {
+            "name": "description",
+            "datatype": "string",
+            "required": false,
+            "max_length": 1000,
+            "default": "",
+            "description": "Optional folder description",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "tab": { "name": "Overview", "order": 2 }
+        },
+        {
+            "name": "content",
+            "datatype": "object",
+            "required": true,
+            "description": "",
+            "editorType": "monaco",
+            "editorMonacoFormat": "json",
+            "tab": { "name": "Overview", "order": 6 }
+        },
+        {
+            "name": "max_parallelism",
+            "datatype": "int",
+            "required": false,
+            "default": 10,
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "tab": { "name": "Overview", "order": 4 }
+        },
+        {
+            "name": "current_parallelism",
+            "datatype": "int",
+            "required": false,
+            "default": 0,
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "tab": { "name": "Overview", "order": 5 }
+        },
+        {
+            "name": "in_queue",
+            "datatype": "int",
+            "required": false,
+            "default": 0,
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "tab": { "name": "Overview", "order": 3 }
+        },
+        {
+            "name": "sort_dict",
+            "datatype": "object",
+            "required": false,
+            "default": {},
+            "editorType": "monaco",
+            "editorMonacoFormat": "json",
+            "tab": { "name": "Overview", "order": 7 }
+        }
+    ],
+    "projection_fields": [
+        "name",
+        "max_parallelism",
+        "current_parallelism",
+        "in_queue",
+        "project_laui"
+    ],
+    "ui_preview_fields": ["name","max_parallelism","current_parallelism","in_queue"],
+    "form_excluded_fields": ["current_parallelism","in_queue"],
+    "preview_fields": [
+        "list"
+    ],
+    "item_type_visual_config": {
+        "icon": "Cloud",
+        "color": "#06b6d4"
+    },
+    "unique_constraints": [
+        "parent_laui",
+        "name"
+    ],
+    "version_fields": [
+        "description",
+        "content"
+    ],
+    "indexes": [{"fields":["name","project_laui"]},{"fields":["name","parent_laui"]}]
+}

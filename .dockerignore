@@ -1,0 +1,35 @@
+# Build context is the repo root (used by both backend/Dockerfile and
+# frontend/Dockerfile). Keep the context small and free of secrets/artifacts.
+
+# Dependencies / build artifacts (rebuilt inside the image)
+**/node_modules
+**/.venv
+frontend/dist
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+
+# Secrets and local env
+**/.env
+**/.env.*
+backend/tokens
+**/*.pem
+
+# Runtime / local-only
+logs
+**/logs/*.log
+images
+
+# VCS / editor / OS
+.git
+.gitignore
+**/.DS_Store
+.vscode
+.idea
+
+# Tests (not needed at runtime)
+backend/tests
+**/*.test.ts
+**/*.test.tsx

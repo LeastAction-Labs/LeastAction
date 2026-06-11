@@ -1,0 +1,84 @@
+{
+    "columns": [
+        
+        
+        {
+            "name": "name",
+            "datatype": "string",
+            "required": true,
+            "min_length": 1,
+            "max_length": 255,
+            "description": "Display name for the report",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text"
+        },
+        {
+            "name": "description",
+            "datatype": "string",
+            "required": false,
+            "max_length": 1000,
+            "description": "Optional report description",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text"
+        },
+        {
+            "name": "connection_laui",
+            "datatype": "ObjectId",
+            "required": true,
+            "description": "connection.tableau item with server_url, client_id, secret_id, secret_value"
+        },
+        {
+            "name": "view_path",
+            "datatype": "string",
+            "required": true,
+            "description": "Workbook/view path e.g. SalesAnalysis/SalesDashboard",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text"
+        },
+        {
+            "name": "embed_user",
+            "datatype": "string",
+            "required": false,
+            "description": "Tableau username to embed as — defaults to connection service account if omitted",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text"
+        },
+        {
+            "name": "skill_laui",
+            "datatype": "ObjectId",
+            "required": false,
+            "description": "Skill to auto-load when a user chats about this report"
+        },
+        {
+            "name": "notes",
+            "datatype": "string",
+            "required": false,
+            "max_length": 2000,
+            "description": "Recent notes or context about this report — shown to users in the viewer",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text"
+        },
+        {
+            "name": "tags",
+            "datatype": "array",
+            "items": "string",
+            "required": false,
+            "description": "Tags for classification and discovery"
+        }
+    ],
+    "projection_fields": [
+        "name",
+        "description",
+        "deleted_at",
+        "parent_laui",
+        "project_laui",
+        "skill_laui",
+        "tags"
+    ],
+    "item_type_visual_config": {
+        "icon": "TableChart",
+        "color": "#e8762d"
+    },
+    "unique_constraints": ["parent_laui", "name"],
+    "indexes": [{"fields": ["name", "parent_laui"]}]
+}

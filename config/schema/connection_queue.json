@@ -1,0 +1,32 @@
+{
+  "columns": [
+        
+        
+        {
+          "name": "name",
+          "datatype": "string" ,
+          "required": true,
+          "tab": { "name": "Overview", "order": 1 }
+        },
+        {
+          "name": "partition",
+          "datatype": "string",
+          "required": true,
+          "tab": { "name": "Overview", "order": 2 }
+        },
+        {
+          "name": "task_laui",
+          "datatype": "ObjectId",
+          "required": true,
+          "tab": { "name": "Overview", "order": 3 }
+       }
+  ] ,
+  "unique_constraints": ["name","partition","task_laui"],
+  "indexes":[
+    {
+      "fields":["task_laui"]
+    }
+  ],
+  "projection_fields" : ["task_laui"] ,
+  "version_fields" : []
+}

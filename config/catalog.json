@@ -1,0 +1,154 @@
+{
+  "item_type_link_mapping": {
+    "folder.account": {
+      "can_contain": [
+        "folder.project",
+        "folder.trash",
+        "folder.users"
+      ]
+    },
+    "folder.users": {
+      "can_contain": [
+        "folder.user"
+      ]
+    },
+    "folder.user": {
+      "can_contain": [
+        "chat_history"
+      ]
+    },
+    "folder.project": {
+      "can_contain": [
+        "folder.action",
+        "folder.asset",
+        "folder.workflow",
+        "folder.operator",
+        "folder.payload",
+        "folder.connection",
+        "folder.bootstrap",
+        "folder.action",
+        "folder.config",
+        "folder.ai"
+      ]
+    },
+    "folder.ai": {
+      "can_contain": [
+        "folder.ai",
+        "agent",
+        "generate",
+        "skill",
+        "usecase"
+      ]
+    },
+    "folder.workflow": {
+      "can_contain": [
+        "folder.workflow",
+        "task",
+        "config",
+        "connection",
+        "payload",
+        "operator",
+        "action"
+      ]
+    },
+    "folder.config": {
+      "can_contain": [
+        "folder.config",
+        "config"
+      ]
+    },
+    "folder.asset": {
+      "can_contain": [
+        "folder.asset",
+        "folder.report",
+        "folder.table",
+        "html_report",
+        "powerbi_report",
+        "looker_report",
+        "looker_studio_report",
+        "quicksight_report",
+        "tableau_report",
+        "table",
+        "config"
+      ]
+    },
+    "folder.report": {
+      "can_contain": [
+        "folder.report",
+        "html_report",
+        "powerbi_report",
+        "looker_report",
+        "looker_studio_report",
+        "quicksight_report",
+        "tableau_report",
+        "config"
+      ]
+    },
+    "folder.table": {
+      "can_contain": [
+        "folder.table",
+        "table",
+        "config"
+      ]
+    },
+    "folder.operator": {
+      "can_contain": [
+        "folder.operator",
+        "operator"
+      ]
+    },
+    "folder.action": {
+      "can_contain": [
+        "folder.action",
+        "action"
+      ]
+    },
+    "folder.payload": {
+      "can_contain": [
+        "folder.payload",
+        "payload",
+        "usecase"
+      ]
+    },
+    "folder.connection": {
+      "can_contain": [
+        "folder.connection",
+        "connection"
+      ]
+    },
+    "folder.trash":{
+      "can_contain": ["task","connection","config","action","operator","payload","html_report","powerbi_report","looker_report","looker_studio_report","quicksight_report","tableau_report","table","agent","skill","usecase"]
+    },
+    "connection":{
+      "can_contain":["connection_queue","task"]
+    },
+    "operator":{
+      "can_contain":["task"]
+    },
+    "task":{
+      "can_contain":["task"]
+    },
+    "payload":{
+      "can_contain":["task"]
+    },
+    "config":{
+      "can_contain":["task"]
+    },
+    "table": {
+      "can_contain": [
+        "column"
+      ]
+    },
+    "database": {
+      "can_contain": [
+        "schema"
+      ]
+    },
+    "schema": {
+      "can_contain": [
+        "table"
+      ]
+    } 
+  },
+  "hierarchy_items_limit": 10
+}
