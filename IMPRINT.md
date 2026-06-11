@@ -10,10 +10,6 @@
 
 **Jurisdiction of Incorporation:** Federal Canada (Canada Business Corporations Act, R.S.C., 1985, c. C-44)
 
-**Registered Address:** [TBD — to be updated upon incorporation completion]
-
-**Company Registration Number:** [TBD — to be updated upon incorporation completion]
-
 ---
 
 ## Contact Information
