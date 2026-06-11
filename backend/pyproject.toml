@@ -1,0 +1,197 @@
+[project]
+name = "LeastAction"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+dependencies = [
+    # --- Core async / HTTP ---
+    "anyio==4.5.2",
+    "sniffio==1.3.1",
+    "h11==0.14.0",
+    "httpcore==1.0.7",
+    "httpx==0.28.1",
+    "aiohttp==3.10.11",
+    "aiohappyeyeballs==2.4.4",
+    "aiosignal==1.3.1",
+    "frozenlist==1.5.0",
+    "ldap3>=2.9.1",
+    "multidict==6.1.0",
+    "yarl==1.15.2",
+    # --- FastAPI stack (PINNED AS A SET) ---
+    "fastapi==0.116.1",
+    "starlette==0.41.3",
+    "uvicorn==0.33.0",
+    # --- Pydantic v2 stack ---
+    "pydantic>=2.11.7",
+    "pydantic-core==2.33.2",
+    "annotated-types==0.7.0",
+    # --- Database ---
+    "pymongo==4.10.1",
+    "pydantic-mongo==3.1.0",
+    "dnspython==2.6.1",
+    "sqlalchemy==2.0.*",
+    "greenlet==3.1.1",
+    # --- Redis / Celery ---
+    "redis==5.2.1",
+    "celery==5.5.1",
+    "kombu==5.5.2",
+    "billiard==4.2.1",
+    "amqp==5.3.1",
+    "vine==5.1.0",
+    "flower==2.0.1",
+    # --- Auth / Security ---
+    "pyjwt==2.10.1",
+    "cryptography>=45.0.7",
+    "certifi==2025.1.31",
+    # --- Config / Utils ---
+    "python-dotenv>=1.1.0",
+    "pyyaml==6.0.2",
+    "orjson==3.10.15",
+    "packaging==24.2",
+    "typing-extensions==4.12.2",
+    "tzdata==2025.2",
+    "python-dateutil==2.9.0.post0",
+    "pytz==2025.2",
+    "six==1.17.0",
+    "humanize==4.12.2",
+    "tenacity==8.5.0",
+    "croniter==6.0.0",
+    # --- Logging / Metrics ---
+    "prometheus-client==0.21.1",
+    "colorama==0.4.6",
+    "psutil>=6.0.0",
+    # --- Requests ---
+    "requests==2.32.3",
+    "requests-toolbelt==1.0.0",
+    "rq>=2.6.1",
+    "charset-normalizer==3.4.1",
+    "idna==3.10",
+    "urllib3==2.2.3",
+    # --- LangChain stack (Pydantic v2 compatible) ---
+    "langchain==0.2.17",
+    "langchain-core==0.2.43",
+    "langchain-text-splitters==0.2.4",
+    "langchain-anthropic==0.1.23",
+    "langsmith==0.1.147",
+    "anthropic==0.47.1",
+    "jiter==0.8.2",
+    # --- Data / Media ---
+    "numpy==1.26.4",
+    "pillow==11.1.0",
+    "tifffile==2023.7.10",
+    # --- CLI / UX ---
+    "click==8.1.8",
+    "click-didyoumean==0.3.1",
+    "click-plugins==1.1.1",
+    "click-repl==0.3.0",
+    "prompt-toolkit==3.0.50",
+    "wcwidth==0.2.13",
+    # --- Templates ---
+    "jinja2>=3.1.6",
+    "boto3>=1.42.14",
+    "dotmap>=1.3.30",
+    "psycopg2-binary==2.9.*",
+    "sqlparse>=0.5.3",
+    "pandas>=1.5.0",
+    "aiofiles>=25.1.0",
+    "GitPython>=3.1.0",
+    "google-cloud-bigquery",
+    "google-cloud-dataform",
+    "pottery>=3.0.1",
+    "aioredlock>=0.7.3",
+    "setuptools>=82.0.0",
+    "bandit>=1.7.0",
+    "duckdb>=1.5.0",
+    "matplotlib>=3.10.8",
+    "fastmcp>=2.12.0,<3",
+    "python-multipart>=0.0.28",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-anyio>=0.0.0",
+    "pytest-asyncio>=1.2.0",
+    "trio>=0.31.0",
+    "dbt-core>=1.10.13",
+    "dbt-postgres>=1.9.1",
+    "pytest-xdist>=3.5.0",
+    "ruff>=0.15.16",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+exclude = [
+    "onboarding_setup",
+    ".venv",
+    "__pycache__",
+    "*.pyc",
+]
+
+[tool.ruff.lint]
+preview = true
+select = [
+    "E",   # pycodestyle errors (includes blank line rules E301-E306)
+    "W",   # pycodestyle warnings (includes trailing whitespace W291, W293, W391)
+    "F",   # pyflakes (unused imports, undefined names)
+    "I",   # isort (import ordering)
+    "B",   # flake8-bugbear (common bugs)
+    "UP",  # pyupgrade (modernise Python syntax)
+    "C4",  # flake8-comprehensions (cleaner comprehensions)
+    "SIM", # flake8-simplify (simplifiable code)
+    "N",   # pep8-naming conventions
+]
+ignore = [
+    "E501",   # line too long — handled by formatter
+    "B008",   # do not perform function call in default arg (common FastAPI pattern)
+    "N999",   # invalid module name — some existing modules use this
+    "SIM108", # ternary operator — sometimes less readable
+    "B904",   # raise-without-from-inside-except — pre-existing throughout codebase
+    "E402",   # module-level import not at top — pre-existing throughout codebase
+    "SIM105", # use contextlib.suppress — prefer explicit try/except
+    "N806",   # uppercase variable in function — used intentionally (dynamic models, constants)
+    "N815",   # mixedCase in class — MongoDB field names must match wire format
+    "N816",   # mixedCase global — intentional naming (iLAUI, v1Router)
+    "N818",   # exception not named *Error — LAException is intentional
+    "F811",   # redefinition of unused name — pre-existing patterns
+    "UP045",  # Optional[X] -> X | None — pre-existing style
+    "UP007",  # Union[X,Y] -> X | Y — pre-existing style
+    "SIM102", # nested if — sometimes clearer as separate statements
+    "SIM117", # nested with — sometimes clearer as separate statements
+    "E741",   # ambiguous variable name — pre-existing
+    "B018",   # useless expression — test data files use JSON literals
+    "B009",   # getattr with constant — pre-existing
+    "B015",   # pointless comparison — pre-existing test code
+    "B909",   # mutation during iteration — pre-existing
+    "UP042",  # str+Enum inheritance — pre-existing pattern
+    "C414",   # unnecessary list() in sorted() — pre-existing
+    "C416",   # unnecessary dict comprehension — pre-existing
+    "B006",   # mutable default arg — pre-existing
+    "SIM118", # key in dict.keys() — pre-existing
+    "SIM210", # bool(True if x else False) — pre-existing
+    "SIM103", # return condition directly — pre-existing
+    "B007",   # unused loop variable — pre-existing
+    "B905",   # zip without strict — pre-existing
+    "F841",   # unused local variable — pre-existing
+    "W291",   # trailing whitespace — pre-existing
+    "E711",   # comparison to None — pre-existing
+    "E712",   # comparison to True/False — pre-existing
+    "F401",   # unused import — pre-existing
+    "F601",   # dict key literal repeated — pre-existing
+    "I001",   # unsorted imports — pre-existing
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]

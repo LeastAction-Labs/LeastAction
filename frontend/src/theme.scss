@@ -1,0 +1,94 @@
+/*
+ * Copyright (c) 2026 LeastAction Labs, Inc.
+ * This file is part of LeastAction and is licensed under the
+ * LeastAction Sustainable Use License (see LICENSE.md) or, for files
+ * marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
+ * Use of this file outside those terms is not permitted.
+ */
+/* Black Theme (Default) */
+.theme-black {
+  --color-fill: 0, 0, 0;
+  --color-text-base: 255, 255, 255;
+  --color-accent: 255, 82, 86;
+  --color-card: 20, 20, 20;
+  --color-card-muted: 30, 30, 30;
+  --color-border: 255, 255, 255;
+  --color-depth-0: 26, 48, 77;
+  --color-selected: 97, 92, 92;
+  --bg-primary: rgb(var(--color-fill));
+  --bg-secondary: rgb(var(--color-card));
+  --bg-tertiary: rgb(var(--color-card-muted));
+  --bg-depth-0: rgb(var(--color-depth-0));
+  --bg-selected: rgb(var(--color-selected));
+  --text-primary: rgb(var(--color-text-base));
+  --text-secondary: rgb(200, 200, 200);
+  --text-dim: rgb(110, 110, 110);
+  --text-disabled: rgb(100, 100, 100);
+  --accent: rgb(var(--color-accent));
+  --primary-main: rgb(var(--color-accent));
+  --border: rgb(var(--color-border));
+  --error: rgb(239, 83, 80);
+  --error-main: rgb(239, 83, 80);
+}
+
+/* White Theme */
+.theme-white {
+  --color-fill: 255, 255, 255;
+  --color-text-base: 0, 0, 0;
+  --color-accent: 0, 102, 204;
+  --color-card: 250, 250, 250;
+  --color-card-muted: 240, 240, 240;
+  --color-border: 0, 0, 0;
+  --color-depth-0: 232, 234, 246;
+  --color-selected: 224, 224, 224;
+  --bg-primary: rgb(var(--color-fill));
+  --bg-secondary: rgb(var(--color-card));
+  --bg-tertiary: rgb(var(--color-card-muted));
+  --bg-depth-0: rgb(var(--color-depth-0));
+  --bg-selected: rgb(var(--color-selected));
+  --text-primary: rgb(var(--color-text-base));
+  --text-secondary: rgb(50, 50, 50);
+  --text-dim: rgb(140, 140, 140);
+  --text-disabled: rgb(160, 160, 160);
+  --accent: rgb(var(--color-accent));
+  --primary-main: rgb(var(--color-accent));
+  --border: rgb(var(--color-border));
+  --error: rgb(211, 47, 47);
+  --error-main: rgb(211, 47, 47);
+}
+
+/* Apply theme to html element */
+html {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+/* Default to black theme */
+html.theme-black,
+html:not([class*='theme-']) {
+  --color-fill: 0, 0, 0;
+  --color-text-base: 255, 255, 255;
+  --color-accent: 255, 82, 86;
+  --color-card: 20, 20, 20;
+  --color-card-muted: 30, 30, 30;
+  --color-border: 255, 255, 255;
+  --color-depth-0: 26, 48, 77;
+  --color-selected: 97, 92, 92;
+  --bg-primary: rgb(var(--color-fill));
+  --bg-secondary: rgb(var(--color-card));
+  --bg-tertiary: rgb(var(--color-card-muted));
+  --bg-depth-0: rgb(var(--color-depth-0));
+  --bg-selected: rgb(var(--color-selected));
+  --text-primary: rgb(var(--color-text-base));
+  --text-secondary: rgb(200, 200, 200);
+  --text-dim: rgb(110, 110, 110);
+  --text-disabled: rgb(100, 100, 100);
+  --accent: rgb(var(--color-accent));
+  --primary-main: rgb(var(--color-accent));
+  --border: rgb(var(--color-border));
+  --error: rgb(239, 83, 80);
+  --error-main: rgb(239, 83, 80);
+}

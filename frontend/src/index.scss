@@ -1,0 +1,36 @@
+/*
+ * Copyright (c) 2026 LeastAction Labs, Inc.
+ * This file is part of LeastAction and is licensed under the
+ * LeastAction Sustainable Use License (see LICENSE.md) or, for files
+ * marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
+ * Use of this file outside those terms is not permitted.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import 'tailwindcss';
+@import './theme.scss';
+@import './styles/common.scss';
+
+html {
+  font-family:
+    'Inter',
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Helvetica,
+    Arial,
+    'Apple Color Emoji',
+    'Segoe UI Emoji';
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+/* Note: Font family is defined here for CSS, but can be referenced from constants in JS/TS files */
+
+input {
+  color: var(--text-primary);
+  background-color: var(--bg-secondary);
+}

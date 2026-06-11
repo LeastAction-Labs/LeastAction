@@ -1,0 +1,59 @@
+{
+  // Project settings — controls formatting and linting for this repo.
+  // Do not add personal preferences (theme, font, keybindings, etc.) here.
+  // Personal overrides go in your user settings.json (File → Preferences → Settings).
+
+  // --- Python ---
+  "python.linting.flake8Enabled": false,
+  "python.linting.pylintEnabled": false,
+  "python.linting.enabled": false,
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "always",
+      "source.organizeImports.ruff": "always"
+    }
+  },
+
+  // --- Formatting ---
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always",
+    "source.organizeImports": "never"
+  },
+  "editor.rulers": [100],
+  "editor.trimAutoWhitespace": true,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.eol": "\n",
+
+  // --- Prettier as default formatter ---
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[scss]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // --- ESLint ---
+  "eslint.workingDirectories": ["frontend"],
+  "eslint.validate": ["typescript", "typescriptreact"],
+
+  // --- TypeScript ---
+  "typescript.tsdk": "frontend/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}

@@ -1,0 +1,289 @@
+name: leastaction-test
+services:
+  mongodb-test:
+    image: mongo:7.0
+    container_name: mongodb-test
+    hostname: mongodb-test
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: LeastActionsTest
+    command: >
+      bash -c "mongod --quiet --replSet rs0 --bind_ip_all & 
+      until mongosh --quiet --eval 'db.runCommand({hello: 1})' > /dev/null 2>&1; do sleep 2; done && 
+      mongosh --quiet --eval \"
+        try {
+          rs.initiate({
+            _id: 'rs0',
+            members: [{ _id: 0, host: 'mongodb-test:27017' }]
+          });
+        } catch (e) {
+          // If already init, we just move on
+        }
+        
+        while (!db.hello().isWritablePrimary) { 
+          sleep(1000); 
+        }
+
+        // FIX: Match the DB name to your MONGO_URI
+        const database = db.getSiblingDB('LeastActionsTest');
+        
+        if (!database.getCollectionNames().includes('links')) {
+          database.createCollection('links');
+        }
+
+        database.runCommand({
+          collMod: 'links', 
+          changeStreamPreAndPostImages: { enabled: true }
+        });
+      \" > /dev/null 2>&1 &&
+      wait"
+    healthcheck:
+      test: mongosh --quiet --eval "db.adminCommand('ping').ok" > /dev/null 2>&1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - mongodb_test_data:/data/db
+
+  redis-test:
+    image: redis:7
+    container_name: redis-test
+    ports:
+      - "6379:6379"
+
+  postgres-test:
+    image: postgres:13
+    ports:
+      - '5434:5432'
+    environment:
+      - POSTGRES_USER=keto
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=keto-test
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+
+  keto-migrate-test:
+    image: oryd/keto:v25.4.0
+    environment:
+      - DSN=postgres://keto:secret@postgres-test:5432/keto-test?sslmode=disable&max_conns=20&max_idle_conns=4
+    volumes:
+      - ./keto.yml:/home/ory/keto.yml
+      - ./namespaces.ts:/home/ory/namespaces.ts  
+    command: migrate up -y
+    restart: on-failure
+    depends_on:
+      - postgres-test
+
+  keto-test:
+    image: oryd/keto:v25.4.0
+    ports:
+      - '4466:4466' # Read API
+      - '4467:4467' # Write API 
+    environment:
+      - SERVE_READ_MAX_DEPTH=50
+      - DSN=postgres://keto:secret@postgres-test:5432/keto-test?sslmode=disable
+    volumes:
+      - ./keto.yml:/home/ory/keto.yml
+      - ./namespaces.ts:/home/ory/namespaces.ts
+    command: serve all --config /home/ory/keto.yml
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 4466 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s     
+    restart: on-failure
+    depends_on:
+      postgres-test:
+        condition: service_started
+      keto-migrate-test:
+        condition: service_completed_successfully 
+
+  db-change-streamer-test:
+    image: la-backend-test
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    user: celeryuser
+    command: .venv/bin/python -m src.core.db.change_streams.service
+    working_dir: /backend
+    volumes:
+      - ../config:/config
+      - logs_data_test:/logs
+    environment:
+      - REDIS_URL=redis://redis-test:6379
+      - MONGO_TEST_URI=mongodb://mongodb-test:27017/LeastActionsTest?replicaSet=rs0
+      - ENV=test
+    depends_on:
+      mongodb-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_started
+
+  keto-access-writer-test:
+    image: la-backend-test
+    user: celeryuser
+    command: .venv/bin/python -m src.core.ee.keto.access_writer
+    working_dir: /backend
+    volumes:
+      - ../config:/config
+      - logs_data_test:/logs
+    environment:
+      - KETO_READ_URL=http://keto-test:4466/relation-tuples
+      - KETO_WRITE_URL=http://keto-test:4467/admin/relation-tuples/
+      - REDIS_URL=redis://redis-test:6379
+    depends_on:
+      mongodb-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_started
+      keto-test:
+        condition: service_healthy
+      db-change-streamer-test:
+        condition: service_started
+
+  backend-test:
+    image: la-backend-test
+    user: celeryuser
+    command: >
+      .venv/bin/python -m uvicorn main:app
+      --host 0.0.0.0
+      --port 8000
+      --workers 2
+    healthcheck:
+      test: ["CMD", ".venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health').status"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    working_dir: /backend
+    volumes:
+      - ../config:/config
+      - ../docs:/docs
+      - logs_data_test:/logs
+      - test_tmp_data:/tmp
+      - ./tests:/backend/tests:ro
+      - ./conftest.py:/backend/conftest.py:ro
+    environment:
+      - REDIS_HOST=redis-test
+      - REDIS_URL=redis://redis-test:6379
+      - MONGO_TEST_URI=mongodb://mongodb-test:27017/LeastActionsTest?replicaSet=rs0
+      - CELERY_BROKER_URL=redis://redis-test:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-test:6379/0
+      - ENV=test
+      - KETO_READ_URL=http://keto-test:4466/relation-tuples
+      - KETO_WRITE_URL=http://keto-test:4467/admin/relation-tuples/
+      - PUBLIC_KEY=${PUBLIC_KEY}
+      - PRIVATE_KEY=${PRIVATE_KEY}
+    depends_on:
+      mongodb-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_started
+      keto-test:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  celery-task-worker-test:
+    image: la-backend-test
+    user: celeryuser
+    command: >
+      .venv/bin/celery -A src.core.celery.app worker
+      -Q la_tasks
+      --concurrency 4
+      --loglevel info
+      --hostname la-task-test@%h
+    working_dir: /backend
+    volumes:
+      - ../config:/config
+      - logs_data_test:/logs
+      - test_tmp_data:/tmp
+    environment:
+      - REDIS_HOST=redis-test
+      - REDIS_URL=redis://redis-test:6379
+      - MONGO_TEST_URI=mongodb://mongodb-test:27017/LeastActionsTest?replicaSet=rs0
+      - CELERY_BROKER_URL=redis://redis-test:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-test:6379/0
+      - ENV=test
+      - API_AUTH_TOKEN=${API_AUTH_TOKEN:-}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - API_CLIENT_BASE_URL=http://backend-test:8000/api/v1
+    depends_on:
+      mongodb-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_started
+      backend-test:
+        condition: service_healthy
+
+  celery-action-worker-test:
+    image: la-backend-test
+    user: celeryuser
+    command: >
+      .venv/bin/celery -A src.core.celery.app worker
+      -Q la_actions
+      --concurrency 6
+      --loglevel info
+      --hostname la-action-test@%h
+    working_dir: /backend
+    volumes:
+      - ../config:/config
+      - logs_data_test:/logs
+      - test_tmp_data:/tmp
+    environment:
+      - REDIS_HOST=redis-test
+      - REDIS_URL=redis://redis-test:6379
+      - MONGO_TEST_URI=mongodb://mongodb-test:27017/LeastActionsTest?replicaSet=rs0
+      - CELERY_BROKER_URL=redis://redis-test:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-test:6379/0
+      - ENV=test
+      - API_AUTH_TOKEN=${API_AUTH_TOKEN:-}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - API_CLIENT_BASE_URL=http://backend-test:8000/api/v1
+    depends_on:
+      mongodb-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_started
+      backend-test:
+        condition: service_healthy
+
+  celery-cron-worker-test:
+    image: la-backend-test
+    user: celeryuser
+    command: >
+      .venv/bin/celery -A src.core.celery.app worker
+      -Q la_crons
+      --concurrency 4
+      --loglevel info
+      --hostname la-task-test@%h
+    working_dir: /backend
+    volumes:
+      - ../config:/config
+      - logs_data_test:/logs
+      - test_tmp_data:/tmp
+    environment:
+      - REDIS_HOST=redis-test
+      - REDIS_URL=redis://redis-test:6379
+      - MONGO_TEST_URI=mongodb://mongodb-test:27017/LeastActionsTest?replicaSet=rs0
+      - CELERY_BROKER_URL=redis://redis-test:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-test:6379/0
+      - ENV=test
+      - API_AUTH_TOKEN=${API_AUTH_TOKEN:-}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - API_CLIENT_BASE_URL=http://backend-test:8000/api/v1
+    depends_on:
+      mongodb-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_started
+      backend-test:
+        condition: service_healthy
+
+volumes:
+  mongodb_test_data:
+  postgres_test_data:
+  test_tmp_data:
+  logs_data_test:

@@ -1,0 +1,21 @@
+serve:
+  read:
+    port: 4466 
+    host: 0.0.0.0
+  write:
+    port: 4467
+    host: 0.0.0.0
+  metrics:
+    port: 4468
+    host: 0.0.0.0
+limit:
+  max_read_depth: 100 
+dsn: postgres://keto:secret@postgres:5432/keto?sslmode=disable&max_conns=20&max_idle_conns=4
+
+namespaces:
+  location: file:///home/ory/namespaces.ts
+
+log:
+  level: debug
+  format: json 
+  leak_sensitive_values: true

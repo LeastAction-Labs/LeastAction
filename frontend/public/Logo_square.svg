@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 330" fill="none">
+  <!-- black background square -->
+  <rect width="330" height="330" fill="#000000"/>
+
+  <!-- l — vertical bar -->
+  <line x1="46" y1="42" x2="46" y2="270"
+        stroke="#ffffff" stroke-width="25" stroke-linecap="square"/>
+
+  <!-- n — two vertical legs joined by a semicircular arch -->
+  <path d="M 106 270 L 106 168 A 61 61 0 0 1 228 168 L 228 270"
+        stroke="#ffffff" stroke-width="25"
+        stroke-linecap="square" stroke-linejoin="round"/>
+
+  <!-- least-action trajectory curve -->
+  <path d="M 46 270 Q 160 160 282 180"
+        stroke="#ffffff" stroke-width="15" stroke-linecap="round"/>
+
+  <!-- endpoint dots -->
+  <circle cx="46"  cy="270" r="25" fill="#ffffff"/>
+  <circle cx="282" cy="180" r="25" fill="#ffffff"/>
+</svg>

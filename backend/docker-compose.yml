@@ -1,0 +1,358 @@
+name: leastaction-backend
+
+# The la-backend image is built exactly once, by the `backend` service.
+# Every other service reuses that locally-built image. `pull_policy: never`
+# stops Compose from treating those services as pull-only and trying (and
+# failing) to pull la-backend from a registry on first run.
+#
+# Do NOT give these services a `build:` block: with Compose Bake (default in
+# recent Docker Desktop) every service that has `build:` becomes its own bake
+# target, and they all race to write the same `la-backend:latest` tag —
+# producing `image "...la-backend:latest": already exists` build failures.
+x-backend-image: &backend-image
+  image: la-backend
+  pull_policy: never
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: mongodb-dev
+    hostname: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: LeastActions
+    command: >
+      bash -c "mongod --replSet rs0 --bind_ip_all & 
+      until mongosh --eval 'db.runCommand({hello: 1})' ; do sleep 2; done && 
+      mongosh --eval \"
+        try {
+          rs.initiate();
+          print('Initializing replica set...');
+        } catch (e) {
+          print('Replica set already initialized, skipping...');
+        }
+        
+        while (!db.hello().isWritablePrimary) { 
+          print('Waiting for Primary node...'); 
+          sleep(1000); 
+        }
+
+        const database = db.getSiblingDB('LeastActions');
+        
+        // Ensure the collection exists first, otherwise collMod fails
+        const collections = database.getCollectionNames();
+        if (!collections.includes('links')) {
+          database.createCollection('links');
+          print('Created links collection');
+        }
+
+        database.runCommand({
+          collMod: 'links', 
+          changeStreamPreAndPostImages: { enabled: true }
+        });
+        print('Pre-images enabled for links collection');
+      \" &&
+      tail -f /dev/null"
+    healthcheck:
+      test: |
+        mongosh --quiet --eval "
+        try {
+          var status = rs.status();
+          if (status.ok) { quit(0); }
+        } catch(e) {
+          rs.initiate({
+            _id: 'rs0',
+            members: [{ _id: 0, host: 'mongodb:27017' }]
+          });
+          quit(0);
+        }"
+      interval: 5s
+      timeout: 10s
+      retries: 5     
+    volumes:
+      - mongodb_data:/data/db
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:13
+    ports:
+      - '5434:5432'
+    environment:
+      - POSTGRES_USER=keto
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=keto
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  keto-migrate:
+    image: oryd/keto:v25.4.0
+    environment:
+      - DSN=postgres://keto:secret@postgres:5432/keto?sslmode=disable&max_conns=20&max_idle_conns=4
+    volumes:
+      - ./keto.yml:/home/ory/keto.yml
+      - ./namespaces.ts:/home/ory/namespaces.ts  
+    command: migrate up -y
+    restart: on-failure
+    depends_on:
+      - postgres
+
+  keto:
+    image: oryd/keto:v25.4.0
+    ports:
+      - '4466:4466' # Read API
+      - '4467:4467' # Write API 
+    environment:
+      - SERVE_READ_MAX_DEPTH=50
+      - DSN=postgres://keto:secret@postgres:5432/keto?sslmode=disable
+    volumes:
+      - ./keto.yml:/home/ory/keto.yml
+      - ./namespaces.ts:/home/ory/namespaces.ts
+    command: serve all --config /home/ory/keto.yml
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 4466 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s     
+    restart: on-failure
+    depends_on:
+      postgres:
+        condition: service_started
+      keto-migrate:
+        condition: service_completed_successfully
+
+  backend:
+    image: la-backend
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    user: celeryuser
+    command: >
+      .venv/bin/python -m uvicorn main:app
+      --host 0.0.0.0
+      --port 8000
+      --workers 3
+    healthcheck:
+      test: ["CMD", ".venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health').status"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    working_dir: /backend
+    volumes:
+      - ./tokens:/backend/tokens
+      - ../config:/config
+      - ../docs:/docs
+      - ../logs:/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+      - REDIS_HOST=redis
+      - MONGO_URI=mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - KETO_READ_URL=http://keto:4466/relation-tuples
+      - KETO_WRITE_URL=http://keto:4467/admin/relation-tuples/
+      - REDIS_URL=redis://redis:6379
+      - PUBLIC_KEY=${PUBLIC_KEY}
+      - PRIVATE_KEY=${PRIVATE_KEY}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      keto:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  celery-task-worker:
+    <<: *backend-image
+    user: celeryuser
+    command: >
+      .venv/bin/celery -A src.core.celery.app worker
+      -Q la_tasks
+      --loglevel info
+      --hostname la-task@%h
+    working_dir: /backend
+    volumes:
+      - ../config:/config
+      - ../logs:/logs
+      - ~/.config/gcloud/application_default_credentials.json:/app/config/google-creds.json:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+      - REDIS_HOST=redis
+      - MONGO_URI=mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/config/google-creds.json
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      setup-helper:
+        condition: service_completed_successfully
+
+  celery-action-worker:
+    <<: *backend-image
+    user: celeryuser
+    command: >
+      .venv/bin/celery -A src.core.celery.app worker
+      -Q la_actions
+      --loglevel info
+      --hostname la-action@%h
+    working_dir: /backend
+    volumes:
+      - ./tokens:/backend/tokens
+      - ../config:/config
+      - ../logs:/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+      - REDIS_HOST=redis
+      - MONGO_URI=mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      setup-helper:
+        condition: service_completed_successfully
+
+  celery-cron-worker:
+    <<: *backend-image
+    user: celeryuser
+    command: >
+      .venv/bin/celery -A src.core.celery.app worker
+      -Q la_crons
+      --loglevel info
+      --hostname la-cron@%h
+    working_dir: /backend
+    volumes:
+      - ./tokens:/backend/tokens
+      - ../config:/config
+      - ../logs:/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+      - REDIS_HOST=redis
+      - MONGO_URI=mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      setup-helper:
+        condition: service_completed_successfully
+
+  flower:
+    <<: *backend-image
+    command: >
+      .venv/bin/celery -A src.core.celery.app flower
+      --port=5555
+      --loglevel=info
+    working_dir: /backend
+    volumes:
+      - ./tokens:/backend/tokens
+      - ../config:/config
+      - ../logs:/logs
+    environment:
+      - REDIS_HOST=redis
+      - MONGO_URI=mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      setup-helper:
+        condition: service_completed_successfully
+    ports:
+      - "5555:5555"
+
+  keto-access-writer:
+    <<: *backend-image
+    user: celeryuser
+    command: .venv/bin/python -m src.core.ee.keto.access_writer
+    working_dir: /backend
+    environment:
+      - KETO_READ_URL=http://keto:4466/relation-tuples
+      - KETO_WRITE_URL=http://keto:4467/admin/relation-tuples/
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ../config:/config
+      - ../logs:/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis: 
+        condition: service_started
+      keto: 
+        condition: service_healthy
+
+  db-change-streamer:
+    <<: *backend-image
+    user: celeryuser
+    command: .venv/bin/python -m src.core.db.change_streams.service
+    working_dir: /backend
+    volumes:
+      - ../config:/config
+      - ../logs:/logs
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MONGO_URI=mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis: 
+        condition: service_started
+
+  setup-helper:
+    <<: *backend-image
+    user: celeryuser
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+      - KETO_READ_URL=http://keto:4466/relation-tuples
+      - KETO_WRITE_URL=http://keto:4467/admin/relation-tuples/
+      - BACKEND_URL=http://backend:8000
+      - ROOT_EMAIL=${ROOT_EMAIL}
+      - ROOT_USERNAME=${ROOT_USERNAME}
+      - ROOT_PASSWORD=${ROOT_PASSWORD}
+      - PUBLIC_KEY=${PUBLIC_KEY}
+      - PRIVATE_KEY=${PRIVATE_KEY}
+    command: .venv/bin/python -m setup
+    volumes:
+      - ./tokens:/backend/tokens
+      - ../config:/config
+      - ../logs:/logs
+    depends_on:
+      backend:
+        condition: service_healthy
+      keto-access-writer:
+        condition: service_started
+      db-change-streamer:
+        condition: service_started
+
+volumes:
+  mongodb_data:
+  postgres_data:

@@ -1,0 +1,91 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+env/
+la/
+operators
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+tests/
+conftest.py
+pytest.ini
+
+# ── Type checking ─────────────────────────────────────────────────────────────
+.mypy_cache/
+.dmypy.json
+.pytype/
+.pyre/
+
+# ── Environment / secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+
+# ── Keys & tokens ─────────────────────────────────────────────────────────────
+tokens/
+*.pem
+*.key
+*.crt
+*.p12
+access_token.txt
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+logs/
+*.log
+
+# ── Database dumps ────────────────────────────────────────────────────────────
+dump.rdb
+*.sqlite3
+*.db
+data/
+data-*/
+
+# ── Git ───────────────────────────────────────────────────────────────────────
+.git/
+.gitignore
+
+# ── Docker (not needed inside image) ─────────────────────────────────────────
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.pylintrc
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Claude Code ───────────────────────────────────────────────────────────────
+.claude/
+*.settings.json
+*.settings.local.json
+
+# ── Docs & dev tools ──────────────────────────────────────────────────────────
+*.md
+thunder-collection_postman_*.json
+debug_*.py
+performance_analysis.py
+launch_test.py
+API_DOCUMENTATION.md
+DOCKER.md
+GUIDELINES.MD
+README.md

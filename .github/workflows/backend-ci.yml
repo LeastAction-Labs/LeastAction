@@ -1,0 +1,32 @@
+name: Backend CI
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+
+jobs:
+  lint-format:
+    name: Lint and Format
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: 'latest'
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync
+
+      - name: Format check
+        working-directory: backend
+        run: uv run ruff format . --check
+
+      - name: Lint
+        working-directory: backend
+        run: uv run ruff check .

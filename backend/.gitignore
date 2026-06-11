@@ -1,0 +1,86 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+wheels/
+sdist/
+MANIFEST
+operators/
+# ── Virtual environments ───────────────────────────────────────────────────────
+.venv/
+venv/
+ENV/
+env/
+la/
+
+# ── Dependency lock (generated) ───────────────────────────────────────────────
+uv.lock
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# ── Type checking ─────────────────────────────────────────────────────────────
+.mypy_cache/
+.dmypy.json
+.pytype/
+.pyre/
+
+# ── Environment / secrets ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Keys & tokens ─────────────────────────────────────────────────────────────
+keys/
+tokens/
+*.pem
+*.key
+*.crt
+*.p12
+access_token.txt
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+logs/
+*.log
+
+# ── Database dumps ────────────────────────────────────────────────────────────
+dump.rdb
+*.sqlite3
+*.db
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.pylintrc
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Claude Code ───────────────────────────────────────────────────────────────
+.claude/
+*.settings.json
+*.settings.local.json
+
+# ── Debug / scratch scripts ───────────────────────────────────────────────────
+debug_*.py
+performance_analysis.py
+launch_test.py

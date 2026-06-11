@@ -1,0 +1,179 @@
+/*
+ * Copyright (c) 2026 LeastAction Labs, Inc.
+ * This file is part of LeastAction and is licensed under the
+ * LeastAction Sustainable Use License (see LICENSE.md) or, for files
+ * marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
+ * Use of this file outside those terms is not permitted.
+ */
+
+/* ============================================
+   Common/Shared Styles - Used across components
+   These classes can be used by any component via className
+   ============================================ */
+
+/* Transitions */
+.transition-fast {
+  transition: all 0.2s ease;
+}
+
+.transition-medium {
+  transition: all 0.3s ease;
+}
+
+.transition-bg {
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease;
+}
+
+/* Interactive Elements */
+.interactive-hover {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.interactive-hover:hover {
+  opacity: 1;
+}
+
+/* Button Styles */
+.btn-hover {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-hover:hover {
+  background-color: var(--bg-tertiary);
+}
+
+/* Icon Button Styles */
+.icon-btn-base {
+  transition: all 0.2s ease;
+}
+
+.icon-btn-base:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* Panel Header Styles */
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--bg-secondary);
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-header-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+}
+
+/* Section Borders */
+.section-border-top {
+  border-top: 1px solid var(--border);
+}
+
+.section-border-bottom {
+  border-bottom: 1px solid var(--border);
+}
+
+.section-border-both {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Empty States */
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  text-align: center;
+}
+
+.empty-state-text {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Loading States */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem;
+}
+
+.loading-state-text {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Error States */
+.error-state {
+  padding: 3rem;
+}
+
+.error-state-text {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* Text Styles */
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-accent {
+  color: var(--accent);
+}
+
+.text-uppercase-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* Container Styles */
+.container-base {
+  background-color: var(--bg-primary);
+  transition: background-color 0.3s ease;
+}
+
+.container-with-border-top {
+  background-color: var(--bg-primary);
+  border-top: 1px solid var(--border);
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease;
+}
+
+/* Link Styles */
+.link-hover {
+  transition: opacity 0.2s ease;
+}
+
+.link-hover:hover {
+  text-decoration: underline;
+  opacity: 1;
+  color: var(--accent);
+}
+
+.link-hover:focus-visible {
+  text-decoration: underline;
+  opacity: 1;
+  color: var(--accent);
+}

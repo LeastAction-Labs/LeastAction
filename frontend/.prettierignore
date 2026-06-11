@@ -1,0 +1,6 @@
+dist
+node_modules
+public
+src/routeTree.gen.ts
+*.min.js
+*.min.css

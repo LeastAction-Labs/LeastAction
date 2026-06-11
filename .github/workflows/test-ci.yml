@@ -1,0 +1,229 @@
+name: Test CI/CD
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'config/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create .env file for docker-compose
+        run: |
+          cd backend
+          _priv=$(openssl genrsa 2048 2>/dev/null)
+          _pub=$(echo "$_priv" | openssl rsa -pubout 2>/dev/null)
+          _priv_inline=$(echo "$_priv" | awk '{printf "%s\\n", $0}')
+          _pub_inline=$(echo "$_pub" | awk '{printf "%s\\n", $0}')
+          cat > .env <<EOF
+          MONGO_URI=mongodb://localhost:27017/LeastActions?replicaSet=rs0&directConnection=true
+          MONGO_TEST_URI=mongodb://localhost:27017/LeastActionsTest?replicaSet=rs0&directConnection=true
+          KETO_READ_URL=http://localhost:4466/relation-tuples
+          API_CLIENT_BASE_URL=
+          API_AUTH_TOKEN=test-token
+          EOF
+          printf 'PUBLIC_KEY="%s"\n' "$_pub_inline" >> .env
+          printf 'PRIVATE_KEY="%s"\n' "$_priv_inline" >> .env
+
+      - name: Set permissions for mounted volumes
+        run: |
+          mkdir -p logs config backend/tokens
+          chmod -R 777 logs config backend/tokens
+          touch backend/tokens/access_token.txt
+          chmod -R 777 backend/tokens/access_token.txt
+
+      - name: Start test services
+        run: |
+          cd backend
+          docker compose -f docker-compose.test.yml up -d --build || {
+            echo "Docker compose failed! Showing logs..."
+            docker compose -f docker-compose.test.yml logs
+            exit 1
+          }
+
+      # --- TESTS (this step will now go RED) ---
+      - name: Run unit and integration tests (excluding AI and task tests)
+        id: unit_integration_tests_except_ai_task
+        continue-on-error: true
+        run: |
+          cd backend
+          docker compose -f docker-compose.test.yml exec -T backend-test \
+            uv run pytest tests/unit tests/integration \
+            --ignore=tests/integration/ai/ \
+            --ignore=tests/integration/catalog/test_get_item_pagination.py \
+            --ignore=tests/integration/task/ \
+            --ignore=tests/integration/cron/test_cron_toggle.py \
+            --disable-warnings
+
+
+      - name: Run integration task tests except test cases which stop the cron
+        id: integration_task
+        continue-on-error: true
+        run: |
+          cd backend
+          docker compose -f docker-compose.test.yml exec -T backend-test \
+            uv run pytest tests/integration/task/ \
+            --ignore=tests/integration/task/test_bulk_e2e.py \
+            --ignore=tests/integration/task/test_bulk_e2e2.py \
+            --ignore=tests/integration/task/test_task_retry_bulk.py \
+            --ignore=tests/integration/task/test_task_with_cancel.py \
+            --ignore=tests/integration/task/test_task_retry.py \
+            --disable-warnings
+
+      - name: Run integration task test cases which stop the cron
+        id: task_test_cases_stop_cron
+        continue-on-error: true
+        run: |
+          cd backend
+          docker compose -f docker-compose.test.yml exec -T backend-test \
+            uv run pytest \
+            tests/integration/task/test_task_with_cancel.py \
+            tests/integration/task/test_task_retry.py \
+            --disable-warnings
+
+      # --- FRONTEND BUILD ---
+      # - name: Setup Node.js
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: '20'
+
+      # - name: Install frontend dependencies
+      #   run: |
+      #     cd frontend
+      #     npm ci
+
+      # - name: Build frontend
+      #   id: frontend_build
+      #   continue-on-error: true
+      #   run: |
+      #     cd frontend
+      #     npm run build
+
+      - name: Determine failed tests
+        id: failed_tests
+        if: always()
+        run: |
+          FAILED=""
+          if [ "${{ steps.unit_integration_tests_except_ai_task.outcome }}" == "failure" ]; then
+            FAILED="• Unit & Integration Tests"
+          fi
+          if [ "${{ steps.integration_task.outcome }}" == "failure" ]; then
+            if [ -n "$FAILED" ]; then
+              FAILED="$FAILED\n• Integration Task Tests"
+            else
+              FAILED="• Integration Task Tests"
+            fi
+          fi
+
+          # Simple escape for GitHub output (just escape newlines)
+          FAILED_ESCAPED=$(echo "$FAILED" | sed ':a;N;$!ba;s/\n/\\n/g')
+          echo "failed_tests=$FAILED_ESCAPED" >> $GITHUB_OUTPUT
+
+      # --- ONLY THIS STEP FAILS THE JOB ---
+      - name: Check test results
+        if: always()
+        run: |
+          if [ "${{ steps.unit_integration_tests_except_ai_task.outcome }}" == "failure" ] || \
+             [ "${{ steps.integration_task.outcome }}" == "failure" ]; then
+            echo "Tests failed — marking job as failed"
+            exit 1
+          fi
+
+      - name: Stop test services
+        if: always()
+        run: |
+          cd backend
+          docker compose -f docker-compose.test.yml down -v
+
+      # --- SLACK ---
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_WEBHOOK_URL is not set, skipping notification"
+            exit 0
+          fi
+
+          # Escape function for JSON strings
+          escape_json() {
+            echo "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+          }
+
+          REPO=$(escape_json "${{ github.repository }}")
+          BRANCH=$(escape_json "${{ github.head_ref }}")
+          AUTHOR=$(escape_json "${{ github.event.pull_request.user.login }}")
+          COMMIT=$(escape_json "${{ github.sha }}")
+          FAILED=$(escape_json "${{ steps.failed_tests.outputs.failed_tests }}")
+          PR_URL=$(escape_json "${{ github.event.pull_request.html_url }}")
+          PR_NUMBER=$(escape_json "${{ github.event.pull_request.number }}")
+          PR_TITLE=$(escape_json "${{ github.event.pull_request.title }}")
+          RUN_URL=$(escape_json "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
+
+          PAYLOAD=$(cat <<EOF
+          {
+            "blocks": [
+              {
+                "type": "header",
+                "text": { "type": "plain_text", "text": "Test CI Failed" }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  { "type": "mrkdwn", "text": "*Repository:*\n$REPO" },
+                  { "type": "mrkdwn", "text": "*Branch:*\n$BRANCH" },
+                  { "type": "mrkdwn", "text": "*Author:*\n$AUTHOR" },
+                  { "type": "mrkdwn", "text": "*Commit:*\n\`$COMMIT\`" }
+                ]
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Failed Tests:*\n$FAILED"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Pull Request:*\n<$PR_URL|#$PR_NUMBER - $PR_TITLE>"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Workflow Logs:*\n<$RUN_URL|View Failed Run>"
+                }
+              }
+            ]
+          }
+          EOF
+          )
+
+          # Send to Slack
+          HTTP_CODE=$(curl -s -o /tmp/slack_response.txt -w "%{http_code}" \
+            -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            -d "$PAYLOAD")
+
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ Slack notification sent successfully"
+          else
+            echo "❌ Failed to send Slack notification. HTTP code: $HTTP_CODE"
+            echo "Response:"
+            cat /tmp/slack_response.txt
+            exit 1
+          fi
+
+          rm -f /tmp/slack_response.txt
