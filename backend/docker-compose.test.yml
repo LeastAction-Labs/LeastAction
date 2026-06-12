@@ -7,7 +7,7 @@ services:
     ports:
       - "27017:27017"
     environment:
-      MONGO_INITDB_DATABASE: LeastActionsTest
+      MONGO_INITDB_DATABASE: LeastActionTest
     command: >
       bash -c "mongod --quiet --replSet rs0 --bind_ip_all & 
       until mongosh --quiet --eval 'db.runCommand({hello: 1})' > /dev/null 2>&1; do sleep 2; done && 
@@ -26,7 +26,7 @@ services:
         }
 
         // FIX: Match the DB name to your MONGO_URI
-        const database = db.getSiblingDB('LeastActionsTest');
+        const database = db.getSiblingDB('LeastActionTest');
         
         if (!database.getCollectionNames().includes('links')) {
           database.createCollection('links');
@@ -113,7 +113,7 @@ services:
       - logs_data_test:/logs
     environment:
       - REDIS_URL=redis://redis-test:6379
-      - MONGO_TEST_URI=mongodb://mongodb-test:27017/LeastActionsTest?replicaSet=rs0
+      - MONGO_TEST_URI=mongodb://mongodb-test:27017/LeastActionTest?replicaSet=rs0
       - ENV=test
     depends_on:
       mongodb-test:
@@ -168,7 +168,7 @@ services:
     environment:
       - REDIS_HOST=redis-test
       - REDIS_URL=redis://redis-test:6379
-      - MONGO_TEST_URI=mongodb://mongodb-test:27017/LeastActionsTest?replicaSet=rs0
+      - MONGO_TEST_URI=mongodb://mongodb-test:27017/LeastActionTest?replicaSet=rs0
       - CELERY_BROKER_URL=redis://redis-test:6379/0
       - CELERY_RESULT_BACKEND=redis://redis-test:6379/0
       - ENV=test
@@ -203,7 +203,7 @@ services:
     environment:
       - REDIS_HOST=redis-test
       - REDIS_URL=redis://redis-test:6379
-      - MONGO_TEST_URI=mongodb://mongodb-test:27017/LeastActionsTest?replicaSet=rs0
+      - MONGO_TEST_URI=mongodb://mongodb-test:27017/LeastActionTest?replicaSet=rs0
       - CELERY_BROKER_URL=redis://redis-test:6379/0
       - CELERY_RESULT_BACKEND=redis://redis-test:6379/0
       - ENV=test
@@ -235,7 +235,7 @@ services:
     environment:
       - REDIS_HOST=redis-test
       - REDIS_URL=redis://redis-test:6379
-      - MONGO_TEST_URI=mongodb://mongodb-test:27017/LeastActionsTest?replicaSet=rs0
+      - MONGO_TEST_URI=mongodb://mongodb-test:27017/LeastActionTest?replicaSet=rs0
       - CELERY_BROKER_URL=redis://redis-test:6379/0
       - CELERY_RESULT_BACKEND=redis://redis-test:6379/0
       - ENV=test
@@ -267,7 +267,7 @@ services:
     environment:
       - REDIS_HOST=redis-test
       - REDIS_URL=redis://redis-test:6379
-      - MONGO_TEST_URI=mongodb://mongodb-test:27017/LeastActionsTest?replicaSet=rs0
+      - MONGO_TEST_URI=mongodb://mongodb-test:27017/LeastActionTest?replicaSet=rs0
       - CELERY_BROKER_URL=redis://redis-test:6379/0
       - CELERY_RESULT_BACKEND=redis://redis-test:6379/0
       - ENV=test

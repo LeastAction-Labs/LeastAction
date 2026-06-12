@@ -981,7 +981,7 @@ async def lifespan(app: FastAPI):
     # Connect to MongoDB
     database_uri = os.getenv("MONGO_URI")
     app.state.mongo_client = await create_mongo_client(database_uri)
-    active_db = app.state.mongo_client.get_db("LeastActions")
+    active_db = app.state.mongo_client.get_db("LeastAction")
 
     # Initialize services (dependency injection)
     app.state.user_service = UserService(...)

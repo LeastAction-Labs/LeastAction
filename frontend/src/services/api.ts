@@ -7,7 +7,7 @@
  */
 import { notify } from '@/screens/Browse/handlers/notificationHandlers';
 
-import { CORE_BACKEND_URL } from '../config/urls';
+import { MARKETPLACE_URL } from '../config/urls';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -129,11 +129,10 @@ export async function httpJson<TResponse>(
   }
 
   if (!res.ok) {
-    if (res.status === 401 && unauthorizedCallback && input.startsWith(CORE_BACKEND_URL)) {
+    if (res.status === 401 && unauthorizedCallback && !input.startsWith(MARKETPLACE_URL)) {
       unauthorizedCallback();
     }
     if (!input.includes('check')) {
-      console.log(data);
       notify.error({ ...data, sessionId });
     }
     throw new Error('error');
@@ -200,10 +199,9 @@ export async function httpJsonWithSession<TResponse>(
   }
 
   if (!res.ok) {
-    if (res.status === 401 && unauthorizedCallback && input.startsWith(CORE_BACKEND_URL)) {
+    if (res.status === 401 && unauthorizedCallback && !input.startsWith(MARKETPLACE_URL)) {
       unauthorizedCallback();
     }
-    console.log(data);
     notify.error({ ...data, sessionId });
     throw new Error('error');
   }

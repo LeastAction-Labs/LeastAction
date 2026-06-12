@@ -137,7 +137,6 @@ export default function LeftSidebar() {
         setPerfOpen(true);
         break;
       case 'marketplace':
-        setCatalogType(CatalogType.MARKETPLACE);
         void navigate({ to: '/marketplace' });
         break;
       case 'admin':

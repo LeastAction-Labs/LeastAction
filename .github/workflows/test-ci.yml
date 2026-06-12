@@ -24,8 +24,8 @@ jobs:
           _priv_inline=$(echo "$_priv" | awk '{printf "%s\\n", $0}')
           _pub_inline=$(echo "$_pub" | awk '{printf "%s\\n", $0}')
           cat > .env <<EOF
-          MONGO_URI=mongodb://localhost:27017/LeastActions?replicaSet=rs0&directConnection=true
-          MONGO_TEST_URI=mongodb://localhost:27017/LeastActionsTest?replicaSet=rs0&directConnection=true
+          MONGO_URI=mongodb://localhost:27017/LeastAction?replicaSet=rs0&directConnection=true
+          MONGO_TEST_URI=mongodb://localhost:27017/LeastActionTest?replicaSet=rs0&directConnection=true
           KETO_READ_URL=http://localhost:4466/relation-tuples
           API_CLIENT_BASE_URL=
           API_AUTH_TOKEN=test-token

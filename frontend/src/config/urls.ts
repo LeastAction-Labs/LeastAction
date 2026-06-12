@@ -13,7 +13,7 @@ export const CORE_BACKEND_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 export const CORE_API_URL = `${CORE_BACKEND_URL}/api/v1`;
 
 // Marketplace
-export const MARKETPLACE_URL = 'https://dev.leastactionlabs.com';
+export const MARKETPLACE_URL = 'https://marketplace.leastactionlabs.com';
 
 // core Frontend (this application) — defaults to wherever the SPA is served from.
 export const CORE_FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL ?? window.location.origin;

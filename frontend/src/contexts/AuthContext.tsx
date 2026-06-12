@@ -48,8 +48,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const changeAuthState = (newAuthState: AuthState) => setAuthState(newAuthState);
 
   useEffect(() => {
-    setUnauthorizedCallback(() => setSessionExpired(true));
-  }, []);
+    setUnauthorizedCallback(() => {
+      if (authState.isAuthenticated) setSessionExpired(true);
+    });
+  }, [authState.isAuthenticated]);
 
   const logout = async () => {
     await axios.post(`${CORE_BACKEND_URL}/api/v1/logout`, {}, { withCredentials: true });
@@ -66,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         // I am unable to read httpOnly = True Cookies  , so I went with this approach
         // we can read the cookies from fronted if we set httpOnly = False but that will lead to XSS attacks
+        setSessionExpired(false);
         try {
           const systemUserLaui = await adminCheck();
           setAuthState({

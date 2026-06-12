@@ -1,8 +1,11 @@
 name: leastaction
 
 # ============================================================================
-# Build locally from source and run:
+# First-time / rebuild from source:
 #   docker compose up -d --build
+#
+# Start using previously built images (no rebuild):
+#   docker compose up -d
 #
 # Zero config required: the RSA signing keys are generated on first run and
 # persisted to a volume, and the root login
@@ -31,9 +34,10 @@ x-backend-env: &backend-env
   PYTHONUNBUFFERED: "1"
   REDIS_HOST: redis
   REDIS_URL: redis://redis:6379
-  MONGO_URI: mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+  MONGO_URI: mongodb://mongodb:27017/LeastAction?replicaSet=rs0
   KETO_READ_URL: http://keto:4466/relation-tuples
   KETO_WRITE_URL: http://keto:4467/admin/relation-tuples/
+  MARKETPLACE_URL: ${MARKETPLACE_URL:-https://marketplace.leastactionlabs.com}
 
 services:
   # ── Infrastructure ────────────────────────────────────────────────────────
@@ -42,7 +46,7 @@ services:
     hostname: mongodb
     restart: unless-stopped
     environment:
-      MONGO_INITDB_DATABASE: LeastActions
+      MONGO_INITDB_DATABASE: LeastAction
     command: >
       bash -c "mongod --replSet rs0 --bind_ip_all &
       until mongosh --eval 'db.runCommand({hello: 1})' ; do sleep 2; done &&
@@ -59,7 +63,7 @@ services:
           sleep(1000);
         }
 
-        const database = db.getSiblingDB('LeastActions');
+        const database = db.getSiblingDB('LeastAction');
 
         const collections = database.getCollectionNames();
         if (!collections.includes('links')) {
@@ -171,14 +175,13 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    pull_policy: build
     user: celeryuser
     restart: unless-stopped
     command: >
       .venv/bin/python -m uvicorn main:app
       --host 0.0.0.0
       --port 8000
-      --workers 3
+      --workers 4
     healthcheck:
       test: ["CMD", ".venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health').status"]
       interval: 5s
@@ -330,7 +333,7 @@ services:
       - la_keys:/backend/keys:ro
     environment:
       REDIS_URL: redis://redis:6379
-      MONGO_URI: mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+      MONGO_URI: mongodb://mongodb:27017/LeastAction?replicaSet=rs0
     depends_on:
       mongodb:
         condition: service_healthy
@@ -343,7 +346,7 @@ services:
     command: .venv/bin/python -m setup
     working_dir: /backend
     environment:
-      MONGO_URI: mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+      MONGO_URI: mongodb://mongodb:27017/LeastAction?replicaSet=rs0
       KETO_READ_URL: http://keto:4466/relation-tuples
       KETO_WRITE_URL: http://keto:4467/admin/relation-tuples/
       BACKEND_URL: http://backend:8000
@@ -367,10 +370,10 @@ services:
   # ── Frontend (UI + reverse proxy for /api/ and /mcp/) ─────────────────────
   frontend:
     image: leastaction:frontend
+    pull_policy: never
     build:
       context: .
       dockerfile: frontend/Dockerfile
-    pull_policy: build
     restart: unless-stopped
     ports:
       - "8080:80"

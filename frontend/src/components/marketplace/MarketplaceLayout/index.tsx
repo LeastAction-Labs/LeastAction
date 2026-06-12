@@ -262,7 +262,7 @@ export default function MarketplaceLayout({
             hasNextPage={hasNextPage}
             onLoadMore={() => void loadMore()}
             selectedLaui={selectedLaui}
-            onSelect={() => void handleSelect()}
+            onSelect={(item) => void handleSelect(item)}
             width={panelWidth}
           />
 

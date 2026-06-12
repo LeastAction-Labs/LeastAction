@@ -169,60 +169,52 @@ LeastAction runs as a containerized service with infrastructure-level isolation.
 
 ## Installation
 
-### Option 1 — Run with Docker (recommended)
-
-Clone the repo, then build and run. All you need is Docker (>= 24, with
-Compose v2):
+All you need is Docker (>= 24, with Compose v2):
 
 ```bash
 git clone https://github.com/LeastAction-Labs/LeastAction.git
 cd LeastAction
+
+# First time — build images and start
+docker compose up -d --build
+
+# Subsequent starts — reuse already-built images
 docker compose up -d
 ```
 
-The first `up` builds the `backend` and `frontend` images locally; the Celery
-workers reuse the backend image by tag. Subsequent runs reuse the built
-images — pass `--build` to rebuild after changing source.
+`--build` compiles the `backend` and `frontend` images locally; the Celery
+workers reuse the backend image by tag. Pass `--build` again any time you pull
+new source changes.
 
 Open **http://localhost:8080** — login username `admin123` / password `admin123`.
 
-Everything is served from one origin: the UI, the API (`/api/`), and the MCP
-endpoint (`/mcp/`). RSA signing keys are generated automatically on first run.
-Override defaults (root password, Claude API key) with a `.env` file — see
-[.env.example](.env.example). Stop with `docker compose down` (add `-v` to
-also wipe data). See [PACKAGING.md](PACKAGING.md) for details.
+| Port | URL | What's there |
+|------|-----|--------------|
+| 8080 | http://localhost:8080 | UI, REST API (`/api/`), MCP endpoint (`/mcp/`) |
+| 5555 | http://localhost:5555 | Flower — Celery worker monitor |
 
-### Option 2 — Run from source (development)
-
-#### Prerequisites
-
-- Docker >= 24
-- Docker Compose v2
-
-#### Start
+**Scaling Celery workers** — each queue has its own service; pass `--scale` to run more instances:
 
 ```bash
-git clone https://github.com/LeastActionLabs/LeastAction.git
-cd LeastAction
+# Scale a single queue
+docker compose up -d --scale celery-task-worker=3
+docker compose up -d --scale celery-action-worker=3
+docker compose up -d --scale celery-cron-worker=3
 
-docker compose up -d --build
+# Scale all queues at once
+docker compose up -d \
+  --scale celery-task-worker=3 \
+  --scale celery-action-worker=2 \
+  --scale celery-cron-worker=2
 ```
 
-This builds the `backend` and `frontend` images from your local source and
-starts the full stack. The Celery workers reuse the backend image by tag.
-
-| Service | URL |
-|---------|-----|
-| LeastAction UI + API + MCP | http://localhost:8080 |
-| Flower (worker monitor) | http://localhost:5555 |
-
-After changing source, rebuild with the same command. Without code changes,
-`docker compose up -d` reuses the built images.
-
-#### Stop
+RSA signing keys are generated automatically on first run. Override defaults
+(root password, Claude API key) with a `.env` file — see
+[.env.example](.env.example). See [PACKAGING.md](PACKAGING.md) for details.
 
 ```bash
-docker compose down   # add -v to also wipe data
+docker compose down       # stop
+docker compose down -v    # stop and wipe all data
 ```
 
 ---

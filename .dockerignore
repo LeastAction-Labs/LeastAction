@@ -16,11 +16,18 @@ frontend/dist
 **/.env.*
 backend/tokens
 **/*.pem
+**/*.key
+**/*.crt
+**/*.p12
 
 # Runtime / local-only
 logs
 **/logs/*.log
 images
+
+# Database dumps
+**/*.sqlite3
+**/*.db
 
 # VCS / editor / OS
 .git
@@ -28,6 +35,13 @@ images
 **/.DS_Store
 .vscode
 .idea
+.claude/
+
+# Frontend build artifacts
+frontend/dist-ssr
+frontend/build
+**/*.tsbuildinfo
+**/.vite/
 
 # Tests (not needed at runtime)
 backend/tests

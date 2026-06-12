@@ -211,9 +211,9 @@ async def main():
     log_info("KETO", "change_streams", "init", "--- Service Initializing ---")
     mongo_client = await create_mongo_client(database_uri)
 
-    db_name = "LeastActions"
+    db_name = "LeastAction"
     if get_env() == ENV.TEST:
-        db_name = "LeastActionsTest"
+        db_name = "LeastActionTest"
         log_info("KETO", "change_streams", "init", f"[TEST MODE] Using database: {db_name}")
     else:
         log_info("KETO", "change_streams", "init", f"[PROD MODE] Using database: {db_name}")

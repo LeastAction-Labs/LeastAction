@@ -239,9 +239,7 @@ export default function MarketplaceItemTabView({ item }: MarketplaceItemTabViewP
             borderColor: 'var(--border-color)',
             p: 0.5,
           }}
-        >
-          {importButtonArea}
-        </Box>
+        />
         <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
           <Box
             component="pre"
@@ -314,7 +312,6 @@ export default function MarketplaceItemTabView({ item }: MarketplaceItemTabViewP
               ))}
             </Tabs>
           </Box>
-          <Box sx={{ px: 1, flexShrink: 0 }}>{importButtonArea}</Box>
         </Box>
 
         <Box sx={{ flex: 1, overflow: 'auto', bgcolor: 'var(--bg-primary)' }}>

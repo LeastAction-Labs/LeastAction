@@ -18,10 +18,10 @@ class MongoDBClient:
     async def ping(self):
         await self.client.admin.command("ping")
 
-    def get_db(self, db: str = "LeastActions") -> MongoDatabase:
+    def get_db(self, db: str = "LeastAction") -> MongoDatabase:
         return self.client[db]
 
-    async def cleanup_db(self, db: str = "LeastActions"):
+    async def cleanup_db(self, db: str = "LeastAction"):
         db = self.get_db()
         collections = await db.list_collection_names()
         for collection in collections:

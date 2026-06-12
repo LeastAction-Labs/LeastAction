@@ -36,7 +36,7 @@ async def get_test_database() -> MongoDatabase:
         print(f"Failed to connect to the mongodb: {e}")
         raise e
     print("Got test database client")
-    db = test_client["LeastActionsTest"]
+    db = test_client["LeastActionTest"]
     db.client_ref = test_client
     return db
 

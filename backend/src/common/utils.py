@@ -85,14 +85,14 @@ def load_system_config():
     with open(config_path) as config_file:
         config = yaml.safe_load(config_file)
 
-    # Packaged single-origin deployments set APP_PUBLIC_URL (e.g. http://localhost
-    # or http://<server-ip>); UI and API share that origin behind the nginx proxy,
-    # so both redirect targets collapse to it. Unset (local dev) keeps the
-    # system.yml localhost:8000 / localhost:5173 defaults.
     app_public_url = os.environ.get("APP_PUBLIC_URL")
     if app_public_url:
         config["urls"]["core_backend_url"] = app_public_url
         config["urls"]["core_frontend_url"] = app_public_url
+
+    marketplace_url = os.environ.get("MARKETPLACE_URL")
+    if marketplace_url:
+        config["urls"]["marketplace_url"] = marketplace_url
 
     # AWS=true implies email_otp; otherwise respect EMAIL_OTP env var (default false)
     aws = os.environ.get("AWS", "false").lower() == "true"

@@ -1147,7 +1147,7 @@ export default function ImportModal() {
           {/* Standard fields (shown for non-usecase items only) */}
           {!isUsecase && (
             <Box>
-              <Typography variant="caption">project_laui</Typography>
+              <Typography variant="caption">Select Project</Typography>
               <QuickSearch
                 value={importProjectLaui}
                 onSelect={(val) => {
@@ -1155,6 +1155,7 @@ export default function ImportModal() {
                   setImportProjectLaui((raw._laui ?? raw.laui ?? raw.id ?? '') as string);
                 }}
                 filters={{ item_type: 'folder.project' }}
+                ignoreProjectScope
               />
             </Box>
           )}
@@ -1165,9 +1166,12 @@ export default function ImportModal() {
               }
 
               if (field.endsWith('_laui')) {
+                const isParentField = field === 'parent_laui';
                 return (
                   <Box key={field}>
-                    <Typography variant="caption">{field}</Typography>
+                    <Typography variant="caption">
+                      {isParentField ? 'Select folder' : field}
+                    </Typography>
                     <QuickSearch
                       value={formValues[field]}
                       onSelect={(val) => {
@@ -1175,8 +1179,14 @@ export default function ImportModal() {
                         const laui = (raw._laui ?? raw.laui ?? raw.id ?? '') as string;
                         handleChange(field, laui);
                       }}
+                      disabled={isParentField && !importProjectLaui}
+                      placeholder={
+                        isParentField && !importProjectLaui
+                          ? 'Select project to view folders'
+                          : 'Search…'
+                      }
                       filters={
-                        field === 'parent_laui'
+                        isParentField
                           ? {
                               item_type:
                                 itemData.item_type === 'skill' || itemData.item_type === 'agent'

@@ -84,9 +84,9 @@ async def lifespan(app: FastAPI):
     app.state.session_service = SessionService(public_key, private_key)
 
     app.state.mongo_client = await create_mongo_client(database_uri)
-    db_name = "LeastActions"
+    db_name = "LeastAction"
     if get_env() == ENV.TEST:
-        db_name = "LeastActionsTest"
+        db_name = "LeastActionTest"
     active_db = app.state.mongo_client.get_db(db_name)
 
     app.state.email_service = EmailService()

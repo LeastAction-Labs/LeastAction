@@ -123,4 +123,4 @@ explore_view:
 urls:
   core_backend_url: http://localhost:8000
   core_frontend_url: http://localhost:5173
-  marketplace_url: https://dev.leastactionlabs.com
+  marketplace_url: https://marketplace.leastactionlabs.com

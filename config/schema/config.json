@@ -191,14 +191,13 @@
         },
         {
             "name": "category",
-            "datatype": "array",
+            "datatype": "string",
             "required": false,
             "description": "Top-level category (e.g. 'AI', 'Data', 'DevOps')",
             "tab": {
                 "name": "Metadata",
                 "order": 3
-            },
-            "items": "string"
+            }
         },
         {
             "name": "division",

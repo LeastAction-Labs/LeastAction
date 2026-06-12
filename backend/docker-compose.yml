@@ -21,7 +21,7 @@ services:
     ports:
       - "27017:27017"
     environment:
-      MONGO_INITDB_DATABASE: LeastActions
+      MONGO_INITDB_DATABASE: LeastAction
     command: >
       bash -c "mongod --replSet rs0 --bind_ip_all & 
       until mongosh --eval 'db.runCommand({hello: 1})' ; do sleep 2; done && 
@@ -38,7 +38,7 @@ services:
           sleep(1000); 
         }
 
-        const database = db.getSiblingDB('LeastActions');
+        const database = db.getSiblingDB('LeastAction');
         
         // Ensure the collection exists first, otherwise collMod fails
         const collections = database.getCollectionNames();
@@ -152,7 +152,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - REDIS_HOST=redis
-      - MONGO_URI=mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+      - MONGO_URI=mongodb://mongodb:27017/LeastAction?replicaSet=rs0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - AWS_REGION=${AWS_REGION}
@@ -189,7 +189,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - REDIS_HOST=redis
-      - MONGO_URI=mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+      - MONGO_URI=mongodb://mongodb:27017/LeastAction?replicaSet=rs0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - AWS_REGION=${AWS_REGION}
@@ -220,7 +220,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - REDIS_HOST=redis
-      - MONGO_URI=mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+      - MONGO_URI=mongodb://mongodb:27017/LeastAction?replicaSet=rs0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - AWS_REGION=${AWS_REGION}
@@ -250,7 +250,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - REDIS_HOST=redis
-      - MONGO_URI=mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+      - MONGO_URI=mongodb://mongodb:27017/LeastAction?replicaSet=rs0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - AWS_REGION=${AWS_REGION}
@@ -277,7 +277,7 @@ services:
       - ../logs:/logs
     environment:
       - REDIS_HOST=redis
-      - MONGO_URI=mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+      - MONGO_URI=mongodb://mongodb:27017/LeastAction?replicaSet=rs0
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     depends_on:
@@ -320,7 +320,7 @@ services:
       - ../logs:/logs
     environment:
       - REDIS_URL=redis://redis:6379
-      - MONGO_URI=mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+      - MONGO_URI=mongodb://mongodb:27017/LeastAction?replicaSet=rs0
     depends_on:
       mongodb:
         condition: service_healthy
@@ -331,7 +331,7 @@ services:
     <<: *backend-image
     user: celeryuser
     environment:
-      - MONGO_URI=mongodb://mongodb:27017/LeastActions?replicaSet=rs0
+      - MONGO_URI=mongodb://mongodb:27017/LeastAction?replicaSet=rs0
       - KETO_READ_URL=http://keto:4466/relation-tuples
       - KETO_WRITE_URL=http://keto:4467/admin/relation-tuples/
       - BACKEND_URL=http://backend:8000

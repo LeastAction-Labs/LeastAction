@@ -434,9 +434,7 @@ def build_operator_item(
         "publisher": getattr(module, "publisher", ""),
         "version_details": getattr(module, "version_details", {}),
         "tags": meta.get("tags", []),
-        "category": [meta["category"]]
-        if isinstance(meta.get("category"), str)
-        else meta.get("category", []),
+        "category": meta.get("category", ""),
         "parent_laui": parent_laui,
     }
     if project_laui:
@@ -655,9 +653,7 @@ def build_usecase_item(
         "payloads": getattr(module, "payloads", {}),
         "skills": getattr(module, "skills", {}),
         "tags": meta.get("tags", []),
-        "category": [meta["category"]]
-        if isinstance(meta.get("category"), str)
-        else meta.get("category", []),
+        "category": meta.get("category", ""),
         "publisher": getattr(module, "publisher", ""),
         "parent_laui": parent_laui,
     }

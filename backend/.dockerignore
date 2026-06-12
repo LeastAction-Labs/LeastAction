@@ -85,7 +85,3 @@ thunder-collection_postman_*.json
 debug_*.py
 performance_analysis.py
 launch_test.py
-API_DOCUMENTATION.md
-DOCKER.md
-GUIDELINES.MD
-README.md

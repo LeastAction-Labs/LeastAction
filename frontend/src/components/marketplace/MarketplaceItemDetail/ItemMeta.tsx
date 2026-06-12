@@ -305,7 +305,7 @@ export default function ItemMeta({ item, onAddFilter }: Readonly<ItemMetaProps>)
         '&.Mui-disabled': { opacity: 0.5 },
       }}
     >
-      Install
+      Import
     </Button>
   );
 
