@@ -1,0 +1,237 @@
+# ============================================================================
+# Shared infrastructure for blue-green deploys — started once, reused by both
+# app slots. Managed by blue-green-run.sh (project: leastaction-infra):
+#
+#   docker compose -f deploy/docker-compose.infra.yml -p leastaction-infra up -d
+#
+# Owns the shared network (leastaction_network) and all data volumes with fixed
+# names so the app slots (leastaction-blue / leastaction-green) and the edge
+# frontend can attach to them as externals.
+# ============================================================================
+name: leastaction-infra
+
+services:
+  mongodb:
+    image: mongo:7.0
+    hostname: mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: LeastAction
+    command: >
+      bash -c "mongod --replSet rs0 --bind_ip_all &
+      until mongosh --eval 'db.runCommand({hello: 1})' ; do sleep 2; done &&
+      mongosh --eval \"
+        try {
+          rs.initiate();
+          print('Initializing replica set...');
+        } catch (e) {
+          print('Replica set already initialized, skipping...');
+        }
+
+        while (!db.hello().isWritablePrimary) {
+          print('Waiting for Primary node...');
+          sleep(1000);
+        }
+
+        const database = db.getSiblingDB('LeastAction');
+
+        const collections = database.getCollectionNames();
+        if (!collections.includes('links')) {
+          database.createCollection('links');
+          print('Created links collection');
+        }
+
+        database.runCommand({
+          collMod: 'links',
+          changeStreamPreAndPostImages: { enabled: true }
+        });
+        print('Pre-images enabled for links collection');
+      \" &&
+      tail -f /dev/null"
+    healthcheck:
+      test: |
+        mongosh --quiet --eval "
+        try {
+          var status = rs.status();
+          if (status.ok) { quit(0); }
+        } catch(e) {
+          rs.initiate({
+            _id: 'rs0',
+            members: [{ _id: 0, host: 'mongodb:27017' }]
+          });
+          quit(0);
+        }"
+      interval: 5s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - mongodb_data:/data/db
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:13
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=keto
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=keto
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  keto-migrate:
+    image: oryd/keto:v25.4.0
+    environment:
+      - DSN=postgres://keto:secret@postgres:5432/keto?sslmode=disable&max_conns=20&max_idle_conns=4
+    configs:
+      - source: keto_yml
+        target: /home/ory/keto.yml
+      - source: keto_namespaces
+        target: /home/ory/namespaces.ts
+    command: migrate up -y
+    restart: on-failure
+    depends_on:
+      - postgres
+
+  keto:
+    image: oryd/keto:v25.4.0
+    restart: unless-stopped
+    environment:
+      - SERVE_READ_MAX_DEPTH=50
+      - DSN=postgres://keto:secret@postgres:5432/keto?sslmode=disable
+    configs:
+      - source: keto_yml
+        target: /home/ory/keto.yml
+      - source: keto_namespaces
+        target: /home/ory/namespaces.ts
+    command: serve all --config /home/ory/keto.yml
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 4466 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_started
+      keto-migrate:
+        condition: service_completed_successfully
+
+  # Generate the RSA keypair used to sign JWTs, once, into a persistent volume.
+  # Runs only if the keys aren't already there. The backend reads
+  # keys/{private,public}_key.pem at startup.
+  key-init:
+    image: alpine:3.20
+    command: >
+      sh -c "
+      apk add --no-cache openssl >/dev/null &&
+      if [ ! -f /keys/private_key.pem ]; then
+        echo 'Generating RSA keypair...' &&
+        openssl genrsa -out /keys/private_key.pem 2048 &&
+        openssl rsa -in /keys/private_key.pem -pubout -out /keys/public_key.pem &&
+        chown -R 1000:1000 /keys &&
+        echo 'Keys generated.';
+      else
+        echo 'Keys already present, skipping.';
+      fi"
+    volumes:
+      - leastaction_keys:/keys
+
+configs:
+  keto_yml:
+    content: |
+      serve:
+        read:
+          port: 4466
+          host: 0.0.0.0
+        write:
+          port: 4467
+          host: 0.0.0.0
+        metrics:
+          port: 4468
+          host: 0.0.0.0
+      limit:
+        max_read_depth: 100
+      dsn: postgres://keto:secret@postgres:5432/keto?sslmode=disable&max_conns=20&max_idle_conns=4
+      namespaces:
+        location: file:///home/ory/namespaces.ts
+      log:
+        level: debug
+        format: json
+        leak_sensitive_values: true
+  keto_namespaces:
+    content: |
+      import { Namespace, SubjectSet, Context } from "@ory/keto-namespace-types"
+
+      class User implements Namespace {}
+
+      class Group implements Namespace {
+          related : {
+              owners : User[] ,
+              editors : User[] ,
+              viewers : User[]
+          }
+          permits = {
+              view : ( ctx : Context ) : boolean =>
+                  this.related.owners.includes(ctx.subject) ||
+                  this.related.editors.includes(ctx.subject) ||
+                  this.related.viewers.includes(ctx.subject) ,
+              edit : ( ctx : Context ) : boolean =>
+                  this.related.editors.includes(ctx.subject) ||
+                  this.related.owners.includes(ctx.subject) ,
+          }
+      }
+
+      class Item implements Namespace {
+          related : {
+              owners : ( User | SubjectSet<Group,"owners"> | SubjectSet<Group,"editors"> | SubjectSet<Group,"viewers"> ) [] ,
+              viewers : ( User | SubjectSet<Group,"owners"> | SubjectSet<Group,"editors"> | SubjectSet<Group,"viewers"> ) [] ,
+              editors : ( User | SubjectSet<Group,"owners"> | SubjectSet<Group,"editors"> | SubjectSet<Group,"viewers"> ) [] ,
+              true_parent : Item[] ,
+              false_parents : Item[]
+          }
+          permits = {
+              view : ( ctx : Context ) : boolean =>
+                  this.related.owners.includes(ctx.subject) ||
+                  this.related.editors.includes(ctx.subject) ||
+                  this.related.viewers.includes(ctx.subject) ||
+                  this.related.true_parent.traverse((parent)=>parent.permits.view(ctx))||
+                  this.related.false_parents.traverse((parent)=>parent.permits.view(ctx)),
+
+              edit : ( ctx : Context ) : boolean =>
+                  this.related.editors.includes(ctx.subject) ||
+                  this.related.owners.includes(ctx.subject) ||
+                  this.related.true_parent.traverse((parent)=>parent.permits.edit(ctx)) ,
+
+              true_parent_edit : ( ctx : Context ) : boolean =>
+                  this.related.true_parent.traverse((parent)=>parent.permits.edit(ctx)),
+
+              delete : ( ctx : Context ) : boolean =>
+                  this.permits.true_parent_edit(ctx) ||
+                  this.related.false_parents.traverse((parent)=>parent.permits.edit(ctx)),
+
+              own : (ctx : Context ) : boolean =>
+                  this.related.owners.includes(ctx.subject) ||
+                  this.related.true_parent.traverse((parent)=>parent.permits.own(ctx)) ,
+
+              is_true_parent : (ctx : Context) : boolean =>
+                  this.related.true_parent.includes(ctx.subject) ||
+                  this.related.true_parent.traverse((parent)=>parent.permits.is_true_parent(ctx))
+          }
+      }
+
+networks:
+  default:
+    name: leastaction_network
+
+# leastaction_logs is not listed here because no infra service mounts it and compose
+# only creates volumes a service uses — blue-green-run.sh creates it.
+volumes:
+  mongodb_data:
+    name: leastaction_mongodb_data
+  postgres_data:
+    name: leastaction_postgres_data
+  leastaction_keys:
+    name: leastaction_keys

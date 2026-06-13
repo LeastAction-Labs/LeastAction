@@ -1,0 +1,206 @@
+# ============================================================================
+# Application stack for blue-green deploys — runs in one of two slots, the
+# project being leastaction-blue or leastaction-green, managed by blue-green-run.sh:
+#
+#   LEASTACTION_SLOT=green docker compose -f deploy/docker-compose.app.yml -p leastaction-green up -d
+#
+# Requires the leastaction-infra stack (deploy/docker-compose.infra.yml) to be up:
+# network, volumes and the databases live there. Cross-project depends_on is
+# not possible, so the deploy script gates on infra health before starting
+# this stack.
+#
+# The backend gets a predictable container name (leastaction-<slot>-backend) which the
+# edge nginx targets to switch traffic between slots. The plain "backend"
+# service alias is ambiguous while both slots overlap on leastaction_network, so
+# anything that must reach *this* slot's backend uses the container name.
+# ============================================================================
+
+x-backend-image: &backend-image
+  image: leastaction-backend:${LEASTACTION_SLOT:?set by blue-green-run.sh}
+  pull_policy: never
+
+x-backend-env: &backend-env
+  PYTHONUNBUFFERED: "1"
+  REDIS_HOST: redis
+  REDIS_URL: redis://redis:6379
+  MONGO_URI: mongodb://mongodb:27017/LeastAction?replicaSet=rs0
+  KETO_READ_URL: http://keto:4466/relation-tuples
+  KETO_WRITE_URL: http://keto:4467/admin/relation-tuples/
+  MARKETPLACE_URL: ${MARKETPLACE_URL:-https://marketplace.leastactionlabs.com}
+  API_CLIENT_BASE_URL: http://leastaction-${LEASTACTION_SLOT:?set by blue-green-run.sh}-backend:8000/api/v1
+
+services:
+  backend:
+    <<: *backend-image
+    container_name: leastaction-${LEASTACTION_SLOT}-backend
+    user: celeryuser
+    restart: unless-stopped
+    command: >
+      .venv/bin/python -m uvicorn main:app
+      --host 0.0.0.0
+      --port 8000
+      --workers 4
+    healthcheck:
+      test: ["CMD", ".venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health').status"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    working_dir: /backend
+    volumes:
+      - leastaction_logs:/logs
+      - leastaction_keys:/backend/keys
+    environment:
+      <<: *backend-env
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:8080}
+      # If you supply PUBLIC_KEY/PRIVATE_KEY (env or .env), they take priority;
+      # otherwise the infra key-init service's generated keys/*.pem are used.
+      PUBLIC_KEY: ${PUBLIC_KEY:-}
+      PRIVATE_KEY: ${PRIVATE_KEY:-}
+
+  celery-task-worker:
+    <<: *backend-image
+    user: celeryuser
+    restart: unless-stopped
+    command: >
+      .venv/bin/celery -A src.core.celery.app worker
+      -Q la_tasks
+      --loglevel info
+      --hostname leastaction-task@%h
+    working_dir: /backend
+    volumes:
+      - leastaction_logs:/logs
+      - leastaction_keys:/backend/keys:ro
+    environment:
+      <<: *backend-env
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  celery-action-worker:
+    <<: *backend-image
+    user: celeryuser
+    restart: unless-stopped
+    command: >
+      .venv/bin/celery -A src.core.celery.app worker
+      -Q la_actions
+      --loglevel info
+      --hostname leastaction-action@%h
+    working_dir: /backend
+    volumes:
+      - leastaction_logs:/logs
+      - leastaction_keys:/backend/keys:ro
+    environment:
+      <<: *backend-env
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  celery-cron-worker:
+    <<: *backend-image
+    user: celeryuser
+    restart: unless-stopped
+    command: >
+      .venv/bin/celery -A src.core.celery.app worker
+      -Q la_crons
+      --loglevel info
+      --hostname leastaction-cron@%h
+    working_dir: /backend
+    volumes:
+      - leastaction_logs:/logs
+      - leastaction_keys:/backend/keys:ro
+    environment:
+      <<: *backend-env
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # Optional — only started by blue-green-run.sh when LEASTACTION_ENABLE_FLOWER=1, and
+  # only after the old version's flower has released the host port.
+  flower:
+    <<: *backend-image
+    profiles: ["flower"]
+    restart: unless-stopped
+    command: >
+      .venv/bin/celery -A src.core.celery.app flower
+      --port=5555
+      --loglevel=info
+    working_dir: /backend
+    volumes:
+      - leastaction_logs:/logs
+      - leastaction_keys:/backend/keys:ro
+    environment:
+      <<: *backend-env
+    ports:
+      - "${FLOWER_PORT:-5555}:5555"
+
+  keto-access-writer:
+    <<: *backend-image
+    user: celeryuser
+    restart: unless-stopped
+    command: .venv/bin/python -m src.core.ee.keto.access_writer
+    working_dir: /backend
+    environment:
+      KETO_READ_URL: http://keto:4466/relation-tuples
+      KETO_WRITE_URL: http://keto:4467/admin/relation-tuples/
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - leastaction_logs:/logs
+      - leastaction_keys:/backend/keys:ro
+
+  db-change-streamer:
+    <<: *backend-image
+    user: celeryuser
+    restart: unless-stopped
+    command: .venv/bin/python -m src.core.db.change_streams.service
+    working_dir: /backend
+    volumes:
+      - leastaction_logs:/logs
+      - leastaction_keys:/backend/keys:ro
+    environment:
+      REDIS_URL: redis://redis:6379
+      MONGO_URI: mongodb://mongodb:27017/LeastAction?replicaSet=rs0
+
+  # One-shot initialization (root user, system user, onboarding catalog).
+  # Part of the stack: runs once after the backend is healthy and exits.
+  # blue-green-run.sh waits for it to finish before switching traffic.
+  setup-helper:
+    <<: *backend-image
+    user: celeryuser
+    restart: "no"
+    command: .venv/bin/python -m setup
+    working_dir: /backend
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/LeastAction?replicaSet=rs0
+      KETO_READ_URL: http://keto:4466/relation-tuples
+      KETO_WRITE_URL: http://keto:4467/admin/relation-tuples/
+      BACKEND_URL: http://leastaction-${LEASTACTION_SLOT}-backend:8000
+      ROOT_EMAIL: ${ROOT_EMAIL:-admin@example.com}
+      ROOT_USERNAME: ${ROOT_USERNAME:-admin123}
+      ROOT_PASSWORD: ${ROOT_PASSWORD:-admin123}
+      # Optional: override the generated keypair (see backend service notes).
+      PUBLIC_KEY: ${PUBLIC_KEY:-}
+      PRIVATE_KEY: ${PRIVATE_KEY:-}
+    volumes:
+      - leastaction_logs:/logs
+      - leastaction_keys:/backend/keys:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      keto-access-writer:
+        condition: service_started
+      db-change-streamer:
+        condition: service_started
+
+networks:
+  default:
+    name: leastaction_network
+    external: true
+
+volumes:
+  leastaction_logs:
+    name: leastaction_logs
+    external: true
+  leastaction_keys:
+    name: leastaction_keys
+    external: true

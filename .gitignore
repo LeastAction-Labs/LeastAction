@@ -25,3 +25,8 @@ backend/tokens/access_token.txt
 *.settings.json
 .claude/*.json
 *.env
+
+# Blue-green deploy runtime state (see deploy/README.md)
+deploy/.runtime/
+deploy/.deploy_state
+!deploy/.env.example

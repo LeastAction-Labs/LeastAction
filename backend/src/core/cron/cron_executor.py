@@ -4,13 +4,9 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 import asyncio
-import json
 import traceback
 from datetime import UTC, datetime
-
 from pydantic_mongo import PydanticObjectId
-
-from src.common.decorators.performance import get_system_resources
 from src.common.logger.logger import log_error, log_info
 from src.core.celery.client import APIClient
 from src.core.celery.utils import get_stale_heartbeat_threshold_seconds, is_heartbeat_stale
@@ -44,16 +40,6 @@ class CronExecutor:
             account_laui=str(project["account_laui"]) if project.get("account_laui") else None,
             project_laui=str(project["project_laui"]) if project.get("project_laui") else None,
         )
-        try:
-            resources = get_system_resources()
-            log_info(
-                "cron",
-                "CronExecutor",
-                "heartbeat_resources",
-                json.dumps({"project_id": self.project_id, **resources}),
-            )
-        except Exception:
-            pass
 
     async def _update_project_status(
         self,

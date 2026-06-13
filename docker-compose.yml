@@ -225,12 +225,8 @@ services:
     environment:
       <<: *backend-env
     depends_on:
-      mongodb:
+      backend:
         condition: service_healthy
-      redis:
-        condition: service_started
-      setup-helper:
-        condition: service_completed_successfully
 
   celery-action-worker:
     <<: *backend-image
@@ -248,12 +244,8 @@ services:
     environment:
       <<: *backend-env
     depends_on:
-      mongodb:
+      backend:
         condition: service_healthy
-      redis:
-        condition: service_started
-      setup-helper:
-        condition: service_completed_successfully
 
   celery-cron-worker:
     <<: *backend-image
@@ -271,12 +263,8 @@ services:
     environment:
       <<: *backend-env
     depends_on:
-      mongodb:
+      backend:
         condition: service_healthy
-      redis:
-        condition: service_started
-      setup-helper:
-        condition: service_completed_successfully
 
   flower:
     <<: *backend-image
@@ -292,12 +280,8 @@ services:
     environment:
       <<: *backend-env
     depends_on:
-      mongodb:
+      backend:
         condition: service_healthy
-      redis:
-        condition: service_started
-      setup-helper:
-        condition: service_completed_successfully
     ports:
       - "5555:5555"
 

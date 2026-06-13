@@ -210,11 +210,22 @@ docker compose up -d \
 
 RSA signing keys are generated automatically on first run. Override defaults
 (root password, Claude API key) with a `.env` file — see
-[.env.example](.env.example). See [PACKAGING.md](PACKAGING.md) for details.
+[.env.example](.env.example).
 
 ```bash
 docker compose down       # stop
 docker compose down -v    # stop and wipe all data
+```
+
+**Zero-downtime redeploys** — the compose flow above restarts everything on
+each update. For production-style self-hosting, use the blue-green deploy
+script instead: it runs the app in two slots (blue/green), brings the new one
+up alongside the old, switches traffic only once it's healthy, and rolls back
+failed deploys automatically. See [deploy/README.md](deploy/README.md).
+
+```bash
+./blue-green-run.sh --fresh   # first install
+./blue-green-run.sh           # zero-downtime redeploy (swaps blue <-> green)
 ```
 
 ---
@@ -236,7 +247,7 @@ Detailed setup guides:
 
 - [**Claude Code + MCP**](docs/advanced/AI_managment/mcp.md) — connect Claude Code to your catalog via MCP: UI token flow, available tools, troubleshooting
 - [**Data Inspector**](docs/advanced/API_management/12-query.md) — (Experimental Preview) `inspect_data` MCP tool + REST endpoint for read-only queries across any catalog connection; primary use is AI-driven post-task verification; UI at `/query` is a debug surface for engineers
-- [**Production deployment**](blue-green-deployment.md) — blue-green zero-downtime deployment on EC2 via Docker + nginx, remote deploy script, troubleshooting
+- [**Production deployment**](deploy/README.md) — local blue-green zero-downtime deploys via `./blue-green-run.sh`: two-slot (blue/green) swap from Docker Hub images or local source, automatic rollback on failed health, graceful worker draining
 - [**Backend — Docker Compose**](backend/DOCKER.md) — full local dev service reference, scaling workers, logs, environment variables, database management, troubleshooting
 - [**Frontend — local dev**](frontend/README.md) — running the Vite dev server, environment variables, connecting to the backend
 
