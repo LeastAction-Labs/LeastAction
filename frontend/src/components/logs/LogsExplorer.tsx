@@ -660,7 +660,9 @@ const LogsExplorer = ({
             aria-label="Logs Explorer"
             onItemClick={(event, itemId) => void handleClick(event, itemId)}
             expandedItems={expanded}
-            onExpandedItemsChange={(event, itemIds) => void handleExpandedItemsChange(event, itemIds)}
+            onExpandedItemsChange={(event, itemIds) =>
+              void handleExpandedItemsChange(event, itemIds)
+            }
             slotProps={{
               item: {
                 sx: {
