@@ -132,21 +132,6 @@ export default function MarketplaceItemTabView({ item }: MarketplaceItemTabViewP
       </Tooltip>
     ) : null;
 
-  const importButtonArea = (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-      {depsButton}
-      {importDisabledReason ? (
-        <Tooltip title={importDisabledReason} placement="left">
-          {importButton}
-        </Tooltip>
-      ) : (
-        <Tooltip title={`Import "${item.name}"`} placement="left">
-          {importButton}
-        </Tooltip>
-      )}
-    </Box>
-  );
-
   // payloads may arrive as an array OR as an object { filename: content }
   const normalizePayloads = (raw: any): { filename: string; content: string }[] => {
     if (!raw) return [];
