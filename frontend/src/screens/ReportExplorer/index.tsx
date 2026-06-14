@@ -339,7 +339,10 @@ export default function ReportExplorer({
         bgcolor: 'var(--bg-primary)',
       }}
     >
-      <ExplorerHeader folderPath={displayPath} onNavigateTo={() => void handleNavigateTo()} />
+      <ExplorerHeader
+        folderPath={displayPath}
+        onNavigateTo={(item, index) => void handleNavigateTo(item, index)}
+      />
 
       {error ? (
         <Box
@@ -445,7 +448,7 @@ export default function ReportExplorer({
           <FolderGrid
             folders={folders}
             loading={loading && folders.length === 0 && reports.length === 0}
-            onOpen={() => void handleOpenFolder()}
+            onOpen={(folder) => void handleOpenFolder(folder)}
           />
           {!loading && reports.length > 0 && (
             <>

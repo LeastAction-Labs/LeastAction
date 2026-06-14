@@ -95,7 +95,7 @@ function RouteComponent() {
             </Alert>
           )}
 
-          <Box component="form" onSubmit={() => void handleLogin()}>
+          <Box component="form" onSubmit={(e) => void handleLogin(e)}>
             <TextField
               fullWidth
               label="Email"

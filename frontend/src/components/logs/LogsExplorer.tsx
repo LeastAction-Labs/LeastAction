@@ -658,9 +658,9 @@ const LogsExplorer = ({
           <RichTreeView
             items={treeItems}
             aria-label="Logs Explorer"
-            onItemClick={() => void handleClick()}
+            onItemClick={(event, itemId) => void handleClick(event, itemId)}
             expandedItems={expanded}
-            onExpandedItemsChange={() => void handleExpandedItemsChange()}
+            onExpandedItemsChange={(event, itemIds) => void handleExpandedItemsChange(event, itemIds)}
             slotProps={{
               item: {
                 sx: {
