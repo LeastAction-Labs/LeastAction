@@ -5,15 +5,23 @@
  * marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
  * Use of this file outside those terms is not permitted.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { Box, Container, Tab, Tabs, Typography } from '@mui/material';
+import { Download as ImportIcon } from '@mui/icons-material';
+import ListAltIcon from '@mui/icons-material/ListAlt';
+import { Box, Container, IconButton, Tab, Tabs, Tooltip, Typography } from '@mui/material';
 
 import FieldRenderer, { TabFields } from '@/components/browse/FieldRenderer';
 import { generateTabs, processFormData } from '@/components/browse/TabView/tabUtils';
 import type { FullItemData } from '@/components/browse/types';
+// ← incoming fix: getCoreVersion() not CORE_VERSION
+import UsecaseDepsDialog from '@/components/marketplace/UsecaseImportModal/UsecaseDepsDialog';
+import type { DependencyStatus } from '@/components/marketplace/UsecaseImportModal/types';
 import { TabPanel } from '@/components/ui';
-import { getSchema } from '@/services/schema.service';
+import { getCoreVersion } from '@/config/version';
+import { useCatalog } from '@/contexts/CatalogContext';
+import { getSchema, schemaExists } from '@/services/schema.service';
+import { compatibilityMessage, isCoreCompatible } from '@/utils/semver';
 
 import Issues from './Issues';
 import Reviews from './Reviews';
@@ -25,6 +33,7 @@ interface MarketplaceItemTabViewProps {
 export default function MarketplaceItemTabView({ item }: MarketplaceItemTabViewProps) {
   const [tabValue, setTabValue] = useState(0);
   const [schema, setSchema] = useState<any>(null);
+  const { setImportModalState } = useCatalog();
 
   const isUsecase = item?.item_type === 'usecase';
   const isSkillUsecase =
@@ -33,6 +42,10 @@ export default function MarketplaceItemTabView({ item }: MarketplaceItemTabViewP
     (item as any).tags.some(
       (t: string) => t.toLowerCase() === 'skill' || t.toLowerCase() === 'skills',
     );
+
+  const [depsDialogOpen, setDepsDialogOpen] = useState(false);
+  const depCacheRef = useRef<Map<string, string>>(new Map());
+  const [requiredDepsResolved, setRequiredDepsResolved] = useState(false);
 
   useEffect(() => {
     setTabValue(0);
@@ -58,6 +71,105 @@ export default function MarketplaceItemTabView({ item }: MarketplaceItemTabViewP
   );
 
   console.log(tabs, tabFields);
+
+  const coreVersion = getCoreVersion();
+  const typeSupported = schemaExists(item.item_type);
+  const compatible = isCoreCompatible(item.version_compatibility, coreVersion);
+  const deprecated = !!item.version_details?.deprecated;
+
+  const importDisabledReason: string | null = !typeSupported
+    ? 'Item type not supported in this core version'
+    : !compatible
+      ? (compatibilityMessage(item.version_compatibility, coreVersion) ??
+        'Incompatible core version')
+      : deprecated
+        ? `This item is deprecated${item.version_details?.deprecated_at ? ` since ${item.version_details.deprecated_at}` : ''}`
+        : null;
+
+  const handleDepStatusChange = (_statuses: DependencyStatus[], allResolved: boolean) => {
+    setRequiredDepsResolved(allResolved);
+  };
+
+  const importButton = (
+    <IconButton
+      size="small"
+      disabled={!!importDisabledReason}
+      onClick={() =>
+        !importDisabledReason &&
+        setImportModalState({
+          isOpen: true,
+          itemData: item,
+          ...(isUsecase && !isSkillUsecase
+            ? {
+                usecaseDepCache: new Map(depCacheRef.current),
+                usecaseDepsResolved: requiredDepsResolved,
+              }
+            : {}),
+        })
+      }
+      sx={{
+        color: importDisabledReason ? 'var(--text-secondary)' : 'var(--text-primary)',
+        '&:hover': { bgcolor: 'var(--bg-primary)' },
+      }}
+    >
+      <ImportIcon fontSize="small" />
+    </IconButton>
+  );
+
+  const depsButton =
+    isUsecase && !isSkillUsecase ? (
+      <Tooltip title="Dependencies" placement="left">
+        <IconButton
+          size="small"
+          onClick={() => setDepsDialogOpen(true)}
+          sx={{
+            color: 'var(--text-primary)',
+            '&:hover': { bgcolor: 'var(--bg-primary)' },
+          }}
+        >
+          <ListAltIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    ) : null;
+
+  const importButtonArea = (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+      {depsButton}
+      {importDisabledReason ? (
+        <Tooltip title={importDisabledReason} placement="left">
+          {importButton}
+        </Tooltip>
+      ) : (
+        <Tooltip title={`Import "${item.name}"`} placement="left">
+          {importButton}
+        </Tooltip>
+      )}
+    </Box>
+  );
+
+  // payloads may arrive as an array OR as an object { filename: content }
+  const normalizePayloads = (raw: any): { filename: string; content: string }[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) {
+      return raw.map((p) => {
+        if (typeof p === 'string') {
+          try {
+            return JSON.parse(p) as { filename: string; content: string };
+          } catch {
+            return { filename: 'unknown', content: p };
+          }
+        }
+        return p as { filename: string; content: string };
+      });
+    }
+    if (typeof raw === 'object') {
+      return Object.entries(raw).map(([filename, content]) => ({
+        filename,
+        content: content as string,
+      }));
+    }
+    return [];
+  };
 
   const renderTabContent = (tabName: string) => {
     const fields = tabFields[tabName] ?? [];
@@ -119,6 +231,17 @@ export default function MarketplaceItemTabView({ item }: MarketplaceItemTabViewP
   if (!schema?.columns) {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            borderBottom: 1,
+            borderColor: 'var(--border-color)',
+            p: 0.5,
+          }}
+        >
+          {importButtonArea}
+        </Box>
         <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
           <Box
             component="pre"
@@ -137,6 +260,16 @@ export default function MarketplaceItemTabView({ item }: MarketplaceItemTabViewP
             {JSON.stringify(item, null, 2)}
           </Box>
         </Box>
+        {isUsecase && !isSkillUsecase && (
+          <UsecaseDepsDialog
+            open={depsDialogOpen}
+            onClose={() => setDepsDialogOpen(false)}
+            itemName={item.name}
+            payloads={normalizePayloads((item as any).payloads)}
+            depCacheRef={depCacheRef}
+            onStatusChange={handleDepStatusChange}
+          />
+        )}
       </Box>
     );
   }
@@ -181,6 +314,7 @@ export default function MarketplaceItemTabView({ item }: MarketplaceItemTabViewP
               ))}
             </Tabs>
           </Box>
+          <Box sx={{ pr: 1 }}>{importButtonArea}</Box>
         </Box>
 
         <Box sx={{ flex: 1, overflow: 'auto', bgcolor: 'var(--bg-primary)' }}>
@@ -190,6 +324,17 @@ export default function MarketplaceItemTabView({ item }: MarketplaceItemTabViewP
             </TabPanel>
           ))}
         </Box>
+
+        {isUsecase && !isSkillUsecase && (
+          <UsecaseDepsDialog
+            open={depsDialogOpen}
+            onClose={() => setDepsDialogOpen(false)}
+            itemName={item.name}
+            payloads={normalizePayloads((item as any).payloads)}
+            depCacheRef={depCacheRef}
+            onStatusChange={handleDepStatusChange}
+          />
+        )}
       </Box>
     </Container>
   );
