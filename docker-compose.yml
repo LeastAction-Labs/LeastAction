@@ -111,16 +111,16 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  postgres-analytics:
+  postgres-demo:
     image: postgres:15
-    hostname: postgres-analytics
+    hostname: postgres-demo
     restart: unless-stopped
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=analytics_db
+      - POSTGRES_DB=postgres_demo_db
     volumes:
-      - analytics_postgres_data:/var/lib/postgresql/data
+      - postgres_demo_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -467,6 +467,6 @@ configs:
 volumes:
   mongodb_data:
   postgres_data:
-  analytics_postgres_data:
+  postgres_demo_data:
   la_logs:
   la_keys:

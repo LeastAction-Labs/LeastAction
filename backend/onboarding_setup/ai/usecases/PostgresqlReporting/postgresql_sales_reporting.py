@@ -37,35 +37,27 @@ guide_docs = """\
 ## Prerequisites
 
 ### 1. PostgreSQL database
-You need a running PostgreSQL instance (local, Docker, or cloud-managed).
+The bundled LeastAction docker-compose stack ships a `postgres-demo` service
+(database `postgres_demo_db`, user/pass `postgres`/`postgres`) that this pipeline
+uses by default — no manual database setup is required.
 The pipeline creates and populates all tables automatically on first run.
 
-Recommended database: `analytics_db`
+If you'd rather use your own PostgreSQL instance (local, Docker, or cloud-managed),
+update the connection item below with your own host/port/database/user/password.
 
-**Docker quick-start:**
-```bash
-docker run -d \\
-  --name la-analytics-postgres \\
-  -e POSTGRES_USER=postgres \\
-  -e POSTGRES_PASSWORD=postgres \\
-  -e POSTGRES_DB=analytics_db \\
-  -p 5432:5432 \\
-  postgres:15
-```
-
-> **Important:** If LeastAction runs inside Docker, use `host.docker.internal`
-> as the host in your connection — not `localhost`.
+> **Important:** If LeastAction runs inside Docker and you point this at a database
+> running on your host machine, use `host.docker.internal` as the host — not `localhost`.
 
 ### 2. Connection item
 Create a **connection** item in your project with the following fields:
 
-| Field      | Example value           |
-|------------|-------------------------|
-| `host`     | `host.docker.internal`  |
-| `port`     | `5432`                  |
-| `database` | `analytics_db`          |
-| `user`     | `postgres`              |
-| `password` | `postgres`              |
+| Field      | Example value      |
+|------------|---------------------|
+| `host`     | `postgres-demo`     |
+| `port`     | `5432`              |
+| `database` | `postgres_demo_db`  |
+| `user`     | `postgres`          |
+| `password` | `postgres`          |
 
 ### 3. Operator dependencies
 - **PostgresqlExecuteSQL** — requires `psycopg2-binary`
@@ -153,9 +145,9 @@ For each of `revenue`, `profit`, `units_sold`, and `cost`:
 In your project, create a connection item named `postgresql` with:
 ```json
 {
-  "host": "host.docker.internal",
+  "host": "postgres-demo",
   "port": 5432,
-  "database": "analytics_db",
+  "database": "postgres_demo_db",
   "user": "postgres",
   "password": "postgres"
 }
@@ -718,9 +710,9 @@ FROM fact_product_agg_daily_stage2;
       "font_family": "Segoe UI, Arial, sans-serif"
     },
     "database": {
-      "host": "host.docker.internal",
+      "host": "postgres-demo",
       "port": 5432,
-      "database": "analytics_db",
+      "database": "postgres_demo_db",
       "user": "postgres",
       "password": "postgres"
     },
@@ -837,9 +829,9 @@ FROM fact_product_agg_daily_stage2;
       "font_family": "Arial, sans-serif"
     },
     "database": {
-      "host": "host.docker.internal",
+      "host": "postgres-demo",
       "port": 5432,
-      "database": "analytics_db",
+      "database": "postgres_demo_db",
       "user": "postgres",
       "password": "postgres"
     },
@@ -936,15 +928,16 @@ and generates two styled HTML dashboard reports published to the catalog.
 ## Connection fields (required for both operators)
 ```json
 {
-  "host": "host.docker.internal",
+  "host": "postgres-demo",
   "port": 5432,
-  "database": "analytics_db",
+  "database": "postgres_demo_db",
   "user": "postgres",
   "password": "postgres"
 }
 ```
-> Use `host.docker.internal` when LeastAction runs inside Docker. Use `localhost`
-> only when LeastAction runs directly on the host machine.
+> `postgres-demo` is the bundled docker-compose service. If pointing at a database
+> on your host machine instead, use `host.docker.internal` when LeastAction runs
+> inside Docker, or `localhost` when LeastAction runs directly on the host machine.
 
 ## Task DAG structure
 

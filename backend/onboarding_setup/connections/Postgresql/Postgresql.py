@@ -6,27 +6,27 @@
 connection_type = "postgresql"
 
 connection = {
-  "host": "postgres-analytics",
+  "host": "postgres-demo",
   "port": 5432,
-  "database": "analytics_db",
+  "database": "postgres_demo_db",
   "user": "postgres",
   "password": "postgres"
 }
 
-prompt = "Connect to the internal demo PostgreSQL database (postgres-analytics) bundled with LeastAction. Used by the PostgresqlDemo 3-task workflow (create/insert/update on the 'people' table)."
+prompt = "Connect to the internal demo PostgreSQL database (postgres-demo) bundled with LeastAction. Used by the PostgresqlDemo 3-task workflow (create/insert/update on the 'people' table)."
 
 install_docs = """# Postgresql — Connection Setup
 
-Points to the `postgres-analytics` container that ships with the LeastAction docker-compose
-stack (service `postgres-analytics`, database `analytics_db`). No additional setup is
+Points to the `postgres-demo` container that ships with the LeastAction docker-compose
+stack (service `postgres-demo`, database `postgres_demo_db`). No additional setup is
 required when running the bundled demo stack.
 
 ## Fields
 | Field | Value | Notes |
 |---|---|---|
-| host | postgres-analytics | Internal docker hostname |
+| host | postgres-demo | Internal docker hostname |
 | port | 5432 | |
-| database | analytics_db | |
+| database | postgres_demo_db | |
 | user | postgres | |
 | password | postgres | |
 
@@ -41,7 +41,7 @@ via `connection_name`. Provides plain psycopg2-style credentials (host, port, da
 user, password).
 """
 
-description = "PostgreSQL connection for the bundled PostgresqlDemo workflow — points to the internal postgres-analytics demo database by default."
+description = "PostgreSQL connection for the bundled PostgresqlDemo workflow — points to the internal postgres-demo database by default."
 
 publisher = "LeastAction"
 

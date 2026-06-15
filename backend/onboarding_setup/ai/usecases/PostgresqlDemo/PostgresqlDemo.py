@@ -176,7 +176,7 @@ prompt = (
     "Three-step PostgreSQL demo pipeline: create the 'people' table, insert three sample rows "
     "with a logical_date partition, then update their ages. Each step depends on the previous "
     "via LeastActionCheckIfParentsAreDone. Designed to run every 3 minutes on the PostgresqlExecuteSQL "
-    "operator with the bundled 'postgresql' connection (points at the internal postgres-analytics "
+    "operator with the bundled 'postgresql' connection (points at the internal postgres-demo "
     "demo database) and the 'PostgresqlDemoWorkflow' config (auto-reschedule on error/fail)."
 )
 
@@ -203,7 +203,7 @@ This usecase is self-contained — deploying it sets up everything needed to run
 
 | Item | Name | Purpose |
 |---|---|---|
-| Connection | `Postgresql` (connection_name `postgresql`) | Points to the internal `postgres-analytics` demo database (docker service `postgres-analytics`, db `analytics_db`, user/pass `postgres`/`postgres`). Edit the connection to point at your own PostgreSQL instance if desired. |
+| Connection | `Postgresql` (connection_name `postgresql`) | Points to the internal `postgres-demo` demo database (docker service `postgres-demo`, db `postgres_demo_db`, user/pass `postgres`/`postgres`). Edit the connection to point at your own PostgreSQL instance if desired. |
 | Config | `PostgresqlDemoWorkflow` | Attached to all 3 tasks via `config_name`. Adds `LeastActionReschedule` on error/fail states. |
 | Operator | `PostgresqlExecuteSQL` | Executes each step's SQL payload (core operator). |
 | Action | `LeastActionCheckIfParentsAreDone` | Used by steps 1 and 2 to wait for the previous step (core action). |
@@ -213,7 +213,7 @@ This usecase is self-contained — deploying it sets up everything needed to run
 - Action `LeastActionCheckIfParentsAreDone` must exist in core
 - Connection `Postgresql` (connection_name `postgresql`) and config `PostgresqlDemoWorkflow`
   are deployed as part of this usecase — no manual setup required when running the bundled
-  docker-compose stack with the `postgres-analytics` service.
+  docker-compose stack with the `postgres-demo` service.
 
 ## Template variables
 | Variable | Description |
