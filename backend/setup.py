@@ -824,7 +824,7 @@ async def get_or_create_postgres_tasks(
 ) -> dict:
     """Always create PostgreSQL tasks."""
     operator_laui = all_items["operator"]["Postgresql/PostgresqlExecuteSQL"]
-    connection_laui = all_items["connection"]["Postgresql/PostgresqlPlusClaude"]
+    connection_laui = all_items["connection"]["Postgresql/Postgresql"]
     create_payload_laui = all_items["payload"]["PostgresqlDemo/create_sql"]
     insert_payload_laui = all_items["payload"]["PostgresqlDemo/insert_sql"]
     update_payload_laui = all_items["payload"]["PostgresqlDemo/update_sql"]
