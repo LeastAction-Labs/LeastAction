@@ -73,7 +73,7 @@ type UserListAction = 'add' | 'remove';
 export default function AdminDashboard() {
   const { authState } = useAuth();
   const { systemUserLaui } = authState;
-  const { _userAuthenticated: userLoggedInToMarketplace } = useMarketplace();
+  const { userAuthenticated: _userLoggedInToMarketplace } = useMarketplace();
 
   const { showWarning } = useNotification();
 
