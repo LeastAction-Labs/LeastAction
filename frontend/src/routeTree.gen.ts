@@ -21,7 +21,6 @@ import { Route as ChangePasswordImport } from './routes/change-password'
 import { Route as AdminImport } from './routes/admin'
 import { Route as IndexImport } from './routes/index'
 import { Route as PublicRegisterImport } from './routes/public/register'
-import { Route as PublicMarketplaceSystemCallbackImport } from './routes/public/marketplace-system-callback'
 import { Route as PublicMarketplaceSignupImport } from './routes/public/marketplace-signup'
 import { Route as PublicMarketplaceLoginImport } from './routes/public/marketplace-login'
 import { Route as PublicMarketplaceCallbackImport } from './routes/public/marketplace-callback'
@@ -90,13 +89,6 @@ const PublicRegisterRoute = PublicRegisterImport.update({
   path: '/public/register',
   getParentRoute: () => rootRoute,
 } as any)
-
-const PublicMarketplaceSystemCallbackRoute =
-  PublicMarketplaceSystemCallbackImport.update({
-    id: '/public/marketplace-system-callback',
-    path: '/public/marketplace-system-callback',
-    getParentRoute: () => rootRoute,
-  } as any)
 
 const PublicMarketplaceSignupRoute = PublicMarketplaceSignupImport.update({
   id: '/public/marketplace-signup',
@@ -243,13 +235,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicMarketplaceSignupImport
       parentRoute: typeof rootRoute
     }
-    '/public/marketplace-system-callback': {
-      id: '/public/marketplace-system-callback'
-      path: '/public/marketplace-system-callback'
-      fullPath: '/public/marketplace-system-callback'
-      preLoaderRoute: typeof PublicMarketplaceSystemCallbackImport
-      parentRoute: typeof rootRoute
-    }
     '/public/register': {
       id: '/public/register'
       path: '/public/register'
@@ -278,7 +263,6 @@ export interface FileRoutesByFullPath {
   '/public/marketplace-callback': typeof PublicMarketplaceCallbackRoute
   '/public/marketplace-login': typeof PublicMarketplaceLoginRoute
   '/public/marketplace-signup': typeof PublicMarketplaceSignupRoute
-  '/public/marketplace-system-callback': typeof PublicMarketplaceSystemCallbackRoute
   '/public/register': typeof PublicRegisterRoute
 }
 
@@ -298,7 +282,6 @@ export interface FileRoutesByTo {
   '/public/marketplace-callback': typeof PublicMarketplaceCallbackRoute
   '/public/marketplace-login': typeof PublicMarketplaceLoginRoute
   '/public/marketplace-signup': typeof PublicMarketplaceSignupRoute
-  '/public/marketplace-system-callback': typeof PublicMarketplaceSystemCallbackRoute
   '/public/register': typeof PublicRegisterRoute
 }
 
@@ -319,7 +302,6 @@ export interface FileRoutesById {
   '/public/marketplace-callback': typeof PublicMarketplaceCallbackRoute
   '/public/marketplace-login': typeof PublicMarketplaceLoginRoute
   '/public/marketplace-signup': typeof PublicMarketplaceSignupRoute
-  '/public/marketplace-system-callback': typeof PublicMarketplaceSystemCallbackRoute
   '/public/register': typeof PublicRegisterRoute
 }
 
@@ -341,7 +323,6 @@ export interface FileRouteTypes {
     | '/public/marketplace-callback'
     | '/public/marketplace-login'
     | '/public/marketplace-signup'
-    | '/public/marketplace-system-callback'
     | '/public/register'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -360,7 +341,6 @@ export interface FileRouteTypes {
     | '/public/marketplace-callback'
     | '/public/marketplace-login'
     | '/public/marketplace-signup'
-    | '/public/marketplace-system-callback'
     | '/public/register'
   id:
     | '__root__'
@@ -379,7 +359,6 @@ export interface FileRouteTypes {
     | '/public/marketplace-callback'
     | '/public/marketplace-login'
     | '/public/marketplace-signup'
-    | '/public/marketplace-system-callback'
     | '/public/register'
   fileRoutesById: FileRoutesById
 }
@@ -400,7 +379,6 @@ export interface RootRouteChildren {
   PublicMarketplaceCallbackRoute: typeof PublicMarketplaceCallbackRoute
   PublicMarketplaceLoginRoute: typeof PublicMarketplaceLoginRoute
   PublicMarketplaceSignupRoute: typeof PublicMarketplaceSignupRoute
-  PublicMarketplaceSystemCallbackRoute: typeof PublicMarketplaceSystemCallbackRoute
   PublicRegisterRoute: typeof PublicRegisterRoute
 }
 
@@ -420,7 +398,6 @@ const rootRouteChildren: RootRouteChildren = {
   PublicMarketplaceCallbackRoute: PublicMarketplaceCallbackRoute,
   PublicMarketplaceLoginRoute: PublicMarketplaceLoginRoute,
   PublicMarketplaceSignupRoute: PublicMarketplaceSignupRoute,
-  PublicMarketplaceSystemCallbackRoute: PublicMarketplaceSystemCallbackRoute,
   PublicRegisterRoute: PublicRegisterRoute,
 }
 
@@ -449,7 +426,6 @@ export const routeTree = rootRoute
         "/public/marketplace-callback",
         "/public/marketplace-login",
         "/public/marketplace-signup",
-        "/public/marketplace-system-callback",
         "/public/register"
       ]
     },
@@ -497,9 +473,6 @@ export const routeTree = rootRoute
     },
     "/public/marketplace-signup": {
       "filePath": "public/marketplace-signup.tsx"
-    },
-    "/public/marketplace-system-callback": {
-      "filePath": "public/marketplace-system-callback.tsx"
     },
     "/public/register": {
       "filePath": "public/register.tsx"

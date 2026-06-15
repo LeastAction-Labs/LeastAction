@@ -64,7 +64,7 @@ async def license_middleware(
         if PydanticObjectId(user.laui) not in license.user_list:
             raise LicenseError("User not assigned with any license")
         license_claims = await license_service.verify_license(license=license)
-        if license_claims.user_laui != PydanticObjectId(root_user_laui):
+        if license_claims.instance_id != PydanticObjectId(root_user_laui):
             raise LicenseError("Using license created for a different system")
 
         return await call_next(request)

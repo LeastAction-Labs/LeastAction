@@ -160,6 +160,7 @@ export default function TopHeader() {
   const [fbStatus, setFbStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [fbError, setFbError] = useState('');
 
+  /*
   const handleMarketplace = async () => {
     if (userLoggedInToMarketplace) {
       await marketplaceLogout();
@@ -182,7 +183,7 @@ export default function TopHeader() {
       triggerMarketplaceContextReload();
     }
   };
-
+  */
   const handleSettingsClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
@@ -310,10 +311,11 @@ export default function TopHeader() {
       </Box>
 
       <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.1 }}>
-        <Button onClick={() => void handleMarketplace()}>
-          {userLoggedInToMarketplace ? 'Logout from marketplace' : 'Login to marketplace'}
-        </Button>
-
+        {/*
+          <Button onClick={() => void handleMarketplace()}>
+              userLoggedInToMarketplace ? 'Logout from marketplace' : 'Login to marketplace'}
+          </Button>
+          */}
         <Button
           onClick={toggleTimeZone}
           size="small"
@@ -338,7 +340,6 @@ export default function TopHeader() {
         >
           {timeZone === 'utc' ? 'UTC' : getTimeZoneLabel()}
         </Button>
-
         <IconButton onClick={handleHelpOpen} sx={styles.settingsButton} title="Help">
           <HelpOutline />
         </IconButton>

@@ -57,6 +57,7 @@ export async function marketplaceCheckLoggedIn(): Promise<any> {
 export interface LicenseBuyRequest {
   total_users: number;
   duration: number;
+  instance_id: string;
 }
 
 export interface LicenseResponse {

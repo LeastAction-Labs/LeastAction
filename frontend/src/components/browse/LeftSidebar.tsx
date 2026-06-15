@@ -19,11 +19,11 @@ import {
   Close as CloseIcon,
   Explore as ExploreIcon,
   Folder as FolderIcon,
-  HourglassEmpty as PendingPubIcon,
+  //HourglassEmpty as PendingPubIcon,
   Speed as PerformanceIcon,
-  CheckCircle as PublisherIcon,
+  //CheckCircle as PublisherIcon,
   Terminal as QueryEditorIcon,
-  PersonAdd as RequestPubIcon,
+  //PersonAdd as RequestPubIcon,
 } from '@mui/icons-material';
 import { Box, Dialog, DialogContent, DialogTitle, IconButton, Tooltip } from '@mui/material';
 
@@ -31,8 +31,9 @@ import { Box, Dialog, DialogContent, DialogTitle, IconButton, Tooltip } from '@m
 import PerformanceDashboard from '@/components/logs/PerformanceDashboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { CatalogType, useGlobal } from '@/contexts/GlobalContext';
-import { useMarketplace } from '@/contexts/MarketplaceContext';
-import { requestPublish } from '@/services/marketplace.service';
+
+//import { useMarketplace } from '@/contexts/MarketplaceContext';
+//import { requestPublish } from '@/services/marketplace.service';
 
 import { FONT_SIZES, TRANSITIONS } from '../../constants';
 
@@ -89,12 +90,23 @@ export default function LeftSidebar() {
   const navigate = useNavigate();
   const { setCatalogType, folderSidebarState, setFolderSidebarState } = useGlobal();
   const { authState } = useAuth();
+
+  /*
   const {
     user: marketplaceUser,
     publishAccess,
     userAuthenticated: userAuthenticatedToMarketplace,
     triggerReload,
   } = useMarketplace();
+  const handleRequestPublish = async () => {
+    try {
+      await requestPublish();
+      triggerReload();
+    } catch (e: any) {
+      console.log(`error when requesting for publish: ${e.message}`);
+    }
+  };
+  */
 
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
@@ -113,14 +125,6 @@ export default function LeftSidebar() {
 
   const activeIcon = perfOpen ? 'performance' : routeIcon !== 'document' ? routeIcon : selectedIcon;
 
-  const handleRequestPublish = async () => {
-    try {
-      await requestPublish();
-      triggerReload();
-    } catch (e: any) {
-      console.log(`error when requesting for publish: ${e.message}`);
-    }
-  };
   const handleIconClick = (icon: LeftSidebarIcon) => {
     setSelectedIcon(icon);
     switch (icon) {
@@ -146,7 +150,7 @@ export default function LeftSidebar() {
         void navigate({ to: '/query' });
         break;
       case 'debug':
-        void navigate({ to: '/debug', search: { session_id: '' } });
+        void navigate({ to: '/debug', search: { session_id: '', session_date: '' } });
         break;
     }
   };
@@ -240,14 +244,17 @@ export default function LeftSidebar() {
             <AdminPanelSettingsIcon sx={{ fontSize: FONT_SIZES.ICON_XL }} />
           </IconButton>
         )}
-        {userAuthenticatedToMarketplace && publishAccess && (
+        {/*
+          userAuthenticatedToMarketplace && publishAccess && (
           <Tooltip title="Publisher" placement="right">
             <IconButton sx={{ color: '#4caf50', '&:hover': { bgcolor: 'var(--bg-tertiary)' } }}>
               <PublisherIcon sx={{ fontSize: FONT_SIZES.ICON_XL }} />
             </IconButton>
           </Tooltip>
-        )}
-        {userAuthenticatedToMarketplace && marketplaceUser?.publish_requested && !publishAccess && (
+          )
+          */}
+        {/*
+        userAuthenticatedToMarketplace && marketplaceUser?.publish_requested && !publishAccess && (
           <Tooltip title="Publisher Request Pending" placement="right">
             <span>
               <IconButton disabled sx={{ color: '#ff9800 !important', opacity: '1 !important' }}>
@@ -255,8 +262,10 @@ export default function LeftSidebar() {
               </IconButton>
             </span>
           </Tooltip>
-        )}
-        {userAuthenticatedToMarketplace &&
+        )
+        */}
+        {/*
+          userAuthenticatedToMarketplace &&
           !marketplaceUser?.publish_requested &&
           !publishAccess && (
             <Tooltip title="Become a Publisher" placement="right">
@@ -273,7 +282,8 @@ export default function LeftSidebar() {
                 <RequestPubIcon sx={{ fontSize: FONT_SIZES.ICON_XL }} />
               </IconButton>
             </Tooltip>
-          )}
+          )
+        */}
       </Box>
 
       {/* Performance Dashboard Dialog */}

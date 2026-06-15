@@ -29,7 +29,7 @@ class LicenseClaims(BaseModel):
     permanent_seats: int
     trial_seats: int
     tier: LicenseTier
-    user_laui: PydanticObjectId
+    instance_id: PydanticObjectId
     expiry_date: datetime | None = None
     trial_start_date: datetime | None = None
     trial_end_date: datetime | None = None
