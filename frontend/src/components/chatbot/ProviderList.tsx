@@ -30,7 +30,7 @@ interface ProviderListProps {
   prefill?: { chatName: string; connectionName: string } | null;
 }
 
-const autocompleteSx = {
+export const autocompleteSx = {
   '& .MuiOutlinedInput-root': {
     fontSize: FONT_SIZES.XS,
     color: 'var(--text-primary)',
@@ -53,7 +53,7 @@ const autocompleteSx = {
   '& .MuiAutocomplete-clearIndicator': { color: 'var(--text-secondary)' },
 };
 
-const listboxSx = {
+export const listboxSx = {
   bgcolor: 'var(--bg-primary)',
   border: '1px solid var(--border)',
   borderRadius: BORDER_RADIUS.MD,
@@ -74,13 +74,70 @@ const listboxSx = {
   },
 };
 
-function formatSessionLabel(name: string) {
+export function formatSessionLabel(name: string) {
   const match = name.match(/chat_session_(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})/);
   if (match) {
     const [, date, h, m] = match;
     return formatDateTimeInline(`${date}T${h}:${m}:00`);
   }
   return name;
+}
+
+const parseMessages = (raw: any) =>
+  raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : undefined;
+
+// Build a ProviderConfig from a selected agent + connection (+ optional history
+// to resume). Mirrors how a chat session is bootstrapped from the dropdowns.
+export function buildProviderConfigFromSelection(
+  selectedAiChat: any,
+  selectedConn: any,
+  selectedHistory?: any,
+): ProviderConfig {
+  const aiChatConnection = selectedAiChat.connection
+    ? typeof selectedAiChat.connection === 'string'
+      ? JSON.parse(selectedAiChat.connection)
+      : selectedAiChat.connection
+    : (() => {
+        const c =
+          typeof selectedAiChat.content === 'string'
+            ? JSON.parse(selectedAiChat.content || '{}')
+            : selectedAiChat.content || {};
+        return c.connection || {};
+      })();
+
+  const connContent =
+    typeof selectedConn.content === 'string'
+      ? JSON.parse(selectedConn.content || '{}')
+      : selectedConn.content || {};
+
+  const merged = { ...aiChatConnection, ...connContent };
+  const messages = parseMessages(selectedHistory?.messages);
+
+  return {
+    aiChatLaui: selectedAiChat._laui || selectedAiChat.laui,
+    aiChatName: selectedAiChat.name || 'Unnamed AI Chat',
+    aiProvider:
+      merged.provider ||
+      (selectedAiChat.item_type?.startsWith('chat.')
+        ? selectedAiChat.item_type.replace('chat.', '')
+        : 'anthropic'),
+    connectionLaui: selectedConn._laui || selectedConn.laui,
+    ...(messages?.length ? { initialMessages: messages } : {}),
+  };
+}
+
+// Build a ProviderConfig directly from a saved chat_history item, resolving the
+// agent name from the agents list when available.
+export function buildProviderConfigFromHistory(histItem: any, agents: any[]): ProviderConfig {
+  const matchedChat = agents.find((p) => (p._laui || p.laui) === histItem.chat_laui);
+  const messages = parseMessages(histItem.messages);
+  return {
+    aiChatLaui: histItem.chat_laui,
+    aiChatName: matchedChat?.name || 'AI Agent',
+    aiProvider: histItem.ai_provider || 'anthropic',
+    connectionLaui: histItem.connection_laui,
+    ...(messages?.length ? { initialMessages: messages } : {}),
+  };
 }
 
 export default function ProviderList({ onSelect, prefill }: ProviderListProps) {
@@ -164,43 +221,7 @@ export default function ProviderList({ onSelect, prefill }: ProviderListProps) {
 
   const handleStart = () => {
     if (!selectedAiChat || !selectedConn) return;
-
-    const aiChatConnection = selectedAiChat.connection
-      ? typeof selectedAiChat.connection === 'string'
-        ? JSON.parse(selectedAiChat.connection)
-        : selectedAiChat.connection
-      : (() => {
-          const c =
-            typeof selectedAiChat.content === 'string'
-              ? JSON.parse(selectedAiChat.content || '{}')
-              : selectedAiChat.content || {};
-          return c.connection || {};
-        })();
-
-    const connContent =
-      typeof selectedConn.content === 'string'
-        ? JSON.parse(selectedConn.content || '{}')
-        : selectedConn.content || {};
-
-    const merged = { ...aiChatConnection, ...connContent };
-
-    const messages = selectedHistory?.messages
-      ? typeof selectedHistory.messages === 'string'
-        ? JSON.parse(selectedHistory.messages)
-        : selectedHistory.messages
-      : undefined;
-
-    onSelect({
-      aiChatLaui: selectedAiChat._laui || selectedAiChat.laui,
-      aiChatName: selectedAiChat.name || 'Unnamed AI Chat',
-      aiProvider:
-        merged.provider ||
-        (selectedAiChat.item_type?.startsWith('chat.')
-          ? selectedAiChat.item_type.replace('chat.', '')
-          : 'anthropic'),
-      connectionLaui: selectedConn._laui || selectedConn.laui,
-      ...(messages?.length ? { initialMessages: messages } : {}),
-    });
+    onSelect(buildProviderConfigFromSelection(selectedAiChat, selectedConn, selectedHistory));
   };
 
   if (loading) {
@@ -313,7 +334,7 @@ export default function ProviderList({ onSelect, prefill }: ProviderListProps) {
 
           {/* History Autocomplete */}
           <Box>
-            <Typography sx={labelSx}>Previous AI Sessions</Typography>
+            <Typography sx={labelSx}>Recents</Typography>
             <Autocomplete
               options={historyItems}
               getOptionLabel={(opt: any) =>
