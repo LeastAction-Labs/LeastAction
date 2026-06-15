@@ -25,7 +25,6 @@ import {
   Card,
   CardContent,
   CircularProgress,
-  Divider,
   IconButton,
   Typography,
 } from '@mui/material';
@@ -260,10 +259,6 @@ const styles = {
       color: 'var(--text-secondary)',
     },
   },
-  historySection: {
-    width: '100%',
-    mt: 2,
-  },
   historyItem: (isSelected: boolean) => ({
     p: 1.5,
     cursor: 'pointer',
@@ -291,6 +286,32 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
     p: 2,
+  },
+  pageRoot: {
+    display: 'flex',
+    flexDirection: { xs: 'column', md: 'row' },
+    alignItems: 'stretch',
+    width: '100%',
+    minHeight: '100vh',
+    backgroundColor: 'var(--bg-primary)',
+  },
+  sideMenu: {
+    width: { xs: '100%', md: 300 },
+    flexShrink: 0,
+    borderRight: { xs: 'none', md: '1px solid var(--border)' },
+    borderBottom: { xs: '1px solid var(--border)', md: 'none' },
+    p: 2,
+    maxHeight: '100vh',
+    overflowY: 'auto',
+    backgroundColor: 'var(--bg-secondary)',
+  },
+  sideMenuTitle: {
+    color: 'var(--text-secondary)',
+    fontSize: FONT_SIZES.SM,
+    fontWeight: FONT_WEIGHTS.WEIGHT_600,
+    mb: 1.5,
+    display: 'flex',
+    alignItems: 'center',
   },
 };
 
@@ -402,7 +423,115 @@ export default function ItemType() {
   };
 
   return (
-    <Box sx={styles.container}>
+    <Box sx={styles.pageRoot}>
+      <Box sx={styles.sideMenu}>
+        <Typography sx={styles.sideMenuTitle}>
+          <HistoryIcon sx={{ fontSize: FONT_SIZES.SM, mr: 0.5, verticalAlign: 'middle' }} />
+          Previous AI Sessions ({itemType})
+        </Typography>
+
+        <Box sx={{ mb: 1.5 }}>
+          <QuickSearch
+            label="Search sessions"
+            filters={{ item_type: 'generate_history', created_item_type: itemType }}
+            onSelect={(item) => {
+              const raw = item as Record<string, unknown>;
+              const laui = (raw._laui ?? raw.laui ?? raw.id ?? '') as string;
+              const name = (raw.name ?? '') as string;
+              if (laui) {
+                setSessionLaui(laui);
+                const aiChatLaui = (raw.chat_laui ?? '') as string;
+                if (aiChatLaui) {
+                  setConfig({
+                    aiChatLaui,
+                    aiChatName: (raw.chat_name ?? '') as string,
+                    aiProvider: (raw.ai_provider ?? '') as string,
+                    includeGuideDoc: false,
+                    includeInstallGuide: false,
+                  });
+                  setMode(AIMode.MANUALEDITOR);
+                } else {
+                  setMode(AIMode.AICONFIG);
+                }
+                if (name) void navigate({ to: '/ai/create', search: { sessionId: name } });
+              }
+            }}
+            placeholder="Search previous sessions…"
+          />
+        </Box>
+
+        {loadingHistory ? (
+          <Box sx={styles.historyLoading}>
+            <CircularProgress size={20} sx={{ color: 'var(--accent)' }} />
+          </Box>
+        ) : historySessions.length > 0 ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {historySessions.map((session) => (
+              <Box
+                key={session.laui}
+                sx={styles.historyItem(false)}
+                onClick={() => handleSessionClick(session)}
+              >
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  <Box sx={{ flex: 1, overflow: 'hidden' }}>
+                    <Typography sx={styles.historyName}>{session.name}</Typography>
+                    {session.latestPrompt && (
+                      <Typography
+                        sx={{
+                          fontSize: FONT_SIZES.XS,
+                          color: 'var(--text-secondary)',
+                          mt: 0.5,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {session.latestPrompt}
+                      </Typography>
+                    )}
+                    {session.ai_provider && (
+                      <Typography sx={styles.historyMeta}>
+                        Provider: {session.ai_provider}
+                      </Typography>
+                    )}
+                  </Box>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleDeleteSession(session);
+                    }}
+                    sx={{
+                      color: 'var(--text-secondary)',
+                      '&:hover': { color: 'var(--error)' },
+                    }}
+                  >
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        ) : (
+          <Typography
+            sx={{
+              fontSize: FONT_SIZES.XS,
+              color: 'var(--text-secondary)',
+              fontStyle: 'italic',
+            }}
+          >
+            No previous sessions for {itemType}
+          </Typography>
+        )}
+      </Box>
+
+      <Box sx={styles.container}>
       <Box sx={styles.contentWrapper}>
         <Box sx={{ mb: 1, width: '100%' }}>
           <Typography sx={styles.title}>Create New AI Item</Typography>
@@ -490,115 +619,7 @@ export default function ItemType() {
             </Button>
           </Box>
         </Box>
-
-        <Divider sx={{ width: '100%', my: 2, borderColor: 'var(--border)' }} />
-
-        <Box sx={styles.historySection}>
-          <Typography sx={styles.sectionTitle}>
-            <HistoryIcon sx={{ fontSize: FONT_SIZES.SM, mr: 0.5, verticalAlign: 'middle' }} />
-            Previous AI Sessions ({itemType})
-          </Typography>
-
-          <Box sx={{ mb: 1.5 }}>
-            <QuickSearch
-              label="Search sessions"
-              filters={{ item_type: 'generate_history', created_item_type: itemType }}
-              onSelect={(item) => {
-                const raw = item as Record<string, unknown>;
-                const laui = (raw._laui ?? raw.laui ?? raw.id ?? '') as string;
-                const name = (raw.name ?? '') as string;
-                if (laui) {
-                  setSessionLaui(laui);
-                  const aiChatLaui = (raw.chat_laui ?? '') as string;
-                  if (aiChatLaui) {
-                    setConfig({
-                      aiChatLaui,
-                      aiChatName: (raw.chat_name ?? '') as string,
-                      aiProvider: (raw.ai_provider ?? '') as string,
-                      includeGuideDoc: false,
-                      includeInstallGuide: false,
-                    });
-                    setMode(AIMode.MANUALEDITOR);
-                  } else {
-                    setMode(AIMode.AICONFIG);
-                  }
-                  if (name) void navigate({ to: '/ai/create', search: { sessionId: name } });
-                }
-              }}
-              placeholder="Search previous sessions…"
-            />
-          </Box>
-
-          {loadingHistory ? (
-            <Box sx={styles.historyLoading}>
-              <CircularProgress size={20} sx={{ color: 'var(--accent)' }} />
-            </Box>
-          ) : historySessions.length > 0 ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {historySessions.map((session) => (
-                <Box
-                  key={session.laui}
-                  sx={styles.historyItem(false)}
-                  onClick={() => handleSessionClick(session)}
-                >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                    }}
-                  >
-                    <Box sx={{ flex: 1, overflow: 'hidden' }}>
-                      <Typography sx={styles.historyName}>{session.name}</Typography>
-                      {session.latestPrompt && (
-                        <Typography
-                          sx={{
-                            fontSize: FONT_SIZES.XS,
-                            color: 'var(--text-secondary)',
-                            mt: 0.5,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {session.latestPrompt}
-                        </Typography>
-                      )}
-                      {session.ai_provider && (
-                        <Typography sx={styles.historyMeta}>
-                          Provider: {session.ai_provider}
-                        </Typography>
-                      )}
-                    </Box>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void handleDeleteSession(session);
-                      }}
-                      sx={{
-                        color: 'var(--text-secondary)',
-                        '&:hover': { color: 'var(--error)' },
-                      }}
-                    >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          ) : (
-            <Typography
-              sx={{
-                fontSize: FONT_SIZES.XS,
-                color: 'var(--text-secondary)',
-                fontStyle: 'italic',
-              }}
-            >
-              No previous sessions for {itemType}
-            </Typography>
-          )}
-        </Box>
+      </Box>
       </Box>
     </Box>
   );
