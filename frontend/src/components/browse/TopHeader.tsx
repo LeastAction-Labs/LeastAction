@@ -464,7 +464,7 @@ export default function TopHeader() {
             </Box>
           </DialogContent>
         ) : (
-          <form onSubmit={() => void handleFeedbackSubmit()}>
+          <form onSubmit={(e) => void handleFeedbackSubmit(e)}>
             <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
               {fbError && (
                 <Typography sx={{ color: 'error.main', fontSize: FONT_SIZES.SM }}>

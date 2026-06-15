@@ -381,7 +381,7 @@ const ManageUsers = () => {
         </Box>
 
         {showCreateForm && (
-          <Box component="form" onSubmit={() => void handleCreateSubmit()}>
+          <Box component="form" onSubmit={(e) => void handleCreateSubmit(e)}>
             <Box sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
               <TextField
                 size="small"

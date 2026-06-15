@@ -1328,7 +1328,7 @@ const ManualEditor = ({ onGenerate }: ManualEditorProps) => {
                     label={TEXT.SKILLS_LABEL}
                     value={null}
                     filters={{ item_type: 'skill' }}
-                    onSelect={() => void handleSkillSelect()}
+                    onSelect={(item) => void handleSkillSelect(item)}
                     placeholder="Search skill…"
                   />
                   {selectedSkills.map((skill) => (

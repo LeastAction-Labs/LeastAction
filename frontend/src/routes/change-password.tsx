@@ -115,7 +115,7 @@ function ChangePasswordPage() {
             Your account requires a password change before you can continue.
           </Typography>
 
-          <Box component="form" onSubmit={() => void handleSubmit()}>
+          <Box component="form" onSubmit={(e) => void handleSubmit(e)}>
             {fields.map(({ key, label }) => (
               <TextField
                 key={key}

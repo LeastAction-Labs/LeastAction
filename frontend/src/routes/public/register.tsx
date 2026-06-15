@@ -167,7 +167,7 @@ function RouteComponent() {
             Sign Up
           </Typography>
 
-          <Box component="form" onSubmit={() => void handleSubmit()} sx={{ width: "100%" }}>
+          <Box component="form" onSubmit={(e) => void handleSubmit(e)} sx={{ width: "100%" }}>
             <TextField
               margin="normal"
               required

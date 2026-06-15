@@ -383,7 +383,7 @@ export default function CatalogTreeNode({
                     mt: 0.5,
                     px: 1,
                   }}
-                  onClick={() => void handleLoadMore()}
+                  onClick={(e) => void handleLoadMore(e)}
                 >
                   <Typography
                     variant="caption"
