@@ -275,10 +275,11 @@ export default function AdminDashboard() {
 
   const handleBuy = async () => {
     try {
+      if (!systemUserLaui) return;
       const res = await buyLicense({
         total_users: users,
         duration,
-        instance_id: systemUserLaui || '',
+        instance_id: systemUserLaui,
       });
       setLicenseId(res.license_id);
       setPublicKey(res.public_key);
