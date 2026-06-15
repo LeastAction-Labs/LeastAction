@@ -56,7 +56,7 @@ async def test_create_user(client: TestClient, test_database: MongoDatabase):
         permanent_seats=100,
         trial_seats=0,
         tier=LicenseTier.BUSINESS,
-        user_laui=PydanticObjectId(root_user.laui),
+        instance_id=PydanticObjectId(root_user.laui),
     )
     import jwt
 

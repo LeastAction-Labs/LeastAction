@@ -544,7 +544,7 @@ def _get_license_id_and_public_key(root_user_laui: str) -> LicenseUploadRequest:
         permanent_seats=100,
         trial_seats=0,
         tier=LicenseTier.BUSINESS,
-        user_laui=PydanticObjectId(root_user_laui),
+        instance_id=PydanticObjectId(root_user_laui),
     )
     import jwt
 

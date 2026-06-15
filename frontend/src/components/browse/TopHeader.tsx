@@ -29,11 +29,11 @@ import {
 import { CORE_FRONTEND_URL, MARKETPLACE_URL } from '@/config/urls';
 import { FONT_SIZES, FONT_WEIGHTS, TRANSITIONS } from '@/constants';
 import { useAuth } from '@/contexts/AuthContext';
-import { useMarketplace } from '@/contexts/MarketplaceContext';
+//import { useMarketplace } from '@/contexts/MarketplaceContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimeFormat } from '@/contexts/TimeFormatContext';
 import { useTour } from '@/contexts/TourContext';
-import { marketplaceLogout } from '@/services/marketplace.service';
+//import { marketplaceLogout } from '@/services/marketplace.service';
 import PhysicsAvatarIcon from '@/utils/physicsIcons';
 import { getTimeZoneLabel } from '@/utils/timeFormat';
 
@@ -140,10 +140,12 @@ export default function TopHeader() {
   const { logout } = useAuth();
   const { timeZone, toggleTimeZone } = useTimeFormat();
   const { openLanding } = useTour();
+  /*
   const {
     userAuthenticated: userLoggedInToMarketplace,
     triggerReload: triggerMarketplaceContextReload,
   } = useMarketplace();
+  */
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [themeAnchorEl, setThemeAnchorEl] = useState<null | HTMLElement>(null);
@@ -160,6 +162,7 @@ export default function TopHeader() {
   const [fbStatus, setFbStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [fbError, setFbError] = useState('');
 
+  /*
   const handleMarketplace = async () => {
     if (userLoggedInToMarketplace) {
       await marketplaceLogout();
@@ -182,7 +185,7 @@ export default function TopHeader() {
       triggerMarketplaceContextReload();
     }
   };
-
+  */
   const handleSettingsClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
@@ -310,10 +313,11 @@ export default function TopHeader() {
       </Box>
 
       <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.1 }}>
-        <Button onClick={() => void handleMarketplace()}>
-          {userLoggedInToMarketplace ? 'Logout from marketplace' : 'Login to marketplace'}
-        </Button>
-
+        {/*
+          <Button onClick={() => void handleMarketplace()}>
+              userLoggedInToMarketplace ? 'Logout from marketplace' : 'Login to marketplace'}
+          </Button>
+          */}
         <Button
           onClick={toggleTimeZone}
           size="small"
@@ -338,7 +342,6 @@ export default function TopHeader() {
         >
           {timeZone === 'utc' ? 'UTC' : getTimeZoneLabel()}
         </Button>
-
         <IconButton onClick={handleHelpOpen} sx={styles.settingsButton} title="Help">
           <HelpOutline />
         </IconButton>

@@ -73,7 +73,7 @@ type UserListAction = 'add' | 'remove';
 export default function AdminDashboard() {
   const { authState } = useAuth();
   const { systemUserLaui } = authState;
-  const { userAuthenticated: userLoggedInToMarketplace } = useMarketplace();
+  const { userAuthenticated: _userLoggedInToMarketplace } = useMarketplace();
 
   const { showWarning } = useNotification();
 
@@ -275,7 +275,12 @@ export default function AdminDashboard() {
 
   const handleBuy = async () => {
     try {
-      const res = await buyLicense({ total_users: users, duration });
+      if (!systemUserLaui) return;
+      const res = await buyLicense({
+        total_users: users,
+        duration,
+        instance_id: systemUserLaui,
+      });
       setLicenseId(res.license_id);
       setPublicKey(res.public_key);
     } catch {
@@ -484,7 +489,7 @@ export default function AdminDashboard() {
                 User LAUI
               </Typography>
               <Typography fontFamily="monospace" sx={{ color: 'var(--text-primary)' }}>
-                {selectedLicense.user_laui}
+                {selectedLicense.instance_id}
               </Typography>
             </Box>
 
@@ -1299,7 +1304,8 @@ export default function AdminDashboard() {
             </Box>
 
             <Stack direction="row" spacing={1}>
-              {userLoggedInToMarketplace && (
+              {/*
+                userLoggedInToMarketplace && (
                 <Button
                   variant="contained"
                   onClick={() => setBuyOpen(true)}
@@ -1310,7 +1316,8 @@ export default function AdminDashboard() {
                 >
                   Buy License
                 </Button>
-              )}
+              )
+              */}
 
               <Button
                 variant="outlined"
