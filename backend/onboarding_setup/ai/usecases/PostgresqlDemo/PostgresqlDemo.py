@@ -12,7 +12,7 @@ payloads = {
   "operator_name": "PostgresqlExecuteSQL",
   "connection_name": "postgresql",
   "partition": "{{partition}}",
-  "config_name": [],
+  "config_name": ["PostgresqlDemoWorkflow"],
   "start_date": "2026-01-01",
   "end_date": "2026-12-31",
   "over_ride": true,
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS people (
   "operator_name": "PostgresqlExecuteSQL",
   "connection_name": "postgresql",
   "partition": "{{partition}}",
-  "config_name": [],
+  "config_name": ["PostgresqlDemoWorkflow"],
   "start_date": "2026-01-01",
   "end_date": "2026-12-31",
   "over_ride": true,
@@ -75,7 +75,7 @@ VALUES
   "operator_name": "PostgresqlExecuteSQL",
   "connection_name": "postgresql",
   "partition": "{{partition}}",
-  "config_name": [],
+  "config_name": ["PostgresqlDemoWorkflow"],
   "start_date": "2026-01-01",
   "end_date": "2026-12-31",
   "over_ride": true,
@@ -176,12 +176,14 @@ prompt = (
     "Three-step PostgreSQL demo pipeline: create the 'people' table, insert three sample rows "
     "with a logical_date partition, then update their ages. Each step depends on the previous "
     "via LeastActionCheckIfParentsAreDone. Designed to run every 3 minutes on the PostgresqlExecuteSQL "
-    "operator with a 'postgresql' connection."
+    "operator with the bundled 'postgresql' connection (points at the internal postgres-demo "
+    "demo database) and the 'PostgresqlDemoWorkflow' config (auto-reschedule on error/fail)."
 )
 
 description = (
     "Minimal end-to-end PostgreSQL demo: create table → insert rows → update rows. "
-    "Three sequential tasks linked by dependency checks."
+    "Three sequential tasks linked by dependency checks. Self-contained — bundles its own "
+    "connection and config, ready to run out of the box."
 )
 
 guide_docs = """\
@@ -196,10 +198,22 @@ Runs a simple 3-step pipeline against a PostgreSQL database to demonstrate Least
 | 1 | `01_insert_rows.sql` | Inserts Alice, Bob, Charlie with the partition logical_date |
 | 2 | `02_update_rows.sql` | Updates ages (Alice→29, Bob→35, Charlie→23) and refreshes logical_date |
 
+## Bundled items
+This usecase is self-contained — deploying it sets up everything needed to run:
+
+| Item | Name | Purpose |
+|---|---|---|
+| Connection | `Postgresql` (connection_name `postgresql`) | Points to the internal `postgres-demo` demo database (docker service `postgres-demo`, db `postgres_demo_db`, user/pass `postgres`/`postgres`). Edit the connection to point at your own PostgreSQL instance if desired. |
+| Config | `PostgresqlDemoWorkflow` | Attached to all 3 tasks via `config_name`. Adds `LeastActionReschedule` on error/fail states. |
+| Operator | `PostgresqlExecuteSQL` | Executes each step's SQL payload (core operator). |
+| Action | `LeastActionCheckIfParentsAreDone` | Used by steps 1 and 2 to wait for the previous step (core action). |
+
 ## Prerequisites
 - Operator `PostgresqlExecuteSQL` must exist in core
-- Connection named `postgresql` must exist and point to a live PostgreSQL instance
 - Action `LeastActionCheckIfParentsAreDone` must exist in core
+- Connection `Postgresql` (connection_name `postgresql`) and config `PostgresqlDemoWorkflow`
+  are deployed as part of this usecase — no manual setup required when running the bundled
+  docker-compose stack with the `postgres-demo` service.
 
 ## Template variables
 | Variable | Description |
@@ -213,7 +227,8 @@ Runs a simple 3-step pipeline against a PostgreSQL database to demonstrate Least
 Use the **Usecase Deploy Skill** in the LeastAction AI assistant:
 > "deploy usecase PostgresqlDemo"
 
-The assistant will present the step table, ask for your connection name and date range, then create all three tasks in order.
+The assistant will create the `Postgresql` connection and `PostgresqlDemoWorkflow` config (if
+they don't already exist), then create all three tasks in order, each referencing them.
 """
 
 publisher = "LeastAction"
