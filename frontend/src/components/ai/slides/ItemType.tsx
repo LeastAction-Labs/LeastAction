@@ -325,7 +325,7 @@ export default function ItemType() {
     const fetchHistory = async () => {
       setLoadingHistory(true);
       try {
-        const response = await searchCatalogItems('chat_history', false, {
+        const response = await searchCatalogItems('generate_history', false, {
           filters: { created_item_type: itemType },
           perPage: 20,
           projection: [
@@ -502,7 +502,7 @@ export default function ItemType() {
           <Box sx={{ mb: 1.5 }}>
             <QuickSearch
               label="Search sessions"
-              filters={{ item_type: 'chat_history', created_item_type: itemType }}
+              filters={{ item_type: 'generate_history', created_item_type: itemType }}
               onSelect={(item) => {
                 const raw = item as Record<string, unknown>;
                 const laui = (raw._laui ?? raw.laui ?? raw.id ?? '') as string;

@@ -42,7 +42,7 @@ function RouteComponent() {
       return;
     }
     setLoading(true);
-    searchCatalogItems('chat_history', false, {
+    searchCatalogItems('generate_history', false, {
       filters: { name: sessionId },
       perPage: 1,
       projection: [

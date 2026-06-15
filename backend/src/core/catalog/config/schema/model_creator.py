@@ -17,7 +17,7 @@ from src.core.catalog.config.constants_mappers import (
 from .schema_model import ColumnModel, SchemaModel
 
 _IGNORE_ACCOUNT_AND_PROEJCT_LAUI = ["connection_queue"]
-_IGNORE_PROEJCT_LAUI = ["chat_history"]
+_IGNORE_PROEJCT_LAUI = ["chat_history", "generate_history"]
 
 
 @model_validator(mode="after")

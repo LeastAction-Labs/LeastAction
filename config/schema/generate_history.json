@@ -1,0 +1,103 @@
+{
+    "columns": [
+
+    {
+            "name": "name",
+            "datatype": "string",
+            "required": true,
+            "min_length": 1,
+            "max_length": 255,
+            "description": "Name of the AI generate session",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "tab": { "name": "Overview", "order": 1 }
+        },
+        {
+            "name": "description",
+            "datatype": "string",
+            "required": false,
+            "max_length": 1000,
+            "description": "Optional description of the AI generate session",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "tab": { "name": "Overview", "order": 2 }
+        },
+        {
+            "name": "created_item_type",
+            "datatype": "string",
+            "required": true,
+            "description": "The type of item created in this session (action, operator, payload, agent, generate)",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "tab": { "name": "Overview", "order": 3 }
+        },
+        {
+            "name": "ai_provider",
+            "datatype": "string",
+            "required": false,
+            "description": "The AI provider used in this session",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "tab": { "name": "Overview", "order": 4 }
+        },
+        {
+            "name": "connection_laui",
+            "datatype": "string",
+            "required": false,
+            "description": "The connection LAUI used in this session",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "tab": { "name": "Overview", "order": 5 }
+        },
+        {
+            "name": "connection_name",
+            "datatype": "string",
+            "required": false,
+            "description": "The connection name used in this session",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text",
+            "tab": { "name": "Overview", "order": 6 }
+        },
+        {
+            "name": "messages",
+            "datatype": "any",
+            "required": false,
+            "description": "Array of messages (prompts and responses) in the session",
+            "editorType": "monaco",
+            "editorMonacoFormat": "json",
+            "tab": { "name": "Overview", "order": 7 }
+        },
+        {
+            "name": "generated_content",
+            "datatype": "any",
+            "required": false,
+            "description": "The latest generated content from the AI session",
+            "editorType": "monaco",
+            "editorMonacoFormat": "json"
+        },
+        {
+            "name": "chat_laui",
+            "datatype": "string",
+            "required": false,
+            "description": "LAUI of the chat item used for LLM invocation",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text"
+        },
+        {
+            "name": "temp_file_path",
+            "datatype": "string",
+            "required": false,
+            "description": "Path to cached temp file from chat codeblock for reuse across generations",
+            "editorType": "textbox",
+            "editorMonacoFormat": "text"
+        }
+    ],
+    "projection_fields": ["name", "created_item_type", "ai_provider", "parent_laui"],
+    "preview_fields": ["list"],
+    "item_type_visual_config": {
+        "icon": "AutoAwesome",
+        "color": "#0ea5e9"
+    },
+    "unique_constraints": ["parent_laui", "name"],
+    "indexes": []
+}

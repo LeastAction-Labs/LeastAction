@@ -14,7 +14,8 @@
     },
     "folder.user": {
       "can_contain": [
-        "chat_history"
+        "chat_history",
+        "generate_history"
       ]
     },
     "folder.project": {
