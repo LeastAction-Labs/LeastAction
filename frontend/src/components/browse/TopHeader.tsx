@@ -29,11 +29,11 @@ import {
 import { CORE_FRONTEND_URL, MARKETPLACE_URL } from '@/config/urls';
 import { FONT_SIZES, FONT_WEIGHTS, TRANSITIONS } from '@/constants';
 import { useAuth } from '@/contexts/AuthContext';
-import { useMarketplace } from '@/contexts/MarketplaceContext';
+//import { useMarketplace } from '@/contexts/MarketplaceContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimeFormat } from '@/contexts/TimeFormatContext';
 import { useTour } from '@/contexts/TourContext';
-import { marketplaceLogout } from '@/services/marketplace.service';
+//import { marketplaceLogout } from '@/services/marketplace.service';
 import PhysicsAvatarIcon from '@/utils/physicsIcons';
 import { getTimeZoneLabel } from '@/utils/timeFormat';
 
@@ -140,10 +140,12 @@ export default function TopHeader() {
   const { logout } = useAuth();
   const { timeZone, toggleTimeZone } = useTimeFormat();
   const { openLanding } = useTour();
+  /*
   const {
     userAuthenticated: userLoggedInToMarketplace,
     triggerReload: triggerMarketplaceContextReload,
   } = useMarketplace();
+  */
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [themeAnchorEl, setThemeAnchorEl] = useState<null | HTMLElement>(null);
