@@ -532,94 +532,94 @@ export default function ItemType() {
       </Box>
 
       <Box sx={styles.container}>
-      <Box sx={styles.contentWrapper}>
-        <Box sx={{ mb: 1, width: '100%' }}>
-          <Typography sx={styles.title}>Create New AI Item</Typography>
-        </Box>
+        <Box sx={styles.contentWrapper}>
+          <Box sx={{ mb: 1, width: '100%' }}>
+            <Typography sx={styles.title}>Create New AI Item</Typography>
+          </Box>
 
-        <Box sx={{ mb: 2, width: '100%' }}>
-          <Typography sx={styles.sectionTitle}>1. Select Item Type</Typography>
+          <Box sx={{ mb: 2, width: '100%' }}>
+            <Typography sx={styles.sectionTitle}>1. Select Item Type</Typography>
 
-          <Box sx={styles.itemTypesContainer}>
-            {ITEM_TYPES.map((type) => {
-              const Icon = type.icon;
-              const isSelected = selectedCategory === type.value;
+            <Box sx={styles.itemTypesContainer}>
+              {ITEM_TYPES.map((type) => {
+                const Icon = type.icon;
+                const isSelected = selectedCategory === type.value;
 
-              return (
-                <Card
-                  key={type.value}
-                  sx={styles.itemTypeCard(isSelected)}
-                  onClick={() => handleCategorySelect(type.value)}
-                >
-                  <Icon sx={styles.itemTypeIcon(isSelected)} />
-                  <Typography sx={styles.itemTypeLabel(isSelected)}>{type.label}</Typography>
-                  <Typography
-                    sx={{
-                      fontSize: FONT_SIZES.XS,
-                      color: 'var(--text-secondary)',
-                      mt: 0.5,
-                      lineHeight: 1.3,
-                    }}
+                return (
+                  <Card
+                    key={type.value}
+                    sx={styles.itemTypeCard(isSelected)}
+                    onClick={() => handleCategorySelect(type.value)}
                   >
-                    {type.description}
-                  </Typography>
-                </Card>
-              );
-            })}
+                    <Icon sx={styles.itemTypeIcon(isSelected)} />
+                    <Typography sx={styles.itemTypeLabel(isSelected)}>{type.label}</Typography>
+                    <Typography
+                      sx={{
+                        fontSize: FONT_SIZES.XS,
+                        color: 'var(--text-secondary)',
+                        mt: 0.5,
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {type.description}
+                    </Typography>
+                  </Card>
+                );
+              })}
+            </Box>
           </Box>
-        </Box>
 
-        <Box sx={{ width: '100%' }}>
-          <Typography sx={styles.sectionTitle}>2. How would you like to create it?</Typography>
+          <Box sx={{ width: '100%' }}>
+            <Typography sx={styles.sectionTitle}>2. How would you like to create it?</Typography>
 
-          <Box sx={styles.creationMethodsContainer}>
-            {CREATION_METHODS.map((method) => {
-              const Icon = method.icon;
-              const isSelected = selectedMethod === method.mode;
+            <Box sx={styles.creationMethodsContainer}>
+              {CREATION_METHODS.map((method) => {
+                const Icon = method.icon;
+                const isSelected = selectedMethod === method.mode;
 
-              return (
-                <Card
-                  key={method.id}
-                  sx={styles.creationMethodCard(isSelected)}
-                  onClick={() => setSelectedMethod(method.mode)}
-                >
-                  <CardContent sx={styles.methodCardContent}>
-                    <Box sx={styles.methodHeader}>
-                      <Icon sx={styles.methodIcon(isSelected)} />
-                      <Typography sx={styles.methodTitle(isSelected)}>{method.title}</Typography>
-                    </Box>
+                return (
+                  <Card
+                    key={method.id}
+                    sx={styles.creationMethodCard(isSelected)}
+                    onClick={() => setSelectedMethod(method.mode)}
+                  >
+                    <CardContent sx={styles.methodCardContent}>
+                      <Box sx={styles.methodHeader}>
+                        <Icon sx={styles.methodIcon(isSelected)} />
+                        <Typography sx={styles.methodTitle(isSelected)}>{method.title}</Typography>
+                      </Box>
 
-                    <Typography sx={styles.methodDescription}>{method.description}</Typography>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                      <Typography sx={styles.methodDescription}>{method.description}</Typography>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </Box>
           </Box>
-        </Box>
 
-        <Box sx={styles.actionsContainer}>
-          <Button
-            variant="outlined"
-            onClick={() => {
-              void navigate({ to: '/path' });
-            }}
-            sx={styles.cancelButton}
-          >
-            Cancel
-          </Button>
-
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
+          <Box sx={styles.actionsContainer}>
             <Button
-              variant="contained"
-              onClick={handleContinue}
-              disabled={!selectedMethod}
-              sx={styles.continueButton}
+              variant="outlined"
+              onClick={() => {
+                void navigate({ to: '/path' });
+              }}
+              sx={styles.cancelButton}
             >
-              Continue
+              Cancel
             </Button>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
+              <Button
+                variant="contained"
+                onClick={handleContinue}
+                disabled={!selectedMethod}
+                sx={styles.continueButton}
+              >
+                Continue
+              </Button>
+            </Box>
           </Box>
         </Box>
-      </Box>
       </Box>
     </Box>
   );

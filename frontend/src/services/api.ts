@@ -87,7 +87,6 @@ function parseJsonSafe<T>(text: string): T | null {
     }
     return JSON.parse(text) as T;
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error('Error parsing JSON response:', error, 'Text:', text);
     return null;
   }
@@ -151,7 +150,6 @@ export async function httpJson<TResponse>(
   // If server legitimately returns no body or null, return empty object
   // But log a warning if we expected data
   if (data === null) {
-    // eslint-disable-next-line no-console
     console.warn(`API returned null/empty response for ${input}. Status: ${res.status}`);
   }
 
