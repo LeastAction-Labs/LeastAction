@@ -132,7 +132,7 @@ export default function MarketplaceItemTabView({ item }: MarketplaceItemTabViewP
       </Tooltip>
     ) : null;
 
-  const _importButtonArea = (
+  const importButtonArea = (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
       {depsButton}
       {importDisabledReason ? (
