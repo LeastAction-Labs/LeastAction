@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from src.common.config import Config
 from src.common.context_vars.user_context import get_user_laui
 from src.common.logger.logger import log_error, log_info
-from src.core.logs_details.service import LogsService, get_logs_service
+from src.core.logs_details.service import LOG_WORK_SEMAPHORE, LogsService, get_logs_service
 
 logs_router = APIRouter()
 
@@ -94,10 +94,10 @@ async def query_logs(request: LogQueryRequest) -> dict:
     log_info(
         "api", "logs_router", "query_logs", f"user={get_user_laui()} payload={request.model_dump()}"
     )
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(
-        None, _run_duckdb_query, request.sql, request.category, request.date
-    )
+    async with LOG_WORK_SEMAPHORE:
+        return await asyncio.to_thread(
+            _run_duckdb_query, request.sql, request.category, request.date
+        )
 
 
 def _sse(event: str, data: Any) -> str:
