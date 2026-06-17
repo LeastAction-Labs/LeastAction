@@ -8,7 +8,7 @@
 import { CORE_BACKEND_URL } from '@/config/urls';
 
 import { httpJson } from './api';
-import { PaginationInterface } from './types';
+import { type PaginationInterface } from './types';
 
 const API_ENDPOINTS = {
   check: `${CORE_BACKEND_URL}/api/v1/admin/check`,
