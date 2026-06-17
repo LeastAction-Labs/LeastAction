@@ -8,6 +8,7 @@
 import { CORE_BACKEND_URL } from '@/config/urls';
 
 import { httpJson } from './api';
+import { PaginationInterface } from './types';
 
 const API_ENDPOINTS = {
   check: `${CORE_BACKEND_URL}/api/v1/admin/check`,
@@ -91,9 +92,9 @@ export interface UserRecord {
   laui: string;
   username: string;
   email: string;
-  is_active: boolean;
-  is_deleted: boolean;
-  created_at: string;
+  user_type?: string;
+  is_active?: boolean;
+  created_at?: string;
   allowed_mcp_tools: string[] | null;
   chat_agent_laui?: string | null;
   chat_connection_laui?: string | null;
@@ -110,13 +111,22 @@ export async function adminCreateUser(
   });
 }
 
-export async function listUsers(page?: number, perPage?: number): Promise<UserRecord[]> {
-  return await httpJson<UserRecord[]>(
+export interface ListUsersResponse {
+  users: UserRecord[];
+  pagination: PaginationInterface;
+}
+
+export async function listUsers(page?: number, perPage?: number): Promise<ListUsersResponse> {
+  const response = await httpJson<ListUsersResponse>(
     API_ENDPOINTS.adminList + `?page=${page}&per_page=${perPage}`,
     {
       method: 'GET',
     },
   );
+  return {
+    ...response,
+    users: response.users.filter((user) => user.user_type !== 'system'),
+  };
 }
 
 export async function setUserStatus(userId: string, is_active: boolean): Promise<void> {

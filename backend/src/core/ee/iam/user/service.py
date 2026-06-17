@@ -5,10 +5,18 @@
 # Use of this file outside those terms is not permitted.
 import hashlib
 
+from bson import ObjectId
 from fastapi import Request
 from pydantic_mongo import PydanticObjectId
 
-from src.common.exceptions import AuthenticationError
+from src.common.context_vars.user_context import (
+    get_root_user_laui,
+    get_system_user_laui,
+    get_user_laui,
+    is_root_user,
+    is_system_user,
+)
+from src.common.exceptions import AuthenticationError, ConflictError
 from src.common.utils import generate_password
 from src.core.admin.api_request import (
     GetUsersRequest,
@@ -41,7 +49,7 @@ class UserService:
 
         response = CreateUserResponse(user_laui=user_laui)
         if auto_generate:
-            response.username = (user.username,)
+            response.username = user.username
             response.temp_password = temp_password
         return response
 
@@ -82,6 +90,7 @@ class UserService:
                 "allowed_mcp_tools",
                 "chat_agent_name",
                 "chat_agent_laui",
+                "user_type",
             ],
             offset=request.offset,
             limit=request.limit,
@@ -97,12 +106,29 @@ class UserService:
         )
 
     async def delete_user(self, laui: PydanticObjectId) -> None:
+        if laui == ObjectId(get_root_user_laui()) or laui == ObjectId(get_system_user_laui()):
+            raise ConflictError("Cannot delete root or system user")
+        if laui == ObjectId(get_user_laui()):
+            raise ConflictError("User cannot delete himself")
         await self.user_repo.delete_user(laui)
 
     async def update_user(self, laui: PydanticObjectId, payload: UpdateUserPayload) -> None:
+
+        if laui == ObjectId(get_root_user_laui()):
+            if not is_root_user():
+                raise ConflictError("Cannot update root user")
+
+        if laui == ObjectId(get_system_user_laui()):
+            raise ConflictError("Cannot update system user")
+
         await self.user_repo.update_user(laui, payload.model_dump(exclude_unset=True))
 
     async def update_users(self, lauis: list[PydanticObjectId], payload: UpdateUserPayload) -> None:
+        lauis = [
+            laui
+            for laui in lauis
+            if laui != ObjectId(get_root_user_laui()) and laui != ObjectId(get_system_user_laui())
+        ]
         await self.user_repo.update_users(
             lauis=lauis, update_data=payload.model_dump(exclude_unset=True)
         )
@@ -110,7 +136,7 @@ class UserService:
     async def search_users(self, request: SearchUsersRequest) -> SearchUsersResponse:
         users = await self.user_repo.find_users(
             filter=request.get_filters,
-            projections=["username", "email"],
+            projections=["username", "email", "user_type"],
             offset=request.offset,
             limit=request.limit,
         )

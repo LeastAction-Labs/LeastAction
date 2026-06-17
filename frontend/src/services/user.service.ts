@@ -7,6 +7,7 @@
  */
 import { CORE_BACKEND_URL } from '@/config/urls';
 
+import { type ListUsersResponse, type UserRecord } from './admin.service';
 import { httpJson } from './api';
 
 const API_ENDPOINTS = {
@@ -15,8 +16,8 @@ const API_ENDPOINTS = {
   searchUsers: `${CORE_BACKEND_URL}/api/v1/user/search`,
 };
 
-export async function getMe(): Promise<{ username: string; email: string }> {
-  return await httpJson<{ username: string; email: string }>(API_ENDPOINTS.me, { method: 'GET' });
+export async function getMe(): Promise<UserRecord> {
+  return await httpJson<UserRecord>(API_ENDPOINTS.me, { method: 'GET' });
 }
 
 export async function changePassword(
@@ -32,8 +33,13 @@ export async function changePassword(
 export async function searchUsers(payload: any) {
   if (!('page' in payload)) payload['page'] = 1;
   if (!('page' in payload)) payload['per_page'] = 10;
-  return await httpJson<any>(API_ENDPOINTS.searchUsers, {
+
+  const resposne = await httpJson<ListUsersResponse>(API_ENDPOINTS.searchUsers, {
     method: 'POST',
     body: payload,
   });
+  return {
+    ...resposne,
+    users: resposne.users.filter((user) => !user.user_type),
+  };
 }

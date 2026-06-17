@@ -10,17 +10,13 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import axios from 'axios';
 
 import { CORE_BACKEND_URL, CORE_FRONTEND_URL } from '@/config/urls';
-import { adminCheck } from '@/services/admin.service';
+import { type UserRecord, adminCheck } from '@/services/admin.service';
 import { setUnauthorizedCallback } from '@/services/api';
-
-interface User {
-  id: string;
-  username: string;
-}
+import { getMe } from '@/services/user.service';
 
 export interface AuthState {
   isAuthenticated: boolean;
-  user: User | null;
+  user: UserRecord | null;
   isAdmin: boolean;
   systemUserLaui: string | null;
 }
@@ -63,17 +59,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const authRequest = async () => {
       try {
-        await axios.get(`${CORE_BACKEND_URL}/api/v1/check_frontend_token_present`, {
-          withCredentials: true,
-        });
-        // I am unable to read httpOnly = True Cookies  , so I went with this approach
-        // we can read the cookies from fronted if we set httpOnly = False but that will lead to XSS attacks
+        const user = await getMe();
         setSessionExpired(false);
         try {
           const systemUserLaui = await adminCheck();
           setAuthState({
             isAuthenticated: true,
-            user: null,
+            user: user,
             isAdmin: true,
             systemUserLaui,
           });

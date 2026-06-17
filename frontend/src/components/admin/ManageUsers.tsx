@@ -198,7 +198,7 @@ const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
 
 const ManageUsers = () => {
   const { authState } = useAuth();
-  const currentUserId = authState.user?.id;
+  const currentUserLaui = authState.user?.laui;
   const { showSuccess } = useNotification();
 
   const [userList, setUserList] = useState<UserRecord[]>([]);
@@ -229,7 +229,7 @@ const ManageUsers = () => {
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
     try {
-      const data: any = await listUsers(userPagination.currentPage, userPagination.perPage);
+      const data = await listUsers(userPagination.currentPage, userPagination.perPage);
       setUserList(data.users);
       setUserPagination((prev) => ({ ...prev, hasNext: data.pagination.has_next }));
     } catch (error) {
@@ -530,18 +530,16 @@ const ManageUsers = () => {
                     </TableRow>
                   ) : (
                     userList.map((user) => {
-                      const isSelf = user.laui === currentUserId;
+                      const isSelf = user.laui === currentUserLaui;
+                      const isRoot = user.user_type === 'root';
+                      const isDeleteAbleOrActivationAlterAble = !isRoot && !isSelf;
+                      const isPasswordResetAble = isRoot ? isSelf : true;
+
                       const isActioning = userActionLoading === user.laui;
-                      const statusLabel = user.is_deleted
-                        ? 'Deleted'
-                        : user.is_active
-                          ? 'Active'
-                          : 'Inactive';
-                      const statusColor: 'error' | 'success' | 'default' = user.is_deleted
-                        ? 'error'
-                        : user.is_active
-                          ? 'success'
-                          : 'default';
+                      const statusLabel = user.is_active ? 'Active' : 'Inactive';
+                      const statusColor: 'error' | 'success' | 'default' = user.is_active
+                        ? 'success'
+                        : 'default';
 
                       return (
                         <TableRow key={user.laui} sx={styles.tableRow}>
@@ -661,88 +659,76 @@ const ManageUsers = () => {
                                   gap: 0.5,
                                 }}
                               >
-                                <Tooltip
-                                  title={user.is_deleted ? 'Account is deleted' : 'Reset Password'}
-                                >
-                                  <span>
-                                    <IconButton
-                                      size="small"
-                                      color="info"
-                                      onClick={() => {
-                                        setPasswordError('');
-                                        setNewPassword('');
-                                        setResetPasswordTarget(user);
-                                      }}
-                                      disabled={isActioning || user.is_deleted}
-                                    >
-                                      <LockReset
-                                        sx={{
-                                          fontSize: 16,
+                                {isPasswordResetAble && (
+                                  <Tooltip title={'Reset Password'}>
+                                    <span>
+                                      <IconButton
+                                        size="small"
+                                        color="info"
+                                        onClick={() => {
+                                          setPasswordError('');
+                                          setNewPassword('');
+                                          setResetPasswordTarget(user);
                                         }}
-                                      />
-                                    </IconButton>
-                                  </span>
-                                </Tooltip>
-
-                                <Tooltip
-                                  title={
-                                    isSelf
-                                      ? 'Cannot deactivate your own account'
-                                      : user.is_deleted
-                                        ? 'Account is deleted'
-                                        : !user.is_active
-                                          ? 'Activate user'
-                                          : 'Deactivate user'
-                                  }
-                                >
-                                  <span>
-                                    <IconButton
-                                      size="small"
-                                      color="warning"
-                                      onClick={() => setactivationAlterTarget(user)}
-                                      disabled={isSelf || isActioning || user.is_deleted}
-                                    >
-                                      {user.is_active ? (
-                                        <Block
+                                        disabled={isActioning}
+                                      >
+                                        <LockReset
                                           sx={{
                                             fontSize: 16,
                                           }}
                                         />
-                                      ) : (
-                                        <LockOpen
-                                          sx={{
-                                            fontSize: 16,
-                                          }}
-                                        />
-                                      )}
-                                    </IconButton>
-                                  </span>
-                                </Tooltip>
+                                      </IconButton>
+                                    </span>
+                                  </Tooltip>
+                                )}
 
-                                <Tooltip
-                                  title={
-                                    isSelf
-                                      ? 'Cannot delete your own account'
-                                      : user.is_deleted
-                                        ? 'Already deleted'
-                                        : 'Delete user'
-                                  }
-                                >
-                                  <span>
-                                    <IconButton
-                                      size="small"
-                                      color="error"
-                                      disabled={isSelf || isActioning || user.is_deleted}
-                                      onClick={() => setDeleteTarget(user)}
+                                {isDeleteAbleOrActivationAlterAble && (
+                                  <>
+                                    <Tooltip
+                                      title={!user.is_active ? 'Activate user' : 'Deactivate user'}
                                     >
-                                      <Delete
-                                        sx={{
-                                          fontSize: 16,
-                                        }}
-                                      />
-                                    </IconButton>
-                                  </span>
-                                </Tooltip>
+                                      <span>
+                                        <IconButton
+                                          size="small"
+                                          color="warning"
+                                          onClick={() => setactivationAlterTarget(user)}
+                                          disabled={isActioning}
+                                        >
+                                          {user.is_active ? (
+                                            <Block
+                                              sx={{
+                                                fontSize: 16,
+                                              }}
+                                            />
+                                          ) : (
+                                            <LockOpen
+                                              sx={{
+                                                fontSize: 16,
+                                              }}
+                                            />
+                                          )}
+                                        </IconButton>
+                                      </span>
+                                    </Tooltip>
+
+                                    <Tooltip title="Delete user">
+                                      <span>
+                                        <IconButton
+                                          size="small"
+                                          color="error"
+                                          disabled={isActioning}
+                                          onClick={() => setDeleteTarget(user)}
+                                        >
+                                          <Delete
+                                            sx={{
+                                              fontSize: 16,
+                                            }}
+                                          />
+                                        </IconButton>
+                                      </span>
+                                    </Tooltip>
+                                  </>
+                                )}
                               </Box>
                             )}
                           </TableCell>
