@@ -156,11 +156,6 @@ async def redirect_with_code(
     return RedirectResponse(url=redirect_url, status_code=303)
 
 
-@auth_router.get("/check_frontend_token_present")
-def check(frontend_token: Annotated[str, Cookie()]):
-    return
-
-
 @auth_router.get("/get-mcp-token")
 async def get_mcp_token(
     request: Request, session_service: SessionService = Depends(get_session_service)
