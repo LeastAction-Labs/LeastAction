@@ -44,19 +44,6 @@ Tasks run on a schedule or on demand. **Partitions** let you run the same workfl
 
 ## AI & MCP
 
-LeastAction has three AI modes, each serving a different use case:
-
-**Service AI (Built-in Generator)**
-Embedded in the UI at `AI > Operator / Action / Payload`. Describe what you need in plain English — the AI writes operator code, action hooks, or payload templates. Attach skills to inject your schema and conventions into the prompt. Supports Anthropic, OpenAI, and Gemini.
-
-**Claude Code + MCP**
-Connect Claude Code to your LeastAction instance via `.mcp.json` (generated from **Settings → Claude Code**). Browse and search the catalog, generate and deploy operators end-to-end, run tasks and actions by name, debug failures from logs, retrieve and render HTML reports, send Slack messages and emails, and ask questions about pipeline status — all getting real answers from live data. Uses your own Claude subscription; permissions are scoped to your user token.
-
-Admins can restrict which MCP tools each user can access — for example, disabling destructive operations like `delete_item` or `reset_task` for specific users. Managed per-user from **Admin → MCP Access**. See [MCP setup guide](docs/advanced/AI_managment/mcp.md) for details.
-
-**Service Chat (Built-in Chat Widget)**
-A chat UI built into the service itself. Pick a connection (your AI provider) and an optional skill, and talk to it directly from the web UI. The AI backend is a catalog item your team writes and controls, so you can use any framework or model. Powers the web UI chat and automated report generation from actions. The team controls which model runs and can rotate or restrict it at any time.
-
 ***The full loop is supported end-to-end without leaving the AI session:***
 
 ```
@@ -64,6 +51,8 @@ describe a pipeline as SKILL or Usecase → AI generates operator + task → run
 ```
 
 No terminal switching, no BI tool, no separate database client. The `inspect_data` MCP tool connects directly to any catalog connection (PostgreSQL, MySQL, Athena, Redshift, BigQuery, S3, GCS, Azure Blob) and returns results inline — so the AI can verify what a task wrote, validate row counts, sample loaded data, and self-correct without human intervention at each step.
+
+Admins can restrict which MCP tools each user can access — for example, disabling destructive operations like `delete_item` or `reset_task` for specific users. Managed per-user from **Admin → MCP Access**. See [MCP setup guide](docs/advanced/AI_managment/mcp.md) for details.
 
 
 ![Claude Code + MCP](images/MCP-Claude-VSC.png)
