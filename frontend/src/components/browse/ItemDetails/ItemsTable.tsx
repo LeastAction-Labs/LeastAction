@@ -1095,7 +1095,7 @@ export default function ItemsTable({
   };
 
   const shouldShowRunButton = (item: CatalogItem) => {
-    if (item.item_type === 'chat_history') return true;
+    if (item.item_type === 'chat_history' || item.item_type === 'generate_history') return true;
     if (isTaskItem(item)) {
       const state: string = (item.data as any)?.state || (item as any).state;
       return (
@@ -1112,6 +1112,7 @@ export default function ItemsTable({
 
   const runButtonTooltipText = (item: CatalogItem) => {
     if (item.item_type === 'chat_history') return 'Open Chat Session';
+    if (item.item_type === 'generate_history') return 'Open Generate Session';
     if (item.item_type?.split('.')[0] === 'action') return 'Run Action';
     return `Run task`;
   };
@@ -2055,6 +2056,13 @@ export default function ItemsTable({
                     const folderTypeEntry = isFolderTypeCol
                       ? folderIconCache[item.item_type ?? '']
                       : undefined;
+                    // For generate_history sessions, show the item type that was
+                    // generated (action/operator/payload/agent/generate) instead of
+                    // the literal "generate_history". chat_history is left untouched.
+                    const folderTypeValue =
+                      isFolderTypeCol && item.item_type === 'generate_history'
+                        ? ((getRawColumnValue(item, 'created_item_type') as string) ?? value)
+                        : value;
 
                     return (
                       <React.Fragment key={column}>
@@ -2104,7 +2112,7 @@ export default function ItemsTable({
                                   whiteSpace: 'nowrap',
                                 }}
                               >
-                                {value}
+                                {folderTypeValue}
                               </Typography>
                             </Box>
                           ) : !isMarketplaceCatalog && isActionsStatus ? (
@@ -2291,7 +2299,10 @@ export default function ItemsTable({
                               },
                             }}
                             onClick={(e) => {
-                              if (item.item_type === 'chat_history') {
+                              if (
+                                item.item_type === 'chat_history' ||
+                                item.item_type === 'generate_history'
+                              ) {
                                 e.stopPropagation();
                                 void navigate({
                                   to: '/ai/create',

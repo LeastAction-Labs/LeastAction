@@ -11,6 +11,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import MenuIcon from '@mui/icons-material/Menu';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import RemoveIcon from '@mui/icons-material/Remove';
 import { Box, Fab, IconButton, Paper, Typography } from '@mui/material';
@@ -20,6 +21,7 @@ import { useTour } from '@/contexts/TourContext';
 import { getMyBusinessChatConfig } from '@/services/admin.service';
 import { physicsIcons } from '@/utils/physicsIcons';
 
+import ChatMenu from './ChatMenu';
 import ChatPanel from './ChatPanel';
 import ProviderList, { type ProviderConfig } from './ProviderList';
 
@@ -63,7 +65,9 @@ export default function ChatbotWidget() {
   const [view, setView] = useState<'select' | 'agent'>('select');
   const [providerConfig, setProviderConfig] = useState<ProviderConfig | null>(null);
   const [chatKey, setChatKey] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [isBusinessPreconfig, setIsBusinessPreconfig] = useState(false);
+  const defaultProviderConfigRef = useRef<ProviderConfig | null>(null);
   const [isIdle, setIsIdle] = useState(false);
   const [piPulse, setPiPulse] = useState(false);
   const piPulseFiredRef = useRef(false);
@@ -150,17 +154,20 @@ export default function ChatbotWidget() {
     return () => clearInterval(interval);
   }, []);
 
+  // Load the per-user default chat config (set from the admin dashboard MCP
+  // Access tab). When present, the widget opens straight onto that agent and
+  // keeps it as the persistent default — independent of the view mode.
   useEffect(() => {
-    const isBusinessMode = localStorage.getItem('la_view_mode') === 'business';
-    if (!isBusinessMode) return;
     void getMyBusinessChatConfig().then((config) => {
       if (config?.chat_agent_laui && config?.chat_connection_laui) {
-        setProviderConfig({
+        const defaultConfig: ProviderConfig = {
           aiChatLaui: config.chat_agent_laui,
           aiChatName: config.chat_agent_name ?? 'AI Agent',
           aiProvider: config.chat_agent_provider ?? 'anthropic',
           connectionLaui: config.chat_connection_laui,
-        });
+        };
+        defaultProviderConfigRef.current = defaultConfig;
+        setProviderConfig(defaultConfig);
         setView('agent');
         setIsBusinessPreconfig(true);
       }
@@ -177,18 +184,47 @@ export default function ChatbotWidget() {
     setProviderConfig(null);
   };
 
-  // X — clears everything
+  // X — clears the current conversation. If a business default agent is
+  // configured, fall back to it instead of the provider-selection dropdown so
+  // the default stays persistent across open/close (not just on refresh).
   const handleClose = () => {
     setOpen(false);
     setExpanded(false);
-    setView('select');
-    setProviderConfig(null);
+    setMenuOpen(false);
+    if (defaultProviderConfigRef.current) {
+      setProviderConfig(defaultProviderConfigRef.current);
+      setView('agent');
+    } else {
+      setView('select');
+      setProviderConfig(null);
+    }
     setChatKey((k) => k + 1);
   };
 
   // Minimize — shrinks to header bar only, keeps all state intact
   const handleMinimize = () => {
     setMinimized((m) => !m);
+  };
+
+  // New session — fresh chat on the default agent when configured, otherwise
+  // back to the provider-selection view.
+  const handleNewSession = () => {
+    if (defaultProviderConfigRef.current) {
+      setProviderConfig(defaultProviderConfigRef.current);
+      setView('agent');
+    } else {
+      setView('select');
+      setProviderConfig(null);
+    }
+    setChatKey((k) => k + 1);
+  };
+
+  // Load a specific config (a resumed session from Recents, or an agent +
+  // connection picked in the menu) into a fresh ChatPanel.
+  const handleSelectConfig = (config: ProviderConfig) => {
+    setProviderConfig(config);
+    setView('agent');
+    setChatKey((k) => k + 1);
   };
 
   const fabDraggedRef = useRef(false);
@@ -253,6 +289,16 @@ export default function ChatbotWidget() {
               gap: 1,
             }}
           >
+            {!minimized && (
+              <IconButton
+                size="small"
+                onClick={() => setMenuOpen((m) => !m)}
+                sx={{ color: 'var(--text-secondary)', p: 0.5 }}
+                title="Menu"
+              >
+                <MenuIcon sx={{ fontSize: 20 }} />
+              </IconButton>
+            )}
             {view === 'agent' && !isBusinessPreconfig && (
               <IconButton
                 size="small"
@@ -319,6 +365,7 @@ export default function ChatbotWidget() {
               flex: 1,
               flexDirection: 'column',
               overflow: 'hidden',
+              position: 'relative',
             }}
           >
             {view === 'select' ? (
@@ -326,6 +373,14 @@ export default function ChatbotWidget() {
             ) : providerConfig ? (
               <ChatPanel key={chatKey} providerConfig={providerConfig} />
             ) : null}
+
+            <ChatMenu
+              open={menuOpen}
+              showAgentSelector={!isBusinessPreconfig}
+              onNewSession={handleNewSession}
+              onSelectConfig={handleSelectConfig}
+              onClose={() => setMenuOpen(false)}
+            />
           </Box>
         </Paper>
       )}

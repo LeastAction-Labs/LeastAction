@@ -40,6 +40,7 @@ import ValidationPanel from '@/components/validation/ValidationPanel';
 import { BORDER_RADIUS, FONT_SIZES, FONT_WEIGHTS, OPACITY } from '@/constants';
 import { AIMode, useAI } from '@/contexts/AIContext';
 import { RunActionModalMode, useActionContext } from '@/contexts/ActionContext';
+import { useGlobal } from '@/contexts/GlobalContext';
 import {
   TaskModalMode,
   TaskModalScopeType,
@@ -710,6 +711,8 @@ const ManualEditor = ({ onGenerate }: ManualEditorProps) => {
     setMode,
   } = useAI();
   const navigate = useNavigate();
+  let { accountLaui } = useGlobal();
+  if (!accountLaui) accountLaui = localStorage.getItem('la_account_laui');
   const { aiProvider, aiChatLaui, aiChatName, connectionLaui } = config!;
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -854,7 +857,7 @@ const ManualEditor = ({ onGenerate }: ManualEditorProps) => {
     inputRef.current?.focus();
   }, []);
 
-  // Resolve the user's folder.user laui for storing chat_history
+  // Resolve the user's folder.user laui for storing generate_history
   useEffect(() => {
     if (userFolderLaui) return;
     const resolveUserFolder = async () => {
@@ -931,9 +934,10 @@ const ManualEditor = ({ onGenerate }: ManualEditorProps) => {
     }
     try {
       const historyData: any = {
-        item_type: 'chat_history',
+        item_type: 'generate_history',
         name: sessionNameRef.current,
         parent_laui: userFolderLaui,
+        ...(accountLaui ? { account_laui: accountLaui } : {}),
         created_item_type: itemType,
         ai_provider: aiProvider,
         chat_laui: aiChatLaui,
@@ -955,7 +959,7 @@ const ManualEditor = ({ onGenerate }: ManualEditorProps) => {
         await navigate({ to: '/ai/create', search: { sessionId: sessionNameRef.current } });
       }
     } catch (historyErr) {
-      console.error('Failed to save chat_history:', historyErr);
+      console.error('Failed to save generate_history:', historyErr);
     }
   };
 
@@ -974,7 +978,7 @@ const ManualEditor = ({ onGenerate }: ManualEditorProps) => {
     setInputMessage('');
     setIsLoading(true);
 
-    // Save chat_history immediately with the user prompt (before AI responds)
+    // Save generate_history immediately with the user prompt (before AI responds)
     await saveAiHistory(updatedMessages, undefined, undefined, false);
 
     try {
@@ -1043,7 +1047,7 @@ const ManualEditor = ({ onGenerate }: ManualEditorProps) => {
       const allMessages = [...updatedMessages, assistantMessage];
       setMessages(allMessages);
 
-      // Update chat_history with AI response and generated content, navigate now that everything is ready
+      // Update generate_history with AI response and generated content, navigate now that everything is ready
       await saveAiHistory(allMessages, generatedContentFromResponse, response.temp_file_path, true);
     } catch (error) {
       console.error(TEXT.GENERATION_FAILED, error);
@@ -1056,7 +1060,7 @@ const ManualEditor = ({ onGenerate }: ManualEditorProps) => {
       const allMessages = [...updatedMessages, errorMessage];
       setMessages(allMessages);
 
-      // Save chat_history even on error so the prompt is not lost
+      // Save generate_history even on error so the prompt is not lost
       await saveAiHistory(allMessages);
     } finally {
       setIsLoading(false);
