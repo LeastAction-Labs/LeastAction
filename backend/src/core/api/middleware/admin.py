@@ -21,7 +21,7 @@ async def admin_middleware(
         if request.url.path.startswith("/api/v1/admin"):
             item_repo = get_item_repository(request)
             access_reader = get_access_reader(request)
-            if is_root_user or is_system_user:
+            if is_root_user() or is_system_user():
                 return await call_next(request)
             account_laui = await item_repo.get_account_laui()
             await access_reader.check_item_own_access(

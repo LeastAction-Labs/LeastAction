@@ -12,6 +12,7 @@ from pydantic_mongo import PydanticObjectId
 from src.common.context_vars.user_context import get_user_laui
 from src.common.exceptions import LAException
 from src.common.logger.logger import log_error, log_info
+from src.core.api.utils import convert_objectid_to_str
 from src.core.ee.iam.user.api_request import SearchUsersRequest
 from src.core.ee.iam.user.service import UserService, get_user_service
 
@@ -43,13 +44,7 @@ async def get_current_user(
 
         user_laui_obj = PydanticObjectId(user_laui)
         user = await user_service.find_user(user_laui_obj)
-        return {
-            "username": user.username,
-            "email": user.email,
-            "chat_agent_laui": user.chat_agent_laui,
-            "chat_connection_laui": user.chat_connection_laui,
-            "chat_agent_name": user.chat_agent_name,
-        }
+        return convert_objectid_to_str(user.model_dump(exclude="password"))
     except LAException as e:
         log_error(
             "api_traceback",
