@@ -133,3 +133,14 @@ The AI cannot bypass catalog permissions. If a user asks about something outside
 - [Operator Guide](/path?laui=getting-started-advanced-task_managment-operator&itemtype=doc.file&itemname=Operator) — Operator structure and the 4-method contract
 - [Action Guide](/path?laui=getting-started-advanced-task_managment-action_aka_hook&itemtype=doc.file&itemname=Action%20Aka%20Hook) — Action lifecycle and the run method
 - [MCP Setup Guide](/path?laui=getting-started-advanced-AI_managment-mcp&itemtype=doc.file&itemname=MCP) — Connecting Claude Code via MCP, tool reference, and per-user access control
+
+---
+
+> **Security warning — read before connecting MCP to any live environment:**
+>
+> - **Never point MCP at production.** Create a dedicated connection and project scoped specifically for MCP use. Production databases, warehouses, and APIs should remain completely out of reach.
+> - **Enforce the principle of least privilege.** Disable every MCP tool your workflow doesn't require. If you don't need `run_task`, `create_catalog_item`, or `delete_item` — turn them off from **Admin → MCP Access**. An AI session should never have broader rights than a junior read-only analyst.
+> - **AI-generated SQL and code runs exactly as written.** There is no sandbox, no dry-run, and no undo. If an AI writes a `DELETE` or `DROP` statement against a live connection, it executes. Treat every AI-initiated action like a production deploy — review before it runs.
+> - **Rotate and revoke tokens regularly.** MCP tokens have the same power as the user they belong to. Treat them like API keys: store them in a secrets manager, never in dotfiles or version control, and revoke them the moment they're no longer needed.
+> - **Audit AI actions like you audit human ones.** LeastAction logs every task run and catalog change. Review those logs. If something looks wrong, investigate — don't assume the AI "knew what it was doing."
+> - **Be especially careful with connections that have write or execute access.** A read-only reporting connection is low risk. A connection that can INSERT, UPDATE, invoke Lambda, or send messages is not. Scope accordingly.
