@@ -439,7 +439,6 @@ export default function FolderView() {
         </Box>
 
         <TabPanel value={activeWorkflowTab} index={0}>
-          {renderHeader()}
           <ItemsView />
         </TabPanel>
 
