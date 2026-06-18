@@ -420,6 +420,19 @@ class TaskExecutionService:
                         # Sync: run() already has the final status
                         raw_status = run_result.get("status", "failed")
                         status = task_state_map.get(raw_status, TaskState.ERROR)
+                        # Populate completion_details so finish() receives a
+                        # real payload instead of None. For sync operators
+                        # check_completion() is an immediate pass-through.
+                        try:
+                            completion_payload = operator_exec.check_completion()
+                            last_run_output["completion_output"] = completion_payload
+                        except Exception as e:
+                            log_error(
+                                "celery",
+                                "TaskExecutionService",
+                                "execute_task",
+                                f"check_completion failed for sync operator: {str(e)}",
+                            )
                         break
                     else:
                         # Async: run() dispatched a job, poll check_completion() below
