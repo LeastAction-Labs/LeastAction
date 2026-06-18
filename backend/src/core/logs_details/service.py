@@ -25,6 +25,27 @@ TAIL_BLOCK_SIZE = 64 * 1024  # read window when paging a file tail from the end
 _MAX_CONCURRENT_LOG_OPS = 3
 LOG_WORK_SEMAPHORE = asyncio.Semaphore(_MAX_CONCURRENT_LOG_OPS)
 
+# Wall-clock ceiling for a single heavy log operation. On timeout the semaphore
+# slot is released so a wedged disk/mount or pathological glob can't permanently
+# consume capacity and lock out every log endpoint (issue #11, "thread locks").
+# Caveat: the worker thread keeps running — Python threads aren't cancellable —
+# so keep this generous; it should only fire on genuine pathology, not slow I/O.
+_LOG_OP_TIMEOUT = 30.0  # seconds
+# DuckDB queries over wide date ranges are legitimately slower; give them headroom.
+LOG_QUERY_TIMEOUT = 120.0  # seconds
+
+
+async def run_log_op(fn, *args, timeout: float = _LOG_OP_TIMEOUT):
+    """Run a blocking log operation in a thread, gated by the concurrency semaphore
+    and bounded by a wall-clock timeout. Raises TimeoutError with a clear message
+    (plain asyncio.TimeoutError stringifies to ''), which the SSE handlers surface
+    as an error event."""
+    async with LOG_WORK_SEMAPHORE:
+        try:
+            return await asyncio.wait_for(asyncio.to_thread(fn, *args), timeout)
+        except TimeoutError as exc:
+            raise TimeoutError(f"Log operation exceeded {int(timeout)}s and was aborted") from exc
+
 
 def _read_tail_lines(path: Path, needed: int) -> tuple[list[str], bool]:
     """Read non-empty lines from the END of a file, growing backward until at least
@@ -92,8 +113,7 @@ class LogsService:
         return {"directory": str(target), "items": items, "total_count": len(items)}
 
     async def list_folder_items(self, folder_path: str) -> dict[str, Any]:
-        async with LOG_WORK_SEMAPHORE:
-            return await asyncio.to_thread(self._list_folder_items_sync, folder_path)
+        return await run_log_op(self._list_folder_items_sync, folder_path)
 
     # ── file metadata (light) ─────────────────────────────────────────────────
 
@@ -167,8 +187,7 @@ class LogsService:
         skip: number of lines from the end already loaded (0 = start from last line)
         limit: page size
         """
-        async with LOG_WORK_SEMAPHORE:
-            page = await asyncio.to_thread(self._read_tail_page_sync, file_path, skip, limit)
+        page = await run_log_op(self._read_tail_page_sync, file_path, skip, limit)
         if page is not None:
             yield page
 
@@ -200,15 +219,20 @@ class LogsService:
         if ext not in {".log", ".txt", ".json"}:
             raise UnsupportedMediaTypeError(message=f"Streaming not supported for '{ext}'")
 
+        # Held across the whole stream to throttle concurrent big-file reads, so
+        # run_log_op (which acquires the same semaphore) can't be used here. Each
+        # blocking step is bounded with wait_for so a stalled read can't pin the slot.
         async with LOG_WORK_SEMAPHORE:
             if ext == ".json":
                 # Parsing/re-serialising is CPU-bound — keep it off the event loop.
-                yield await asyncio.to_thread(self._read_json_sync, target)
+                yield await asyncio.wait_for(
+                    asyncio.to_thread(self._read_json_sync, target), _LOG_OP_TIMEOUT
+                )
                 return
 
             async with aiofiles.open(target, encoding="utf-8", errors="replace") as f:
                 index = 0
-                while chunk := await f.read(CHUNK_SIZE):
+                while chunk := await asyncio.wait_for(f.read(CHUNK_SIZE), _LOG_OP_TIMEOUT):
                     yield {"content": chunk, "content_type": "text/plain", "chunk_index": index}
                     index += 1
 
@@ -240,8 +264,7 @@ class LogsService:
         return out
 
     async def iter_session_logs(self, session_id: str) -> AsyncIterator[dict[str, Any]]:
-        async with LOG_WORK_SEMAPHORE:
-            entries = await asyncio.to_thread(self._collect_session_logs_sync, session_id)
+        entries = await run_log_op(self._collect_session_logs_sync, session_id)
         for entry in entries:
             yield entry
 
@@ -351,10 +374,9 @@ class LogsService:
         per_page: int = 50,
     ) -> dict[str, Any]:
         """Read and parse all log files for a session, returning structured entries."""
-        async with LOG_WORK_SEMAPHORE:
-            return await asyncio.to_thread(
-                self._get_session_log_content_sync, session_id, level, category, page, per_page
-            )
+        return await run_log_op(
+            self._get_session_log_content_sync, session_id, level, category, page, per_page
+        )
 
 
 def get_logs_service() -> LogsService:

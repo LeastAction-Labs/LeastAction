@@ -3,7 +3,6 @@
 # LeastAction Sustainable Use License (see LICENSE.md) or, for files
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
-import asyncio
 import json
 import traceback
 from collections.abc import AsyncGenerator
@@ -17,7 +16,12 @@ from pydantic import BaseModel
 from src.common.config import Config
 from src.common.context_vars.user_context import get_user_laui
 from src.common.logger.logger import log_error, log_info
-from src.core.logs_details.service import LOG_WORK_SEMAPHORE, LogsService, get_logs_service
+from src.core.logs_details.service import (
+    LOG_QUERY_TIMEOUT,
+    LogsService,
+    get_logs_service,
+    run_log_op,
+)
 
 logs_router = APIRouter()
 
@@ -94,10 +98,16 @@ async def query_logs(request: LogQueryRequest) -> dict:
     log_info(
         "api", "logs_router", "query_logs", f"user={get_user_laui()} payload={request.model_dump()}"
     )
-    async with LOG_WORK_SEMAPHORE:
-        return await asyncio.to_thread(
-            _run_duckdb_query, request.sql, request.category, request.date
+    try:
+        return await run_log_op(
+            _run_duckdb_query,
+            request.sql,
+            request.category,
+            request.date,
+            timeout=LOG_QUERY_TIMEOUT,
         )
+    except TimeoutError as exc:
+        return {"error": str(exc)}
 
 
 def _sse(event: str, data: Any) -> str:
