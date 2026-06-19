@@ -134,21 +134,14 @@ export function useSidebarHandlers() {
 
     // Re-clicking the same folder should not wipe filter/task state
     const isWorkflowFolder = item.item_type?.toLowerCase() === 'folder.workflow';
-    console.log(
-      '[handleSelectItem] itemId:',
-      itemId,
-      'selectedItem:',
-      catalogState.selectedItem?.laui,
-      'isWorkflowFolder:',
-      isWorkflowFolder,
-      'activeFilterType:',
-      catalogState.activeFilterType,
-    );
     if (
       (catalogState.selectedItem?.laui === itemId || openedFolder?.laui === itemId) &&
       item.item_type?.toLowerCase().startsWith('folder')
     ) {
-      console.log('[handleSelectItem] EARLY RETURN for same folder');
+      // Re-point selectedItem at the folder. After viewing a task, selectedItem
+      // holds the task; without this FolderView's effectiveItem resolves to the
+      // task and the workflow Tasks tab collapses into an empty generic view.
+      setSelectedItem(item);
       setOpenedFolder(item);
       navigateToPath(item);
       if (isWorkflowFolder) {
