@@ -596,13 +596,12 @@ const STATUS_LABELS: Record<string, string> = {
   fail: 'Failed',
 };
 
-const ACTION_STYLES: Record<string, { bg: string; color: string; border: string; label: string }> =
-  {
-    pre: { bg: '#e8f5e9', color: '#4ade80', border: '#c8e6c9', label: 'preAction' },
-    run: { bg: '#fff3e0', color: '#fb923c', border: '#ffe0b2', label: 'runningInterval' },
-    sla: { bg: '#e3f2fd', color: '#60a5fa', border: '#bbdefb', label: 'runningSLA' },
-    post: { bg: '#e0f7fa', color: '#67e8f9', border: '#b2ebf2', label: 'postAction' },
-  };
+const ACTION_STYLES: Record<string, { color: string; label: string }> = {
+  pre: { color: '#4ade80', label: 'preAction' },
+  run: { color: '#fb923c', label: 'runningInterval' },
+  sla: { color: '#60a5fa', label: 'runningSLA' },
+  post: { color: '#67e8f9', label: 'postAction' },
+};
 
 const ACTION_STATUS_COLORS: Record<string, string> = {
   success: '#4ade80',
@@ -629,14 +628,14 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
         sx={{
           position: 'relative',
           width: 240,
-          background: '#ffffff',
+          background: 'var(--bg-secondary)',
           borderRadius: '12px',
-          border: '2px solid #e2e8f0',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+          border: '2px solid rgba(var(--color-border), 0.15)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           overflow: 'hidden',
           transition: 'all 0.2s',
           '&:hover': {
-            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
             transform: 'translateY(-2px)',
           },
           '&:hover .add-task-button': {
@@ -706,7 +705,7 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
                 width: 36,
                 height: 36,
                 borderRadius: '8px',
-                background: '#f1f5f9',
+                background: 'var(--bg-tertiary)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -721,14 +720,16 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
               sx={{
                 fontSize: '13px',
                 fontWeight: 700,
-                color: '#1e293b',
+                color: 'var(--text-primary)',
                 lineHeight: 1.3,
                 mb: 0.3,
               }}
             >
               {data.name}
             </Typography>
-            <Typography sx={{ fontSize: '10px', color: '#64748b', fontFamily: 'monospace' }}>
+            <Typography
+              sx={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'monospace' }}
+            >
               {data.operator}
             </Typography>
           </Box>
@@ -738,8 +739,10 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
         {hasDates && (
           <Box sx={{ mt: 0.8, p: 1 }}>
             {data.logical_date && (
-              <Typography sx={{ fontSize: '10px', color: '#64748b', lineHeight: 1.4 }}>
-                <span style={{ color: '#334155', fontWeight: 600 }}>logical_date:</span>{' '}
+              <Typography sx={{ fontSize: '10px', color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                  logical_date:
+                </span>{' '}
                 {formatDateTimeCompact(data.logical_date.value)}
               </Typography>
             )}
@@ -747,12 +750,14 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
               <Typography
                 sx={{
                   fontSize: '10px',
-                  color: '#64748b',
+                  color: 'var(--text-dim)',
                   mt: 0.5,
                   lineHeight: 1.4,
                 }}
               >
-                <span style={{ color: '#334155', fontWeight: 600 }}>last_run_date:</span>{' '}
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                  last_run_date:
+                </span>{' '}
                 {formatDateTimeCompact(data.last_run_date.value)}
               </Typography>
             )}
@@ -768,7 +773,7 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
               gap: 0.5,
               p: 1,
               pt: 1.5,
-              borderTop: '1px solid #f1f5f9',
+              borderTop: '1px solid var(--bg-tertiary)',
             }}
           >
             {[
@@ -801,8 +806,8 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
                     px: 0.8,
                     py: 0.3,
                     borderRadius: '12px',
-                    background: style.bg,
-                    border: `1px solid ${style.border}`,
+                    background: `color-mix(in srgb, ${style.color} 15%, var(--bg-secondary))`,
+                    border: `1px solid color-mix(in srgb, ${style.color} 35%, transparent)`,
                     fontSize: '8px',
                     fontWeight: 600,
                     color: style.color,
@@ -835,8 +840,9 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
                       mb: 0.5,
                       px: 1,
                       py: 0.5,
-                      background: '#1e293b',
-                      color: '#fff',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid rgba(var(--color-border), 0.2)',
                       fontSize: '8px',
                       borderRadius: '4px',
                       whiteSpace: 'nowrap',
@@ -853,7 +859,7 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
                         transform: 'translateX(-50%)',
                         borderWidth: '4px',
                         borderStyle: 'solid',
-                        borderColor: '#1e293b transparent transparent transparent',
+                        borderColor: 'var(--bg-primary) transparent transparent transparent',
                       },
                     }}
                   >
@@ -877,9 +883,9 @@ const PartitionBoxNode = ({ data }: { data: { label: string; width: number; heig
     sx={{
       width: data.width,
       height: data.height,
-      border: '2px solid #e2e8f0',
+      border: '2px solid rgba(var(--color-border), 0.12)',
       borderRadius: '16px',
-      background: 'rgba(241, 245, 249, 0.6)',
+      background: 'rgba(var(--color-card-muted), 0.4)',
       pointerEvents: 'none',
       position: 'relative',
     }}
@@ -891,7 +897,7 @@ const PartitionBoxNode = ({ data }: { data: { label: string; width: number; heig
         left: 14,
         fontSize: '10px',
         fontWeight: 700,
-        color: '#94a3b8',
+        color: 'var(--text-dim)',
         textTransform: 'uppercase',
         letterSpacing: '1.5px',
       }}
@@ -1021,12 +1027,14 @@ const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({
         sx={{
           mt: 3,
           p: 2,
-          background: '#fff',
+          background: 'var(--bg-secondary)',
           borderRadius: '8px',
-          border: '1px solid #e2e8f0',
+          border: '1px solid rgba(var(--color-border), 0.15)',
         }}
       >
-        <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#1e293b', mb: 1.5 }}>
+        <Typography
+          sx={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', mb: 1.5 }}
+        >
           Action Types Legend
         </Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
@@ -1040,8 +1048,8 @@ const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({
                 px: 1,
                 py: 0.5,
                 borderRadius: '12px',
-                background: style.bg,
-                border: `1px solid ${style.border}`,
+                background: `color-mix(in srgb, ${style.color} 15%, var(--bg-secondary))`,
+                border: `1px solid color-mix(in srgb, ${style.color} 35%, transparent)`,
                 fontSize: '10px',
                 fontWeight: 600,
                 color: style.color,
@@ -1066,9 +1074,9 @@ const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({
         sx={{
           width: '100%',
           height: `${height}px`,
-          background: '#fafbfc',
+          background: 'var(--bg-tertiary)',
           borderRadius: '12px',
-          border: '1px solid #e2e8f0',
+          border: '1px solid rgba(var(--color-border), 0.15)',
           overflow: 'hidden',
         }}
       >
@@ -1090,7 +1098,7 @@ const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({
           nodesConnectable={false}
           elementsSelectable={true}
         >
-          <Background color="#e2e8f0" gap={16} />
+          <Background color="rgba(var(--color-border), 0.2)" gap={16} />
           <Controls />
         </ReactFlow>
       </Box>
