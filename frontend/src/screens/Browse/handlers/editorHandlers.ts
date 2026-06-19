@@ -11,7 +11,11 @@ import type { CatalogItem, FormSchema } from '@/components/browse';
 import { useCatalog } from '@/contexts/CatalogContext';
 import { CatalogType, useGlobal } from '@/contexts/GlobalContext';
 import { useNotification } from '@/contexts/NotificationContext';
-import { createCatalogItem, getCatalogItemById } from '@/services/catalog.service';
+import {
+  createCatalogItem,
+  createCatalogLink,
+  getCatalogItemById,
+} from '@/services/catalog.service';
 import { getSchema } from '@/services/schema.service';
 import { validateCodeblock } from '@/services/validation.service';
 import { getDocContent, isDocItem } from '@/utils/docsTree';
@@ -122,6 +126,14 @@ export function useEditorHandlers() {
     try {
       const processedData = { ...data };
 
+      // Synthetic UI-only fields — never sent to the backend as item fields.
+      // attached_config: set when creating a folder.workflow (attach a config to it).
+      const attachedConfig = processedData.attached_config;
+      delete processedData.attached_config;
+      // existing_config_laui: set in the Add Config flow to link an existing config instead of creating one.
+      const existingConfigLaui = processedData.existing_config_laui;
+      delete processedData.existing_config_laui;
+
       let parent_laui: string | null = null;
 
       if (formMode === 'create') {
@@ -141,6 +153,9 @@ export function useEditorHandlers() {
         ...processedData,
         parent_laui: parent_laui,
       };
+
+      // Resolved type after subtype is applied (e.g. generic "folder" + subtype → "folder.workflow").
+      const resolvedItemType: string = itemData.item_type || filterType;
 
       if (filterType !== 'folder.account') {
         itemData.account_laui = accountLaui;
@@ -166,13 +181,64 @@ export function useEditorHandlers() {
         }
       }
 
+      // Add Config flow: user picked an existing config to attach instead of creating a new one.
+      // Link it as a child of the parent (e.g. the workflow folder) and skip item creation.
+      if (
+        formMode === 'create' &&
+        resolvedItemType.split('.')[0] === 'config' &&
+        existingConfigLaui
+      ) {
+        if (!parent_laui) {
+          showWarning('No parent folder to attach the config to.');
+          return;
+        }
+        await createCatalogLink({ parent_laui, child_laui: existingConfigLaui });
+        showSuccess('Config attached successfully!');
+        setIsEditorActive(false);
+        await handleRefreshItem(parent_laui, 'own');
+        return;
+      }
+
+      // Attach a config (link existing or create new) to a workflow folder identified by workflowLaui.
+      // Used in both create (new folder laui) and edit (existing folder laui) flows.
+      const attachConfigToWorkflow = async (workflowLaui: string | undefined) => {
+        if (resolvedItemType !== 'folder.workflow' || !attachedConfig || !workflowLaui) return;
+        try {
+          if (attachedConfig.mode === 'existing' && attachedConfig.configLaui) {
+            await createCatalogLink({
+              parent_laui: workflowLaui,
+              child_laui: attachedConfig.configLaui,
+            });
+          } else if (attachedConfig.mode === 'create' && attachedConfig.configForm?.name) {
+            await createCatalogItem(
+              {
+                item_type: 'config',
+                ...attachedConfig.configForm,
+                parent_laui: workflowLaui,
+                account_laui: accountLaui,
+                project_laui: currentProjectLaui,
+              },
+              isMarketplaceCatalog,
+            );
+          } else if (attachedConfig.mode === 'create') {
+            showWarning('Config name is required — workflow saved without attaching a config.');
+          }
+        } catch {
+          showWarning('Workflow saved, but attaching the config failed.');
+        }
+      };
+
       let createdItem: any = null;
       if (formMode === 'create') {
         createdItem = await createCatalogItem(itemData, isMarketplaceCatalog);
         showSuccess(`${filterType} created successfully!`);
         if (filterType.startsWith('folder')) setIsEditorActive(false);
+        await attachConfigToWorkflow(
+          createdItem?._laui ?? createdItem?.laui ?? createdItem?.item_laui,
+        );
       } else if (formMode === 'edit' && editingItem?.laui) {
         await createCatalogItem(itemData, isMarketplaceCatalog);
+        await attachConfigToWorkflow(editingItem.laui);
         showSuccess(`${editingItem.name || filterType} updated successfully!`);
         setFormMode('view');
         setEditingItem(null);
