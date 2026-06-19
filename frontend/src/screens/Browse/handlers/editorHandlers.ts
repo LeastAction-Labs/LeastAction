@@ -11,7 +11,11 @@ import type { CatalogItem, FormSchema } from '@/components/browse';
 import { useCatalog } from '@/contexts/CatalogContext';
 import { CatalogType, useGlobal } from '@/contexts/GlobalContext';
 import { useNotification } from '@/contexts/NotificationContext';
-import { createCatalogItem, createCatalogLink, getCatalogItemById } from '@/services/catalog.service';
+import {
+  createCatalogItem,
+  createCatalogLink,
+  getCatalogItemById,
+} from '@/services/catalog.service';
 import { getSchema } from '@/services/schema.service';
 import { validateCodeblock } from '@/services/validation.service';
 import { getDocContent, isDocItem } from '@/utils/docsTree';
@@ -179,7 +183,11 @@ export function useEditorHandlers() {
 
       // Add Config flow: user picked an existing config to attach instead of creating a new one.
       // Link it as a child of the parent (e.g. the workflow folder) and skip item creation.
-      if (formMode === 'create' && resolvedItemType.split('.')[0] === 'config' && existingConfigLaui) {
+      if (
+        formMode === 'create' &&
+        resolvedItemType.split('.')[0] === 'config' &&
+        existingConfigLaui
+      ) {
         if (!parent_laui) {
           showWarning('No parent folder to attach the config to.');
           return;
