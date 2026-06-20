@@ -28,12 +28,14 @@ export interface DeleteModalData {
   itemName?: string;
   parentLaui?: string;
   onSuccess?: () => void;
+  /** True when the item is already in trash, so this delete is permanent. */
+  isPermanent?: boolean;
 }
 
 export default function DeleteModal() {
   const { catalogType } = useGlobal();
   const { setDeleteModalState, deleteModalState } = useCatalog();
-  const { isOpen, itemName, itemLaui, parentLaui } = deleteModalState;
+  const { isOpen, itemName, itemLaui, parentLaui, isPermanent } = deleteModalState;
   const { showSuccess } = useNotification();
 
   const isMarketplaceCatalog = catalogType === CatalogType.MARKETPLACE;
@@ -52,7 +54,7 @@ export default function DeleteModal() {
     setSubmitting(true);
     try {
       await deleteCatalogItem(itemLaui!, parentLaui!, isMarketplaceCatalog);
-      showSuccess('Item deleted successfully');
+      showSuccess(isPermanent ? 'Item permanently deleted' : 'Item deleted successfully');
       handleClose();
       deleteModalState.onSuccess?.();
     } catch {
@@ -132,7 +134,7 @@ export default function DeleteModal() {
           px: 1.5,
         }}
       >
-        {submitting ? 'Deleting...' : 'Delete Item'}
+        {submitting ? 'Deleting...' : isPermanent ? 'Delete Permanently' : 'Delete Item'}
       </Button>
     </>
   );
@@ -142,7 +144,13 @@ export default function DeleteModal() {
       open={isOpen}
       onClose={handleClose}
       title="Confirm Delete"
-      subtitle={items.length > 0 ? 'Potential impact on linked items' : 'Move item to trash'}
+      subtitle={
+        items.length > 0
+          ? 'Potential impact on linked items'
+          : isPermanent
+            ? 'Permanently delete item'
+            : 'Move item to trash'
+      }
       actions={ModalActions}
       loading={loading}
       loadingText="Checking for linked items..."
@@ -150,7 +158,16 @@ export default function DeleteModal() {
     >
       <Box sx={{ mt: 1 }}>
         <Typography sx={{ color: 'var(--text-primary)', mb: 2 }}>
-          Are you sure you want to move item <strong>{itemName}</strong> to trash?
+          {isPermanent ? (
+            <>
+              Are you sure you want to permanently delete <strong>{itemName}</strong>? This action
+              cannot be undone.
+            </>
+          ) : (
+            <>
+              Are you sure you want to move item <strong>{itemName}</strong> to trash?
+            </>
+          )}
           {items.length > 0 &&
             ' This item and its children are linked with the items below. These links will be permanently deleted.'}
         </Typography>

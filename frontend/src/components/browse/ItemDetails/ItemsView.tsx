@@ -171,7 +171,6 @@ export default function ItemsView() {
     setSelectedItems([]);
   };
 
-  console.log('[ItemsView] filterType:', filterType, 'filteredFromItem:', filteredFromItem?.laui);
   if (!filterType) return;
 
   const handleCreateItem = async () => {

@@ -6,7 +6,9 @@
  * Use of this file outside those terms is not permitted.
  */
 import { useActionContext } from '@/contexts/ActionContext';
+import { CatalogType, useGlobal } from '@/contexts/GlobalContext';
 import { useNotification } from '@/contexts/NotificationContext';
+import { getRootCatalogNodes } from '@/services/catalog.service';
 
 import { useCatalog } from '../../../contexts/CatalogContext';
 import { useCatalogActions, useCatalogTree } from '../hooks';
@@ -30,9 +32,12 @@ import { getAttachedActions } from '../utils';
 export function useRefreshHandlers() {
   const { findItem, findPath } = useCatalogTree();
   const { catalogState } = useCatalog();
+  const { catalogType } = useGlobal();
   const { loadChildren } = useCatalogActions(findItem, findPath);
   const { showSuccess } = useNotification();
   const { setAttachedActions } = useActionContext();
+
+  const isMarketplaceCatalog = catalogType === CatalogType.MARKETPLACE;
 
   const handleRefreshItem = async (
     itemId: string,
@@ -54,8 +59,10 @@ export function useRefreshHandlers() {
         return newSet;
       });
 
-      // Reload the children
-      await loadChildren(itemId, itemPermission);
+      // Reload the children. Force the fetch: setLoadedChildren above is an
+      // async state update, so loadChildren's own loadedChildren closure is
+      // still stale here and its cache guard would otherwise skip the refetch.
+      await loadChildren(itemId, itemPermission, true);
 
       if (
         !catalogState.filteredFromItem ||
@@ -77,7 +84,44 @@ export function useRefreshHandlers() {
     }
   };
 
+  /**
+   * Reload the entire sidebar tree from the root, invalidating the
+   * loadedChildren cache. Used after delete/restore, where an item moves
+   * between two subtrees (source parent <-> trash) and a single-node refresh
+   * cannot keep both consistent. Currently-expanded folders are re-fetched so
+   * the user's expansion state is preserved.
+   */
+  const handleRefreshTree = async () => {
+    try {
+      const { items: root } = await getRootCatalogNodes(isMarketplaceCatalog);
+      catalogState.setItems(root);
+
+      // Invalidate all cached children. The root response already pre-nests the
+      // account folder's children, so re-mark it loaded to avoid a redundant
+      // refetch that would overwrite them with a paginated subset.
+      const accountNode = root[0]?.item?.item_type === 'folder.account' ? root[0].item : null;
+      catalogState.setLoadedChildren(accountNode ? new Set([accountNode.laui]) : new Set());
+
+      // Re-fetch children for folders that are currently expanded so the tree
+      // keeps its shape. Skip virtual/monitor nodes which load lazily elsewhere.
+      const expandedIds = Array.from(catalogState.expandedItems);
+      for (const id of expandedIds) {
+        if (accountNode && id === accountNode.laui) continue;
+        const item = findItem(id);
+        if (!item) continue;
+        const isVirtualNode = item.item_type === '';
+        const isMonitorFolder =
+          item.item_type === 'folder.monitor' || item.laui.startsWith('monitor-');
+        if (isVirtualNode || isMonitorFolder) continue;
+        await loadChildren(id, item.permission ?? 'view', true);
+      }
+    } catch (error) {
+      console.error('Error refreshing sidebar tree:', error);
+    }
+  };
+
   return {
     handleRefreshItem,
+    handleRefreshTree,
   };
 }

@@ -976,6 +976,7 @@ export default function ItemsTable({
       parentLaui,
       itemName: item.name,
       onSuccess: () => void onSuccess(),
+      isPermanent: !!item.deleted_at,
     });
   };
 
@@ -986,7 +987,8 @@ export default function ItemsTable({
 
   const handleRestore = (item: CatalogItem, event: React.MouseEvent) => {
     event.stopPropagation();
-    setRestoreModalState({ isOpen: true, item });
+    const onSuccess = folderMode && onDeleteSuccess ? onDeleteSuccess : refreshFilteredList;
+    setRestoreModalState({ isOpen: true, item, onSuccess: () => void onSuccess() });
   };
 
   const handleImport = async (item: CatalogItem, event: React.MouseEvent) => {
@@ -1733,6 +1735,7 @@ export default function ItemsTable({
                           setSelectedTasks([]);
                           void onSuccess();
                         },
+                        isPermanent: !!item.deleted_at,
                       });
                     }
                   });

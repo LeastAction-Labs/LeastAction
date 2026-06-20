@@ -20,6 +20,7 @@ import type { CatalogItem } from '../types';
 export interface RestoreModalData {
   isOpen: boolean;
   item?: CatalogItem;
+  onSuccess?: () => void;
 }
 
 export const RestoreModal = () => {
@@ -41,6 +42,7 @@ export const RestoreModal = () => {
       const response = await restoreItem(item.laui);
       showSuccess(response.message);
       handleClose();
+      restoreModalState.onSuccess?.();
     } catch {
       /* ignore */
     } finally {

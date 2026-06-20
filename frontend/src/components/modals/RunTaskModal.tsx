@@ -272,22 +272,7 @@ export default function RunTaskModal() {
         if (scope.scopeType === TaskModalScopeType.OPERATOR && scope.operatorLaui) {
           setSelectedOperator(scope.operatorLaui);
           setFormData((prev) => ({ ...prev, operator_laui: scope.operatorLaui! }));
-          // Mirror handleOperatorChange: pull the operator's payload so the
-          // payload field is autofilled (it isn't when prefilling directly).
-          try {
-            const operatorItem = await getCatalogItemById(scope.operatorLaui);
-            const payload = operatorItem.payload;
-            if (payload) {
-              const payloadString =
-                typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
-              setFormData((prev) =>
-                // Only autofill when the user hasn't already provided a payload
-                !prev.payload && !prev.payload_laui ? { ...prev, payload: payloadString } : prev,
-              );
-            }
-          } catch (err) {
-            console.error('Failed to fetch operator payload:', err);
-          }
+          void loadOperatorPayload(scope.operatorLaui);
         }
 
         // Payload context: prefill payload and payload dropdown
@@ -676,23 +661,27 @@ export default function RunTaskModal() {
     handleChange('connection_laui', value || '');
   };
 
-  const handleOperatorChange = async (value: string) => {
+  // Fetch the operator's payload and fill the payload field.
+  // Skipped when the user has explicitly selected a catalog payload (payload_laui).
+  const loadOperatorPayload = async (operatorLaui: string) => {
+    if (!operatorLaui) return;
+    try {
+      const operatorItem = await getCatalogItemById(operatorLaui);
+      const payload = operatorItem.payload;
+      if (payload) {
+        const payloadString =
+          typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+        setFormData((prev) => ({ ...prev, payload: payloadString }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch operator payload:', err);
+    }
+  };
+
+  const handleOperatorChange = (value: string) => {
     setSelectedOperator(value);
     handleChange('operator_laui', value);
-
-    if (value && !formData.payload && !formData.payload_laui) {
-      try {
-        const operatorItem = await getCatalogItemById(value);
-        const payload = operatorItem.payload;
-        if (payload) {
-          const payloadString =
-            typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
-          setFormData((prev) => ({ ...prev, payload: payloadString }));
-        }
-      } catch (err) {
-        console.error('Failed to fetch operator payload:', err);
-      }
-    }
+    if (!formData.payload_laui) void loadOperatorPayload(value);
   };
 
   const handlePayloadChange = async (value: string) => {
