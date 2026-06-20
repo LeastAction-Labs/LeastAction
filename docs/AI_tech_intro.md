@@ -1,6 +1,6 @@
 # LeastAction AI — Technical Overview
 
-LeastAction has three distinct AI modes. Each serves a different purpose and cost model. In all three, permissions are enforced — users can only access, run, and edit items they have permission to.
+LeastAction has four distinct AI modes. Each serves a different purpose and cost model. In all four, permissions are enforced — users can only access, run, and edit items they have permission to.
 
 ---
 

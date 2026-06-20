@@ -93,7 +93,7 @@ See [Action Guide](/path?laui=getting-started-advanced-task_managment-action_aka
 
 Navigate to `AI > Payload`, select an operator, and describe what the task should do. The generator reads the operator's expected payload format and produces a compatible payload with placeholders for values you need to fill in.
 
-**Example:** Select `PostgresqlExecuteSQL`, describe *"insert today's sales summary into the reports table"* — the AI generates the SQL with `{{ ds }}` for the date.
+**Example:** Select `PostgresqlExecuteSQL`, describe *"insert today's sales summary into the reports table"* — the AI generates the SQL with `{{ds}}` for the date.
 
 Payloads can be any format the operator expects: JSON, SQL, Python, plain string. See [Payload Guide](/path?laui=getting-started-advanced-task_managment-payload&itemtype=doc.file&itemname=Payload).
 
@@ -205,6 +205,6 @@ The connection is resolved server-side from the user's token — the client neve
 
 ## No Lock-In
 
-LeastAction does not require you to use any specific AI provider. The generation service is powered by an `chat` item you create and save in the catalog — point it at any provider you want. The operators and actions it generates can call any external API, AI or otherwise. Credentials live in catalog connections, separate from code.
+LeastAction does not require you to use any specific AI provider. The generation service is powered by a `chat` item you create and save in the catalog — point it at any provider you want. The operators and actions it generates can call any external API, AI or otherwise. Credentials live in catalog connections, separate from code.
 
 If you want to replace Claude with GPT-4 in an AI-powered action, update the AI chat. The action code does not change.

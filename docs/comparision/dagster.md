@@ -42,7 +42,7 @@ This is not a simplification. Engineers get a more capable platform (custom oper
 
 Dagster Resources are typed Python classes. To connect to a service, you define or use a pre-built Resource class. If the built-in resource doesn't expose the fields you need, you subclass it or build a custom one that follows Dagster's Resource protocol.
 
-In LeastAction, operators are Python with a four-function structure (`initialize`, `run`, `checkCompletion`, `finish`). Connections are free-form JSON — whatever fields the operator expects, you put in. No class hierarchy, no `@resource` decorator protocol to implement.
+In LeastAction, operators are Python with a four-function structure (`initialize`, `run`, `check_completion`, `finish`). Connections are free-form JSON — whatever fields the operator expects, you put in. No class hierarchy, no `@resource` decorator protocol to implement.
 
 Building a custom operator for an internal API or proprietary system is the same effort as building one for AWS or Postgres — write the Python, save to the catalog, done.
 

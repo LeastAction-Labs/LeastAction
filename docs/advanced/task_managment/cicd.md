@@ -88,7 +88,7 @@ def handler(event, context):
 INSERT INTO analytics.daily_revenue
 SELECT date, SUM(amount) as revenue
 FROM raw.transactions
-WHERE date = '{{ ds }}'
+WHERE date = '{{ds}}'
 GROUP BY date
 ```
 
@@ -102,7 +102,7 @@ GROUP BY date
 #   "frequency": "0 8 * * *"
 # }
 
-spark.sql("SELECT * FROM events WHERE date = '{{ ds }}'")
+spark.sql("SELECT * FROM events WHERE date = '{{ds}}'")
 ```
 
 **YAML file:**
@@ -115,7 +115,7 @@ spark.sql("SELECT * FROM events WHERE date = '{{ ds }}'")
 # }
 
 source: analytics.daily_revenue
-destination: s3://data-lake/exports/{{ ds }}/
+destination: s3://data-lake/exports/{{ds}}/
 ```
 
 ### **Attaching Actions in Task Files**
@@ -355,7 +355,7 @@ data-pipelines/
 }
 */
 
-SELECT * FROM crm.opportunities WHERE updated_date = '{{ ds }}'
+SELECT * FROM crm.opportunities WHERE updated_date = '{{ds}}'
 ```
 
 **Workflow config** (attached to the workflow folder in LeastAction):

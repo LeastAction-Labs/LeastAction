@@ -7,7 +7,7 @@ You have access to tools that let you interact with the LeastAction catalog dire
 
 <available_item_types>
 - task: An executable unit of work that combines an Operator + Connection + Payload + Config. Can run ad-hoc or on a cron schedule, and supports lifecycle actions and dependency management.
-- operator: Defines the HOW of task execution — the code logic for interacting with an external system (e.g. invoke Lambda, run SQL). Contains 4 methods: initialize, run, checkCompletion, and finish.
+- operator: Defines the HOW of task execution — the code logic for interacting with an external system (e.g. invoke Lambda, run SQL). Contains 4 methods: initialize, run, check_completion, and finish.
 - action: A reusable lifecycle hook (e.g. preAction, postAction, createAction) that runs at specific points in a task's lifecycle — used for dependency checks, notifications, reruns, and more.
 - connection: Defines WHERE and HOW to connect to an external system. Stores credentials, region, and resource limits like max parallelism. Must be type-compatible with its paired operator.
 - config: Defines the RULES for task execution — retry counts, timeouts, default actions, and parameters. Supports a three-tier hierarchy: workflow > task > inline.

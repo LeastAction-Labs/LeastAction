@@ -55,9 +55,9 @@ pip install requests python-dateutil croniter
     "parents": [
       {
         "task_name": "parent_task_name_example",
-        "project_laui": "{{ project_laui }}",
+        "project_laui": "{{project_laui}}",
         "account_laui": "{{account_laui}}",
-        "partition": "{{ partition}}"
+        "partition": "{{partition}}"
       }
     ]
   }
@@ -203,8 +203,8 @@ The action produces detailed structured logs with format:
 ```yaml
 parents:
   - task_name: "fetch_data"         # Must exist in catalog
-    project_laui: "{{ project_laui }}"   # Must match project
-    account_laui: "{{ account_laui }}"   # Must match account
+    project_laui: "{{project_laui}}"   # Must match project
+    account_laui: "{{account_laui}}"   # Must match account
 ```
 
 #### 3. "Parent state is invalid (error, fail, cancelled, or cancel)"

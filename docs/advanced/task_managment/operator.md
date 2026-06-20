@@ -10,7 +10,7 @@ An operator is self-contained code with a standardized four-function structure:
 
 - **`initialize()`** - Set up resources, authenticate, create clients
 - **`run()`** - Execute the task's payload and start the operation
-- **`checkCompletion()`** - Monitor execution status (for async operations)
+- **`check_completion()`** - Monitor execution status (for async operations)
 - **`finish()`** - Clean up resources after completion
 
 **Key Characteristics:**
@@ -115,7 +115,7 @@ Standard structure with code in a single `main.py` file:
 
 #### Multi-File Operators
 
-For complex operators, split code across multiple files. **Required constraint: `main.py` must exist and contain all 4 required methods** (initialize, run, checkCompletion, finish).
+For complex operators, split code across multiple files. **Required constraint: `main.py` must exist and contain all 4 required methods** (initialize, run, check_completion, finish).
 
 ```json
 {
@@ -129,7 +129,7 @@ For complex operators, split code across multiple files. **Required constraint: 
 
 **Multi-File Structure Rules:**
 
-- **`main.py` is mandatory** - Must contain all 4 functions: `initialize()`, `run()`, `checkCompletion()`, `finish()`
+- **`main.py` is mandatory** - Must contain all 4 functions: `initialize()`, `run()`, `check_completion()`, `finish()`
 - **Additional files are optional** - Create helper modules for code organization
 - **All files are in same directory context** - Use relative imports (e.g., `from utils import helper_func`)
 - **Path structure is preserved** - Subdirectories like `helpers/` are supported
@@ -139,7 +139,7 @@ For complex operators, split code across multiple files. **Required constraint: 
 ```json
 {
   "codeblock": {
-    "main.py": "import json\nfrom aws_client import AWSClient\n\ndef initialize(...):\n    return AWSClient(...)\n\ndef run(...):\n    ...\n\ndef checkCompletion(...):\n    ...\n\ndef finish(...):\n    ...",
+    "main.py": "import json\nfrom aws_client import AWSClient\n\ndef initialize(...):\n    return AWSClient(...)\n\ndef run(...):\n    ...\n\ndef check_completion(...):\n    ...\n\ndef finish(...):\n    ...",
     "aws_client.py": "class AWSClient:\n    def __init__(self, credentials):\n        ...",
     "utils/validators.py": "def validate_payload(payload):\n    ..."
   }
@@ -157,7 +157,7 @@ For complex operators, split code across multiple files. **Required constraint: 
 
 ```
 ┌─────────────┐     ┌─────────┐     ┌──────────────────┐     ┌────────┐
-│ initialize  │ --> │   run   │ --> │ checkCompletion  │ --> │ finish │
+│ initialize  │ --> │   run   │ --> │ check_completion  │ --> │ finish │
 │             │     │         │     │  (polled until   │     │        │
 │ Setup client│     │ Start   │     │   done)          │     │ Cleanup│
 └─────────────┘     └─────────┘     └──────────────────┘     └────────┘
@@ -170,13 +170,12 @@ For complex operators, split code across multiple files. **Required constraint: 
 **Purpose**: Set up connections, authenticate, and return a client object
 
 ```python
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
     """
     Initialize connections and return a client object.
 
     Parameters:
         least_action_task_object (dict): Task context with connection, payload
-        least_action_parameters (dict): Additional system parameters
 
     Returns:
         any: Client/connection object (boto3 client, DB connection, etc.)
@@ -194,7 +193,7 @@ def initialize(least_action_task_object, least_action_parameters):
 **Example:**
 
 ```python
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
     connection = least_action_task_object.get('connection', {})
 
     try:
@@ -232,13 +231,12 @@ def initialize(least_action_task_object, least_action_parameters):
 **Purpose**: Start the operation and return execution details
 
 ```python
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     """
     Execute the operation and return details.
 
     Parameters:
         least_action_task_object (dict): Task context object
-        least_action_parameters (dict): Additional parameters
         client (any): Client object returned from initialize()
 
     Returns:
@@ -256,7 +254,7 @@ def run(least_action_task_object, least_action_parameters, client):
 - Parse payload from `least_action_task_object`
 - Validate input parameters
 - Start the operation using the client
-- Return execution details needed by `checkCompletion()`
+- Return execution details needed by `check_completion()`
 
 **Required Return Fields:**
 
@@ -266,7 +264,7 @@ def run(least_action_task_object, least_action_parameters, client):
 **Example:**
 
 ```python
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     payload = least_action_task_object.get('payload', '{}')
 
     try:
@@ -313,19 +311,18 @@ def run(least_action_task_object, least_action_parameters, client):
         raise
 ```
 
-### 3. checkCompletion()
+### 3. check_completion()
 
 **Purpose**: Check if the operation has completed and return status
 
 ```python
-def checkCompletion(least_action_task_object, least_action_parameters,
+def check_completion(least_action_task_object,
                     client, run_details):
     """
     Check operation completion status.
 
     Parameters:
         least_action_task_object (dict): Task context object
-        least_action_parameters (dict): Additional parameters
         client (any): Client object from initialize()
         run_details (dict): Dict returned from run() method
 
@@ -362,7 +359,7 @@ def checkCompletion(least_action_task_object, least_action_parameters,
 **Example:**
 
 ```python
-def checkCompletion(least_action_task_object, least_action_parameters,
+def check_completion(least_action_task_object,
                     client, run_details):
     try:
         # For synchronous operations
@@ -375,7 +372,7 @@ def checkCompletion(least_action_task_object, least_action_parameters,
 
         # For asynchronous operations
         function_name = run_details.get('function_name')
-        log_info("task", "checkCompletion", "checking_status",
+        log_info("task", "check_completion", "checking_status",
                  f"Checking status of async Lambda: {function_name}")
 
         # In real implementation, you'd query actual status
@@ -387,7 +384,7 @@ def checkCompletion(least_action_task_object, least_action_parameters,
         }
 
     except Exception as e:
-        log_error("task", "checkCompletion", "error",
+        log_error("task", "check_completion", "error",
                   f"Error checking completion: {str(e)}")
         return {
             'status': 'failed',
@@ -408,7 +405,7 @@ def finish(least_action_task_object, client, completion_details, run_details):
     Parameters:
         least_action_task_object (dict): Task context object
         client (any): Client object from initialize()
-        completion_details (dict): Final dict from checkCompletion()
+        completion_details (dict): Final dict from check_completion()
         run_details (dict): Dict from run() method
 
     Returns:
@@ -513,7 +510,7 @@ log_error(type, function, step, description)
 **Parameters:**
 
 - `type`: Always `"task"` for operators
-- `function`: Function name (`"initialize"`, `"run"`, `"checkCompletion"`, `"finish"`)
+- `function`: Function name (`"initialize"`, `"run"`, `"check_completion"`, `"finish"`)
 - `step`: Descriptive step identifier (lowercase with underscores)
 - `description`: Detailed message (can include task_id in message string if needed)
 
@@ -527,7 +524,7 @@ log_info("task", "initialize", "creating_client",
 log_info("task", "run", "invoking_lambda",
          f"Invoking function: {function_name}")
 
-log_error("task", "checkCompletion", "aws_error",
+log_error("task", "check_completion", "aws_error",
           f"AWS error: {str(e)}")
 
 # Include context in message if needed
@@ -552,14 +549,14 @@ log_info("task", "run", "start",
 |--------|----------|--------|
 | `initialize()` | **Raise** | Fail fast if can't connect |
 | `run()` | **Raise** | Fail fast if can't start operation |
-| `checkCompletion()` | **Return failed status** | Allow graceful failure reporting |
+| `check_completion()` | **Return failed status** | Allow graceful failure reporting |
 | `finish()` | **Log only** | Ensure cleanup always completes |
 
 **Example Patterns:**
 
 ```python
 # initialize() and run() - RAISE exceptions
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
     try:
         client = create_client(...)
         return client
@@ -570,14 +567,14 @@ def initialize(least_action_task_object, least_action_parameters):
         log_error("task", "initialize", "error", f"Failed: {str(e)}")
         raise
 
-# checkCompletion() - RETURN failed status
-def checkCompletion(least_action_task_object, least_action_parameters,
+# check_completion() - RETURN failed status
+def check_completion(least_action_task_object,
                     client, run_details):
     try:
         # Check status logic
         return {'status': 'success', 'message': '...', 'output': {}}
     except Exception as e:
-        log_error("task", "checkCompletion", "error", f"Error: {str(e)}")
+        log_error("task", "check_completion", "error", f"Error: {str(e)}")
         # Don't raise - return failed status
         return {
             'status': 'failed',
@@ -612,7 +609,7 @@ import json
 from botocore.exceptions import ClientError
 from utils.logger import log_info, log_error
 
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
     connection = least_action_task_object.get('connection', {})
 
     try:
@@ -639,7 +636,7 @@ def initialize(least_action_task_object, least_action_parameters):
         log_error("task", "initialize", "error", f"Failed: {str(e)}")
         raise
 
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     payload = least_action_task_object.get('payload', '{}')
 
     try:
@@ -684,7 +681,7 @@ def run(least_action_task_object, least_action_parameters, client):
         log_error("task", "run", "error", f"Execution failed: {str(e)}")
         raise
 
-def checkCompletion(least_action_task_object, least_action_parameters,
+def check_completion(least_action_task_object,
                     client, run_details):
     try:
         if run_details.get('execution_type') == 'sync':
@@ -702,7 +699,7 @@ def checkCompletion(least_action_task_object, least_action_parameters,
         }
 
     except Exception as e:
-        log_error("task", "checkCompletion", "error", f"Error: {str(e)}")
+        log_error("task", "check_completion", "error", f"Error: {str(e)}")
         return {
             'status': 'failed',
             'message': f'Error checking completion: {str(e)}',
@@ -774,7 +771,7 @@ import json
 from psycopg2.extras import RealDictCursor
 from utils.logger import log_info, log_error
 
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
     connection = least_action_task_object.get('connection', {})
 
     try:
@@ -800,7 +797,7 @@ def initialize(least_action_task_object, least_action_parameters):
                   f"Connection failed: {str(e)}")
         raise
 
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     payload = least_action_task_object.get('payload', '{}')
 
     try:
@@ -845,7 +842,7 @@ def run(least_action_task_object, least_action_parameters, client):
         client.rollback()
         raise
 
-def checkCompletion(least_action_task_object, least_action_parameters,
+def check_completion(least_action_task_object,
                     client, run_details):
     if run_details.get('query_executed'):
         return {
@@ -908,7 +905,7 @@ import json
 import os
 from utils.logger import log_info, log_error
 
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
     connection = least_action_task_object.get('connection', {})
 
     try:
@@ -935,7 +932,7 @@ def initialize(least_action_task_object, least_action_parameters):
         log_error("task", "initialize", "error", f"Setup failed: {str(e)}")
         raise
 
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     payload = least_action_task_object.get('payload', '{}')
 
     try:
@@ -985,7 +982,7 @@ def run(least_action_task_object, least_action_parameters, client):
         log_error("task", "run", "error", f"Execution failed: {str(e)}")
         raise
 
-def checkCompletion(least_action_task_object, least_action_parameters,
+def check_completion(least_action_task_object,
                     client, run_details):
     exit_code = run_details.get('exit_code', 1)
 

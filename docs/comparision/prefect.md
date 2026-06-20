@@ -42,7 +42,7 @@ This is not a trade-off. Engineers get a more capable platform (custom operators
 
 Prefect Blocks provide typed schemas for credentials and infrastructure — S3Block, SlackWebhook, PostgresConnector. If you need a custom connection type, you define a Block class. If the built-in block doesn't expose the field you need, you work around it or subclass it.
 
-In LeastAction, operators are Python with a four-function structure (`initialize`, `run`, `checkCompletion`, `finish`). Write one, save to the catalog — immediately usable by any task. Connections are free-form JSON: whatever fields the operator expects, you put in. No block schemas, no class hierarchy.
+In LeastAction, operators are Python with a four-function structure (`initialize`, `run`, `check_completion`, `finish`). Write one, save to the catalog — immediately usable by any task. Connections are free-form JSON: whatever fields the operator expects, you put in. No block schemas, no class hierarchy.
 
 The result: operators for internal systems, proprietary APIs, or niche services are as easy to build as operators for AWS or Postgres.
 
@@ -106,7 +106,7 @@ UI actions can act on items already in the catalog — approve a report, send it
 
 Prefect is designed for teams who live in Python. Flows are plain functions — easy to test locally, easy to iterate on, easy to debug with standard Python tooling. The `@task` and `@flow` decorators add minimal overhead on top of code you'd write anyway.
 
-LeastAction's operator structure (`initialize`, `run`, `checkCompletion`, `finish`) is more structured. That structure enables async completion checking and first-class catalog items, but it is more ceremony than a Prefect `@task`.
+LeastAction's operator structure (`initialize`, `run`, `check_completion`, `finish`) is more structured. That structure enables async completion checking and first-class catalog items, but it is more ceremony than a Prefect `@task`.
 
 ### Prefect Cloud — fully managed, no infrastructure
 

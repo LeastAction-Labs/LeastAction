@@ -48,9 +48,12 @@ Prefix your response with `[content_type:markdown]` on the very first line (the 
 | `get_children` | List children of an item (paginated) |
 | `run_task` | Execute a task |
 | `run_action` | Execute an action |
-| `create_catalog_item` | Create operators, tasks, folders, connections, etc. |
+| `create_catalog_item` | Create operators, tasks, folders, connections, etc. (also overwrites in place) |
+| `get_item_schema` | Get required/optional fields for an item type — call before `create_catalog_item` |
+| `update_task` | Update allowed task fields (e.g. `logical_date`, `payload`) in place |
 | `get_task_status` | Get current state and diagnostics of a task |
 | `get_task_logs` | Fetch parsed execution logs for a task session (requires task_laui + session_id) |
+| `get_non_task_logs` | Fetch CELERY or API logs for a session (deep error debugging) |
 | `get_task_history` | Get execution history for a task — returns session_id and prev_interval_start per run |
 | `get_marketplace_item` | Get a marketplace item by laui ID |
 | `search_marketplace` | Search marketplace items by name or type (paginated) |
@@ -88,7 +91,9 @@ Prefix your response with `[content_type:markdown]` on the very first line (the 
 | `get_children` | List children of an item. Fixed to `own` permission. Supports `page`, `per_page`, filtering by item type. |
 | `run_task` | Run a task by its laui ID. **Always store the returned session_id for later log retrieval.** |
 | `run_action` | Run an action by its laui ID. Returns `{session_id, result}` — **store the session_id** to confirm delivery or debug a failed send (see Find-logs-on-failure flow). |
-| `create_catalog_item` | Create a new catalog item (operator, action, task, connection, payload, config, folder). |
+| `create_catalog_item` | Create a new catalog item (operator, action, task, connection, payload, config, folder). Re-creating with the same `name` + `parent_laui` overwrites in place. |
+| `get_item_schema` | Return the required and optional fields for an item type. **Call before `create_catalog_item`** — required fields vary significantly by type. |
+| `update_task` | Update a task's allowed fields in place (e.g. `logical_date`, `payload`, `frequency`, `connection_laui`). Silently ignores fields not in its allowed list (e.g. `start_date` — use a `create_catalog_item` overwrite for those). |
 | `get_task_status` | Get a task's health diagnostics: returns `current_state`, `issues_found`, and a `diagnostics[]` array with 15 checks (scheduler, end_date, pre-actions, celery, connection queue, etc.). Does **not** return `last_run_session_id` — use `get_catalog_item` or `get_task_history` for that. |
 | `get_task_logs` | Fetch parsed execution logs for a task session. Requires `task_laui` and `session_id`. Optional: `date` (YYYY-MM-DD — use the date portion of `prev_interval_start` from `get_task_history`), `tail` (return only last N lines). Get `session_id` from `get_task_history` — NOT from `get_task_status`. |
 | `get_non_task_logs` | Fetch CELERY or API logs for a session. Use when `get_task_logs` stops mid-step with no error line — the full operator traceback is in `category=CELERY`. Builds exact path, returns fast. |
@@ -177,7 +182,7 @@ Every scheduled task has two independent clocks:
 
 | Field | Meaning | Advances by |
 |---|---|---|
-| `logical_date` | The data epoch the task is processing — injected as `{{ logical_date }}` / `{{ ds }}` in payload, determines log storage path | `croniter(frequency, logical_date).get_next()` — one cron tick forward from the current logical date |
+| `logical_date` | The data epoch the task is processing — injected as `{{logical_date}}` / `{{ds}}` in payload, determines log storage path | `croniter(frequency, logical_date).get_next()` — one cron tick forward from the current logical date |
 | `next_run_date` | Scheduler trigger date — the cron compares this against UTC wall clock; when `next_run_date ≤ now`, it dispatches the task (runs pre-actions then the operator). Starts equal to `start_date`. | one cron interval forward from the **previous `next_run_date`** — NOT from the physical run time |
 
 Both fields start equal to `start_date` and advance together on each successful run. For example, a daily cron at `1 11 * * *` will have `logical_date=2026-05-15 00:00:00` (midnight — floored to day granularity) and `next_run_date=2026-05-15 11:01:00` (the exact cron tick time). The scheduler fires when `next_run_date <= UTC now`, then runs the task *for* the current `logical_date`.
@@ -241,13 +246,13 @@ Passing a plain string will fail with `Input should be a valid dictionary`.
 Exact positional argument counts are validated — use these signatures:
 
 ```python
-def initialize(obj, **kwargs):          # 1 positional
-def run(obj, context, **kwargs):        # 2 positional
-def check_completion(obj, context, result, **kwargs) -> bool:  # 3 positional
-def finish(obj, context, result, error, **kwargs):             # 4 positional
+def initialize(least_action_task_object):                                      # 1 positional
+def run(least_action_task_object, client):                                     # 2 positional
+def check_completion(least_action_task_object, client, run_details):           # 3 positional — returns a dict {status, message, output}
+def finish(least_action_task_object, client, completion_details, run_details):  # 4 positional
 ```
 
-Wrong argument count → `WRONG_SIGNATURE` error on creation.
+`check_completion` returns a dict (`{"status": ..., "message": ..., "output": {...}}`), not a bool. Wrong argument count → `WRONG_SIGNATURE` error on creation.
 
 ### Required fields by item type
 
@@ -375,12 +380,12 @@ The marketplace is a read-only catalog of reusable components. Use `search_marke
 | `operator` | Reusable operator code (Python, SQL, etc.) |
 | `action` | Pre-built action definition |
 | `payload` | Single payload file (SQL, config, etc.) |
-| `ai_skill` | Reusable AI skill / prompt template |
-| `usecase` | A bundled set of payloads  and ai_skills with scheduling and runtime header metadata |
+| `skill` | Reusable AI skill / prompt template |
+| `usecase` | A bundled set of payloads  and skills with scheduling and runtime header metadata |
 
 ### Usecase Structure
 
-A `usecase` bundles three parallel dictionaries — `payloads`  and `skills` — linked by a shared filename stem (zero-padded step prefix). Each step can have one payload and one ai_skill. All three are optional per step, but the filename stem must match across dicts for the same step.
+A `usecase` bundles three parallel dictionaries — `payloads`  and `skills` — linked by a shared filename stem (zero-padded step prefix). Each step can have one payload and one skill. All three are optional per step, but the filename stem must match across dicts for the same step.
 
 Each payload inside a usecase carries a comment block at the top:
 
@@ -431,7 +436,7 @@ When the user gives you a **name** instead of an ID, always resolve it first:
 ### Examples
 
 **"list airflow/aws/gcp skill"**
-1. `search_catalog(name="airflow", item_type="ai_skill")` → gets lauis and details
+1. `search_catalog(name="airflow", item_type="skill")` → gets lauis and details
 2. Return data
 
 **"get latest category/sales report"**
@@ -519,7 +524,7 @@ Format: `{PublicDivision}{Service}{WhatItDoes}{UsingWhat}` (PascalCase, no separ
 - `AWSS3CopyObject`
 - `AWSGlueStartJob`
 
-**When converting from another ai_skill** (e.g. `airflow_to_leastaction`): the source ai_skill may provide a meaningful name (like `AthenaOperator`) — always derive the canonical name using this convention instead. The source name alone does not describe the operator without its description.
+**When converting from another skill** (e.g. `airflow_to_leastaction`): the source skill may provide a meaningful name (like `AthenaOperator`) — always derive the canonical name using this convention instead. The source name alone does not describe the operator without its description.
 
 ---
 
@@ -563,7 +568,7 @@ Operators must be placed under the correct folder hierarchy:
 
 **Step 3a — Fetch creation rules (MANDATORY — do not write any code before this)**
 1. `get_doc(path="item_creation_rules.md", category="ai_prompts")` → read the full creation rules (naming, fields, code signatures, validation)
-2. `search_catalog(name="operator_system_prompt", item_type="ai_skill")` → get laui → `get_catalog_item(item_laui=<laui>)` → read the full `content` field
+2. `search_catalog(name="operator_system_prompt", item_type="skill")` → get laui → `get_catalog_item(item_laui=<laui>)` → read the full `content` field
 3. Follow every rule in both documents exactly — method signatures, logging format, return types, serialization rules
 4. Do not proceed to 3b until this is complete
 
@@ -634,17 +639,17 @@ create_catalog_item(
    > **If no `level: error` line exists** and history shows `500 Failed to run operator`, escalate to CELERY logs — see **Deep Error Debugging** section above.
 2. Look at the `step` and `message` fields to identify the failure.
 3. Read the current operator code with `get_catalog_item(item_laui=<operator_laui>)`.
-4. If not already fetched: `search_catalog(name="operator_system_prompt", item_type="ai_skill")` → `get_catalog_item` → use as generation guide.
+4. If not already fetched: `search_catalog(name="operator_system_prompt", item_type="skill")` → `get_catalog_item` → use as generation guide.
 5. Generate fixed code and update the operator using `create_catalog_item` with the same `name` + `parent_laui` (overwrites in place).
 6. Re-run from Step 5.
 
 **Rules:**
 - Always show the user: task name, state, session_id, and a summary of any errors from logs.
 - If state is "success", show last few log lines as confirmation.
-- Never guess operator code — use the user's description, system prompt, and ai_skill. If any of the 3 is missing, ask before proceeding.
+- Never guess operator code — use the user's description, system prompt, and skill. If any of the 3 is missing, ask before proceeding.
 
 **Subtype:**
-- If subtype not specific in the ai_skill, stop immediately and return to the user.
+- If subtype not specific in the skill, stop immediately and return to the user.
 
 **No duplicates — mandatory pre-check:**
 - NEVER create an operator or task without first searching for it (see Steps 2 and 3 above).
@@ -708,7 +713,7 @@ Steps — execute immediately with no preamble:
 
 ## Marketplace Search Skill
 
-Trigger: user asks to **find**, **search**, **browse**, or **discover** items in the marketplace, or asks "what's available in the marketplace", "find a marketplace operator/ai_skill/usecase/payload/action", etc.
+Trigger: user asks to **find**, **search**, **browse**, or **discover** items in the marketplace, or asks "what's available in the marketplace", "find a marketplace operator/skill/usecase/payload/action", etc.
 
 ### Marketplace Item Types
 
@@ -717,8 +722,8 @@ Trigger: user asks to **find**, **search**, **browse**, or **discover** items in
 | `operator` | Reusable operator code (Python, SQL, etc.) |
 | `action` | Pre-built action definition |
 | `payload` | Single payload file (SQL, config, etc.) |
-| `ai_skill` | Reusable AI skill / prompt template |
-| `usecase` | Bundled set of payloads and ai_skills with scheduling/operator/connection header metadata |
+| `skill` | Reusable AI skill / prompt template |
+| `usecase` | Bundled set of payloads and skills with scheduling/operator/connection header metadata |
 
 ### Search Filters
 
@@ -883,8 +888,8 @@ Trigger: user asks to **create a usecase**, describes a multi-step pipeline prob
 
 ### Step 1 — Gather context (skills)
 Read relevant skills from core catalog:
-1. If user references an ai_skill by name: `search_catalog(name="<ai_skill_name>", item_type="ai_skill")` → `get_catalog_item` → read `content`
-2. If no ai_skill provided — ask the user for:
+1. If user references an skill by name: `search_catalog(name="<skill_name>", item_type="skill")` → `get_catalog_item` → read `content`
+2. If no skill provided — ask the user for:
    - **Data description**: sources, targets, schema/table names involved
    - **Infra description**: what operators and connections exist in their core catalog
 
@@ -981,15 +986,15 @@ create_catalog_item(
   parent_laui="<folder_laui>",
   extra_fields={
     "description": "<what this pipeline does>",
-    "prompt": "<verbatim user request + ai_skill content used as input>",
+    "prompt": "<verbatim user request + skill content used as input>",
     "guide_docs": "<markdown guide — see below>",
     "payloads": {
       "00_step_one.sql": "/*\n{...header...}\n*/\nSELECT ...",
       "01_step_two.sql": "/*\n{...header...}\n*/\nINSERT ..."
     },
     "skills": {
-      "00_step_one.md": "<ai_skill prompt/instructions for step 0>",
-      "01_step_two.md": "<ai_skill prompt/instructions for step 1>"
+      "00_step_one.md": "<skill prompt/instructions for step 0>",
+      "01_step_two.md": "<skill prompt/instructions for step 1>"
     },
     "tags": ["<relevant>", "tags"],
     "category": "<e.g. Analytics>"
@@ -999,11 +1004,11 @@ create_catalog_item(
 
 Omit `skills` entirely if no steps need them. Only include keys for steps that actually have content.
 
-**`prompt`**: verbatim copy of user request + any ai_skill content used. Reproduction recipe.
+**`prompt`**: verbatim copy of user request + any skill content used. Reproduction recipe.
 
 **`guide_docs`** (markdown) must cover:
 - What problem this usecase solves
-- Step-by-step description of each step: payload (operator, connection, what it does), bashblock (install/setup), and ai_skill (prompt intent) if present
+- Step-by-step description of each step: payload (operator, connection, what it does), bashblock (install/setup), and skill (prompt intent) if present
 - All `{{template_variables}}` and what values to supply at runtime
 - Prerequisites: which operators and connections must exist in core before deploying
 
@@ -1027,7 +1032,7 @@ Then tell the user:
 - File names must be zero-padded (`00_`, `01_`, `02_`) — execution order must be unambiguous.
 - All sequential steps must use `LeastActionCheckIfParentsAreDone` — never omit dependencies.
 - If multiple operator matches are found in core, list them and ask the user to pick.
-- Only include `skills` entries for steps that have an ai_skill prompt; omit otherwise.
+- Only include `skills` entries for steps that have an skill prompt; omit otherwise.
 - **Never condense or summarise skill content.** When writing skill files into the `skills` dict, always use the complete, verbatim file content — no trimming, no paraphrasing, no dropping SQL or code examples.
 
 ---
@@ -1210,7 +1215,7 @@ A verdict is the last thing you produce, not the first. LeastAction is a whole p
 | Config hierarchy (overridable / not_overridable) | `advanced/task_managment/config.md` |
 | Actions & lifecycle (pre/post/SLA, task-control, UI actions) | `advanced/task_managment/action_aka_hook.md`, `advanced/task_managment/action_guide.md`, `advanced/UI_management/action_UI.md` |
 | Workflows & dependencies | `advanced/task_managment/workflow.md`, `advanced/task_managment/LeastActionCheckIfParentsAreDone.md` |
-| CI/CD & backfill (Git-to-task, UI or push) | `advanced/task_managment/cicd.md`, `examples/managing_at_scale/backfill-and-dependency-at-scale.md` |
+| CI/CD & backfill (Git-to-task, UI or push) | `advanced/task_managment/cicd.md` (backfill mechanics also in `task_intro.md`; the `leastaction-pipelines-orchestration` usecase covers backfill-at-scale) |
 | Asset catalog / CMS (reports, BI embeds, tables, custom types) | `advanced/UI_management/asset.md` |
 | AI generation & no-lock-in, skills, agents, MCP | `AI_tech_intro.md`, `advanced/AI_managment/AI.md`, `advanced/AI_managment/skills.md`, `advanced/AI_managment/mcp.md`, `advanced/AI_managment/usecase.md` |
 | Marketplace | `marketplace_intro.md`, `advanced/UI_management/marketplace.md`, `advanced/API_management/11-marketplace.md` |

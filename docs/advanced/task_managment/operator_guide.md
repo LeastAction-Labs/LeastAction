@@ -129,13 +129,12 @@ Operators implement four methods that execute in sequence:
 **Purpose**: Set up connections, authenticate, and return a client object
 
 ```python
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
     """
     Initialize connections and return a client object.
 
     Parameters:
         least_action_task_object (dict): Task context object
-        least_action_parameters (dict): Additional parameters
 
     Returns:
         any: Client/connection object (boto3 client, API client, etc.)
@@ -151,7 +150,7 @@ def initialize(least_action_task_object, least_action_parameters):
 
 **Example:**
 ```python
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
     connection = least_action_task_object.get('connection', {})
 
     try:
@@ -201,13 +200,12 @@ def initialize(least_action_task_object, least_action_parameters):
 **Purpose**: Start the operation and return execution details
 
 ```python
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     """
     Execute the operation and return details.
 
     Parameters:
         least_action_task_object (dict): Task context object
-        least_action_parameters (dict): Additional parameters
         client (any): Client object returned from initialize()
 
     Returns:
@@ -224,7 +222,7 @@ def run(least_action_task_object, least_action_parameters, client):
 - Parse payload from least_action_task_object
 - Validate input parameters
 - Start the operation using the client
-- Return execution details needed by checkCompletion()
+- Return execution details needed by check_completion()
 
 **Required Return Fields:**
 - `execution_type`: **REQUIRED** - Must be 'async' or 'sync'
@@ -232,7 +230,7 @@ def run(least_action_task_object, least_action_parameters, client):
 
 **Example:**
 ```python
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     payload = least_action_task_object.get('payload', '{}')
 
     try:
@@ -291,13 +289,12 @@ def run(least_action_task_object, least_action_parameters, client):
 **Purpose**: Check if the operation has completed and return status
 
 ```python
-def check_completion(least_action_task_object, least_action_parameters, client, run_details):
+def check_completion(least_action_task_object, client, run_details):
     """
     Check operation completion status.
 
     Parameters:
         least_action_task_object (dict): Task context object
-        least_action_parameters (dict): Additional parameters
         client (any): Client object from initialize()
         run_details (dict): Dict returned from run() method
 
@@ -330,7 +327,7 @@ def check_completion(least_action_task_object, least_action_parameters, client, 
 
 **Example:**
 ```python
-def check_completion(least_action_task_object, least_action_parameters, client, run_details):
+def check_completion(least_action_task_object, client, run_details):
     try:
         instance_ids = run_details.get('instance_ids', [])
 
@@ -413,7 +410,7 @@ def finish(least_action_task_object, client, completion_details, run_details):
     Parameters:
         least_action_task_object (dict): Task context object
         client (any): Client object from initialize()
-        completion_details (dict): Final dict from checkCompletion()
+        completion_details (dict): Final dict from check_completion()
         run_details (dict): Dict from run() method
 
     Returns:
@@ -577,7 +574,7 @@ The connection object is extracted in the `initialize()` method to create the cl
 
 
 ```python
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
     connection = least_action_task_object.get('connection', {})
 
     # Get credentials
@@ -667,7 +664,7 @@ The payload contains operation-specific parameters and data. It can be a JSON st
 Always parse payload in the `run()` method:
 
 ```python
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     payload = least_action_task_object.get('payload', '{}')
 
     try:
@@ -747,7 +744,7 @@ log_info("task", task_id, "initialize", "creating_client", "Setting up client", 
 ### Logging Pattern:
 
 ```python
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     # Extract task ID for logging context (optional, can include in message)
     task_id = least_action_task_object.get('laui')
 
@@ -839,7 +836,7 @@ Robust error handling is critical for operators due to their complexity.
 
 **initialize() - Raise exceptions:**
 ```python
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
     try:
         # Setup logic
         return client
@@ -863,7 +860,7 @@ def initialize(least_action_task_object, least_action_parameters):
 
 **run() - Raise exceptions:**
 ```python
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     try:
         # Operation logic
         return {...}
@@ -895,7 +892,7 @@ def run(least_action_task_object, least_action_parameters, client):
 
 **check_completion() - Return failed status:**
 ```python
-def check_completion(least_action_task_object, least_action_parameters, client, run_details):
+def check_completion(least_action_task_object, client, run_details):
     try:
         # Check status logic
         return {'status': 'success', 'message': '...', 'output': {...}}
@@ -947,7 +944,7 @@ def finish(least_action_task_object, client, completion_details, run_details):
 For operations that complete immediately:
 
 ```python
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     # Perform operation
     result = client.invoke_function(...)
 
@@ -956,7 +953,7 @@ def run(least_action_task_object, least_action_parameters, client):
         'result': result
     }
 
-def check_completion(least_action_task_object, least_action_parameters, client, run_details):
+def check_completion(least_action_task_object, client, run_details):
     # For sync operations, immediately return success
     if run_details.get('execution_type') == 'sync':
         return {
@@ -971,7 +968,7 @@ def check_completion(least_action_task_object, least_action_parameters, client, 
 For long-running operations:
 
 ```python
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     # Start operation
     response = client.start_operation(...)
     operation_id = response['OperationId']
@@ -981,7 +978,7 @@ def run(least_action_task_object, least_action_parameters, client):
         'operation_id': operation_id
     }
 
-def check_completion(least_action_task_object, least_action_parameters, client, run_details):
+def check_completion(least_action_task_object, client, run_details):
     operation_id = run_details.get('operation_id')
 
     # Query status
@@ -1012,7 +1009,7 @@ def check_completion(least_action_task_object, least_action_parameters, client, 
 For operations on multiple resources:
 
 ```python
-def check_completion(least_action_task_object, least_action_parameters, client, run_details):
+def check_completion(least_action_task_object, client, run_details):
     instance_ids = run_details.get('instance_ids', [])
 
     # Check status of all instances
@@ -1054,15 +1051,15 @@ def check_completion(least_action_task_object, least_action_parameters, client, 
 The client returned from `initialize()` is passed to all subsequent methods:
 
 ```python
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
     client = boto3.client('ec2', ...)
     return client  # This client is reused
 
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     # Use the same client instance
     client.start_instances(...)
 
-def check_completion(least_action_task_object, least_action_parameters, client, run_details):
+def check_completion(least_action_task_object, client, run_details):
     # Use the same client instance
     client.describe_instances(...)
 ```
@@ -1070,7 +1067,7 @@ def check_completion(least_action_task_object, least_action_parameters, client, 
 ### 2. Validate Payload Early
 
 ```python
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     payload = least_action_task_object.get('payload', '{}')
 
     if isinstance(payload, str):
@@ -1092,7 +1089,7 @@ def run(least_action_task_object, least_action_parameters, client):
 Return everything `check_completion()` needs:
 
 ```python
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     response = client.send_command(...)
 
     return {
@@ -1103,7 +1100,7 @@ def run(least_action_task_object, least_action_parameters, client):
         'requested_at': str(response['Command']['RequestedDateTime'])
     }
 
-def check_completion(least_action_task_object, least_action_parameters, client, run_details):
+def check_completion(least_action_task_object, client, run_details):
     # Use data from run_details
     command_id = run_details.get('command_id')
     instance_ids = run_details.get('instance_ids', [])
@@ -1118,7 +1115,7 @@ def check_completion(least_action_task_object, least_action_parameters, client, 
 For batch operations, report partial success:
 
 ```python
-def check_completion(least_action_task_object, least_action_parameters, client, run_details):
+def check_completion(least_action_task_object, client, run_details):
     instance_ids = run_details.get('instance_ids', [])
 
     success_count = 0
@@ -1164,7 +1161,7 @@ def check_completion(least_action_task_object, least_action_parameters, client, 
 ### 5. Test Connection in initialize()
 
 ```python
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
     client = boto3.client('ec2', ...)
 
     # Test connection with a minimal operation
@@ -1183,7 +1180,7 @@ def initialize(least_action_task_object, least_action_parameters):
 ### 6. Provide Detailed Output
 
 ```python
-def check_completion(least_action_task_object, least_action_parameters, client, run_details):
+def check_completion(least_action_task_object, client, run_details):
     # Gather detailed results
     outputs = []
     for invocation in invocations:
@@ -1274,13 +1271,12 @@ from botocore.exceptions import ClientError, NoCredentialsError
 from src.common.logger.logger import log_info, log_error
 
 
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
     """
     Initialize AWS EC2 client for instance operations.
 
     Parameters:
         least_action_task_object (dict): Task context object
-        least_action_parameters (dict): Additional parameters
 
     Returns:
         boto3.client: EC2 client for instance operations
@@ -1359,13 +1355,12 @@ def initialize(least_action_task_object, least_action_parameters):
         raise
 
 
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     """
     Start EC2 instance(s).
 
     Parameters:
         least_action_task_object (dict): Task context object
-        least_action_parameters (dict): Additional parameters
         client (boto3.client): EC2 client from initialize()
 
     Returns:
@@ -1444,13 +1439,12 @@ def run(least_action_task_object, least_action_parameters, client):
         raise
 
 
-def check_completion(least_action_task_object, least_action_parameters, client, run_details):
+def check_completion(least_action_task_object, client, run_details):
     """
     Check if EC2 instances have successfully started.
 
     Parameters:
         least_action_task_object (dict): Task context object
-        least_action_parameters (dict): Additional parameters
         client (boto3.client): EC2 client from initialize()
         run_details (dict): Details from run() method
 
@@ -1645,7 +1639,7 @@ pip install boto3
 Create and test the client connection:
 
 ```python
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
     task_id = least_action_task_object.get('laui')
     session_id = least_action_task_object.get('session_id')
     connection = least_action_task_object.get('connection', {})
@@ -1674,7 +1668,7 @@ def initialize(least_action_task_object, least_action_parameters):
 Start the operation and return details:
 
 ```python
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     task_id = least_action_task_object.get('laui')
     session_id = least_action_task_object.get('session_id')
     payload = least_action_task_object.get('payload', '{}')
@@ -1720,7 +1714,7 @@ def run(least_action_task_object, least_action_parameters, client):
 Check operation status and return structured result:
 
 ```python
-def check_completion(least_action_task_object, least_action_parameters, client, run_details):
+def check_completion(least_action_task_object, client, run_details):
     task_id = least_action_task_object.get('laui')
     session_id = least_action_task_object.get('session_id')
 
@@ -1860,7 +1854,7 @@ import json
 from src.common.logger.logger import log_info, log_error
 
 
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
     connection = least_action_task_object.get('connection', {})
 
     try:
@@ -1873,7 +1867,7 @@ def initialize(least_action_task_object, least_action_parameters):
         raise
 
 
-def run(least_action_task_object, least_action_parameters, client):
+def run(least_action_task_object, client):
     payload = least_action_task_object.get('payload', '{}')
 
     try:
@@ -1898,7 +1892,7 @@ def run(least_action_task_object, least_action_parameters, client):
         raise
 
 
-def check_completion(least_action_task_object, least_action_parameters, client, run_details):
+def check_completion(least_action_task_object, client, run_details):
     try:
         log_info("task", "check_completion", "checking_status", "Checking operation status")
 

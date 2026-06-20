@@ -50,22 +50,22 @@ Check the operator's documentation or the catalog entry for its expected payload
 
 ## **Jinja Templating in Payloads**
 
-Payloads support Jinja-style variable replacement: `{{ variable_name }}`. Variables are resolved at execution time, so your payload can reference dynamic values like the execution date, task metadata, or config parameters.
+Payloads support Jinja-style variable replacement: `{{variable_name}}`. Variables are resolved at execution time, so your payload can reference dynamic values like the execution date, task metadata, or config parameters.
 
 **Built-in variables:**
 
 | Variable | Value |
 |----------|-------|
-| `{{ ds }}` | Execution date as `YYYY-MM-DD` (wall-clock time at run) |
-| `{{ ts }}` | Execution timestamp as ISO string |
+| `{{ds}}` | Execution date as `YYYY-MM-DD` (wall-clock time at run) |
+| `{{ts}}` | Execution timestamp as ISO string |
 
 **Config parameters** — any `parameters` key defined in an attached config:
 
 ```sql
-SELECT * FROM sales WHERE date = '{{ ds }}' AND region = '{{ region }}'
+SELECT * FROM sales WHERE date = '{{ds}}' AND region = '{{region}}'
 ```
 
-**Task schema fields** — most task fields are available, including `{{ task_name }}`, `{{ frequency }}`, `{{ session_id }}`, `{{ retry_number }}`, `{{ logical_date }}`, and others.
+**Task schema fields** — most task fields are available, including `{{task_name}}`, `{{frequency}}`, `{{session_id}}`, `{{retry_number}}`, `{{logical_date}}`, and others.
 
 See the [Config guide](/path?laui=getting-started-advanced-task_managment-config&itemtype=doc.file&itemname=Config) for the full variable reference and resolution order.
 
@@ -99,7 +99,7 @@ Each file in your Git repo is both the task definition and its payload. The meta
 INSERT INTO analytics.daily_revenue
 SELECT date, SUM(amount) as revenue
 FROM raw.transactions
-WHERE date = '{{ ds }}'
+WHERE date = '{{ds}}'
 GROUP BY date
 ```
 
@@ -116,8 +116,8 @@ GROUP BY date
 
 {
   "pipeline": "daily_etl",
-  "date": "{{ ds }}",
-  "env": "{{ environment }}"
+  "date": "{{ds}}",
+  "env": "{{environment}}"
 }
 ```
 
@@ -162,10 +162,10 @@ To use a catalog payload, reference its laui in the task's `payload_laui` field 
 
 **Store payloads in Git.** Inline payloads in the UI work, but Git-stored payloads give you version history, review, and the ability to redeploy quickly.
 
-**Use config parameters for environment differences.** Instead of separate payloads for dev and prod, use a single parameterized payload with `{{ environment }}`, `{{ s3_bucket }}`, etc., resolved from config at runtime.
+**Use config parameters for environment differences.** Instead of separate payloads for dev and prod, use a single parameterized payload with `{{environment}}`, `{{s3_bucket}}`, etc., resolved from config at runtime.
 
 **Keep payloads focused.** A payload should do one thing. Use task dependencies in the workflow to chain payloads rather than building monolithic scripts.
 
-**Use `{{ ds }}` for date-based processing.** Most batch pipelines need the execution date — `{{ ds }}` provides it without hardcoding.
+**Use `{{ds}}` for date-based processing.** Most batch pipelines need the execution date — `{{ds}}` provides it without hardcoding.
 
 **Test payload templates locally.** Since payloads are just files, you can render them locally with your own Jinja tooling before deploying.

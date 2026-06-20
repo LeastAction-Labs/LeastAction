@@ -40,7 +40,7 @@ Skills can be provider-specific. A skill targeting Claude can use Claude-specifi
 # SQL Conventions
 
 - Always use `schema.table` qualified names, never unqualified table names
-- Date partitioning: use `WHERE date_col = '{{ ds }}'` with the `{{ ds }}` variable
+- Date partitioning: use `WHERE date_col = '{{ds}}'` with the `{{ds}}` variable
 - Prefer `INSERT INTO ... SELECT` over `CREATE TABLE AS SELECT`
 - All tables must have a `created_at TIMESTAMP DEFAULT NOW()` column
 - Use `LIMIT 1000` in development queries; remove for production

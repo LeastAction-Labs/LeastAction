@@ -1378,7 +1378,7 @@ LeastAction has two types of executable components:
 | Feature | Action | Operator |
 |---------|--------|----------|
 | **Purpose** | Simple, synchronous operations | Complex, async operations |
-| **Methods** | `run()` only | `initialize()`, `run()`, `checkCompletion()`, `finish()` |
+| **Methods** | `run()` only | `initialize()`, `run()`, `check_completion()`, `finish()` |
 | **Execution** | Immediate | Async with status checking |
 | **Use Cases** | Notifications, simple API calls | Long-running jobs, batch processing |
 | **Complexity** | Lower | Higher |

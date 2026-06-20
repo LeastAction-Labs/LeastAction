@@ -28,7 +28,7 @@ A **workflow** in LeastAction is a logical collection of tasks organized within 
 
 ### Task Execution Model
 
-Tasks execute payload code by using the operator's logic and the connection's configuration. The config is applied to the payload at task creation time using Jinja templating (e.g., `{{ table_name }}`).
+Tasks execute payload code by using the operator's logic and the connection's configuration. The config is applied to the payload at task creation time using Jinja templating (e.g., `{{table_name}}`).
 
 **Note**: Parameters are accessed directly by name (e.g., `{{database_name}}`), NOT with a prefix like `{{parameters.database_name}}`.
 
@@ -116,9 +116,9 @@ Adhoc runs allow immediate, one-time task execution without scheduling. Adhoc ta
 
 **Config Resolution Clarified:**
 
-- **Parameters**: Resolved at task creation time and applied to payload (payload is transformed). Defined in each config's `parameters` block and accessed directly as `{{ name }}` in payload templates.
-- **Built-in Variables**: `{{ ds }}` (current date, `YYYY-MM-DD`) and `{{ ts }}` (current timestamp, ISO format) are always available and **always override** any config parameter with the same name.
-- **Undefined Placeholders**: If a `{{ variable }}` in the payload has no matching parameter or built-in, it is **kept as-is** in the output (not an error).
+- **Parameters**: Resolved at task creation time and applied to payload (payload is transformed). Defined in each config's `parameters` block and accessed directly as `{{name}}` in payload templates.
+- **Built-in Variables**: `{{ds}}` (current date, `YYYY-MM-DD`) and `{{ts}}` (current timestamp, ISO format) are always available and **always override** any config parameter with the same name.
+- **Undefined Placeholders**: If a `{{variable}}` in the payload has no matching parameter or built-in, it is **kept as-is** in the output (not an error).
 - **Runtime Parameters**: All config parameters are applied at runtime — they are resolved immediately before the task executes, using the current value of each parameter at that moment. This means you can update a parameter and the next execution will use the new value without recreating the task.
 
 **Config Merge Rules (from code):**
@@ -399,7 +399,7 @@ Handled with 3 parts folder style navigation, logging and linked data
 
 All of LeastAction data is stored in folder style with permission management similar to google drive, enabling easy personalized management of tasks and workflows and all related data. Even the workflows can be personalized as who can read, write.
 
-LeastAction generates logs in hive format and is stored in local drive, which is exposed in each project as a folder to navigate API/task/action logs, and also provides the same folder drilldown for each task/action and its history of run. Logs can be moved to cloud storage using post actions like LeastActionLogsToS3 etc.
+LeastAction generates logs in hive format and is stored in local drive, which is exposed in each project as a folder to navigate API/task/action logs, and also provides the same folder drilldown for each task/action and its history of run. Logs can be moved to cloud storage using post actions.
 
 All of LeastAction while in folder style is also a linked data, each item can be linked to any other based on what's defined in the catalog config, with this tasks lineage is linked to task, configs, connections and other data. Enabling task level visual graphs and parent child drill down at each item.
 
@@ -485,7 +485,7 @@ Task action can be used to dynamically generate tasks from config, and a AI can 
           "action": "LeastActionSlackWebhook",
           "connection": "slack-alerts",
           "variables": {
-            "message": "Task {{ task_id }} completed"
+            "message": "Task {{task_id}} completed"
           }
         }
       ]
@@ -605,7 +605,7 @@ Tasks automatically inherit workflow config:
   "state": "scheduled",
   "payload": {
     "script": "extract_sales.py",
-    "args": ["--bucket", "{{ s3_bucket }}"]
+    "args": ["--bucket", "{{s3_bucket}}"]
   }
 }
 ```
@@ -668,7 +668,7 @@ Task-level actions **APPEND** to workflow default actions — they do NOT replac
 - Actions from workflow defaults are inherited by all tasks automatically
 - Task-level actions are appended after the workflow defaults for each lifecycle hook
 - If a task specifies the **same action** that already exists in workflow defaults, the action's `variables` are **auto-filled from the workflow default** — the user can then update specific variables or use config parameters to override them
-- Workflow default action variables can contain config parameters (e.g., `{{ task_id }}`, `{{ ds }}`) which are resolved at execution time
+- Workflow default action variables can contain config parameters (e.g., `{{task_id}}`, `{{ds}}`) which are resolved at execution time
 
 **Example:**
 
@@ -697,7 +697,7 @@ Task adds one more preAction:
       "action": "LeastActionCheckS3FileExists",
       "connection": "s3-prod",
       "variables": {
-        "s3_path": "{{ s3_bucket }}/input/{{ ds }}/"
+        "s3_path": "{{s3_bucket}}/input/{{ds}}/"
       }
     }
   ]
@@ -717,7 +717,7 @@ Task adds one more preAction:
       "action": "LeastActionCheckS3FileExists",
       "connection": "s3-prod",
       "variables": {
-        "s3_path": "{{ s3_bucket }}/input/{{ ds }}/"
+        "s3_path": "{{s3_bucket}}/input/{{ds}}/"
       }
     }
   ]
@@ -815,7 +815,7 @@ Task control actions manage task execution metadata and state. These are typical
         "action": "LeastActionCheckS3FileExists",
         "connection": "s3-prod",
         "variables": {
-          "s3_path": "s3://bucket/data/{{ ds }}/input.csv"
+          "s3_path": "s3://bucket/data/{{ds}}/input.csv"
         }
       }
     ]
@@ -870,7 +870,7 @@ Task control actions manage task execution metadata and state. These are typical
         "sla": 1800,
         "connection": "slack-alerts",
         "variables": {
-          "message": "ALERT: Task {{ task_id }} exceeded 30 min SLA",
+          "message": "ALERT: Task {{task_id}} exceeded 30 min SLA",
           "channel": "#critical-alerts"
         }
       }
@@ -1142,8 +1142,8 @@ sales_etl_pipeline/
   "payload": {
     "script": "extract_sales.py",
     "args": [
-      "--date", "{{ ds }}",
-      "--output", "{{ s3_bucket }}/raw/{{ ds }}/"
+      "--date", "{{ds}}",
+      "--output", "{{s3_bucket}}/raw/{{ds}}/"
     ]
   },
   "actions": {
@@ -1152,7 +1152,7 @@ sales_etl_pipeline/
         "action": "LeastActionCheckS3FileExists",
         "connection": "s3-prod",
         "variables": {
-          "s3_path": "{{ s3_bucket }}/raw/{{ ds }}/sales.csv"
+          "s3_path": "{{s3_bucket}}/raw/{{ds}}/sales.csv"
         }
       }
     ]
@@ -1189,8 +1189,8 @@ sales_etl_pipeline/
   "payload": {
     "script": "transform_sales.py",
     "args": [
-      "--input", "{{ s3_bucket }}/raw/{{ ds }}/",
-      "--output", "{{ s3_bucket }}/processed/{{ ds }}/"
+      "--input", "{{s3_bucket}}/raw/{{ds}}/",
+      "--output", "{{s3_bucket}}/processed/{{ds}}/"
     ]
   }
 }
@@ -1233,7 +1233,7 @@ sales_etl_pipeline/
     ]
   },
   "payload": {
-    "sql": "COPY {{ database }}.{{ table_prefix }}sales FROM '{{ s3_bucket }}/processed/{{ ds }}/' IAM_ROLE 'arn:aws:iam::123456789:role/RedshiftRole' FORMAT AS PARQUET;"
+    "sql": "COPY {{database}}.{{table_prefix}}sales FROM '{{s3_bucket}}/processed/{{ds}}/' IAM_ROLE 'arn:aws:iam::123456789:role/RedshiftRole' FORMAT AS PARQUET;"
   }
 }
 ```
@@ -1268,14 +1268,14 @@ sales_etl_pipeline/
         "action": "LeastActionSlackWebhook",
         "connection": "slack-alerts",
         "variables": {
-          "message": "Sales ETL completed successfully for {{ ds }}"
+          "message": "Sales ETL completed successfully for {{ds}}"
         }
       }
     ]
   },
   "payload": {
     "script": "validate_sales.py",
-    "args": ["--date", "{{ ds }}"]
+    "args": ["--date", "{{ds}}"]
   }
 }
 ```
@@ -1298,8 +1298,8 @@ sales_etl_pipeline/
   "payload": {
     "function_name": "process-user-events",
     "invoke_payload": {
-      "date": "{{ ds }}",
-      "bucket": "{{ s3_bucket }}",
+      "date": "{{ds}}",
+      "bucket": "{{s3_bucket}}",
       "batch_size": 1000
     },
     "invocation_type": "RequestResponse",
@@ -1319,7 +1319,7 @@ sales_etl_pipeline/
         "action": "LeastActionCheckS3FileExists",
         "connection": "s3-prod",
         "variables": {
-          "s3_path": "{{ s3_bucket }}/events/{{ ds }}/"
+          "s3_path": "{{s3_bucket}}/events/{{ds}}/"
         }
       }
     ],
@@ -1328,7 +1328,7 @@ sales_etl_pipeline/
         "action": "LeastActionUpdateMetadata",
         "variables": {
           "function_name": "{{ payload.function_name }}",
-          "execution_date": "{{ ds }}",
+          "execution_date": "{{ds}}",
           "status": "completed"
         }
       }
@@ -1382,8 +1382,8 @@ ml_pipeline/
   "payload": {
     "notebook_path": "/notebooks/prepare_data",
     "base_parameters": {
-      "input_path": "{{ s3_bucket }}/raw/{{ ds }}/",
-      "output_path": "{{ s3_bucket }}/training/{{ ds }}/"
+      "input_path": "{{s3_bucket}}/raw/{{ds}}/",
+      "output_path": "{{s3_bucket}}/training/{{ds}}/"
     }
   }
 }

@@ -165,7 +165,7 @@ Static parameters available to all tasks in the workflow. Support Jinja templati
 **Usage in tasks:**
 ```json
 {
-  "sql": "SELECT * FROM {{ database_name }}.{{ table_prefix }}users"
+  "sql": "SELECT * FROM {{database_name}}.{{table_prefix}}users"
 }
 ```
 
@@ -384,7 +384,7 @@ Variable replacement is applied to **both the task payload and action variables*
 1. **Built-in variables** (`ds`, `ts`) — always win, cannot be overridden by config
 2. **Config parameters** (`parameters` block from merged config) — override task schema fields
 3. **Task schema fields** (all fields from `task.json`, except `description`, `actions`, `payload`, `config`) — lowest priority
-4. **Undefined** — preserved as `{{ variable_name }}`, not an error
+4. **Undefined** — preserved as `{{variable_name}}`, not an error
 
 ---
 
@@ -528,7 +528,7 @@ VALUES ('{{name}}', '{{logical_date}}', {{iteration}}, {{duration}})
 }
 ```
 
-**Note:** Variables are resolved after config merging, immediately before execution. Undefined variables are preserved as `{{ variable_name }}` — not an error.
+**Note:** Variables are resolved after config merging, immediately before execution. Undefined variables are preserved as `{{variable_name}}` — not an error.
 
 ## **Jinja Templating**
 
@@ -538,55 +538,55 @@ All JSON configs support Jinja templating for dynamic values.
 
 ```
 # ── Built-in System Variables (highest priority) ──────────────────────────────
-{{ ds }}                          # Execution date (YYYY-MM-DD)
-{{ ds_nodash }}                   # Execution date without dashes (YYYYMMDD)
-{{ ts }}                          # Execution timestamp (ISO format)
-{{ ts_nodash }}                   # Execution timestamp without dashes (YYYYMMDDTHHmmSS)
-{{ ts_nodash_with_tz }}           # Execution timestamp without dashes with timezone offset
-{{ current_date }}                # Current wall-clock date (YYYY-MM-DD)
-{{ current_timestamp }}           # Current wall-clock timestamp (ISO format)
+{{ds}}                          # Execution date (YYYY-MM-DD)
+{{ds_nodash}}                   # Execution date without dashes (YYYYMMDD)
+{{ts}}                          # Execution timestamp (ISO format)
+{{ts_nodash}}                   # Execution timestamp without dashes (YYYYMMDDTHHmmSS)
+{{ts_nodash_with_tz}}           # Execution timestamp without dashes with timezone offset
+{{current_date}}                # Current wall-clock date (YYYY-MM-DD)
+{{current_timestamp}}           # Current wall-clock timestamp (ISO format)
 
 # ── Config Parameters (user-defined, override task fields) ────────────────────
-{{ any_parameter_you_define }}    # Direct access by name — e.g. {{ database }}
+{{any_parameter_you_define}}    # Direct access by name — e.g. {{database}}
 
 # ── Task Schema Fields (lowest priority) ──────────────────────────────────────
 
 # Scheduling & timing
-{{ logical_date }}                # Scheduled slot datetime for this run
-{{ data_interval_start }}         # Current interval start
-{{ data_interval_end }}           # Current interval end (logical_date + frequency)
-{{ prev_interval_start }}         # Previous interval start
-{{ prev_interval_end }}           # Previous interval end
-{{ last_run_date }}               # When the previous run ended
-{{ task_instance_start_date }}    # Actual start time of current run
-{{ task_instance_end_date }}      # Actual end time of current run
-{{ start_date }}                  # Task configured start date
-{{ end_date }}                    # Task configured end date
-{{ frequency }}                   # Cron expression or "ADHOC"
+{{logical_date}}                # Scheduled slot datetime for this run
+{{data_interval_start}}         # Current interval start
+{{data_interval_end}}           # Current interval end (logical_date + frequency)
+{{prev_interval_start}}         # Previous interval start
+{{prev_interval_end}}           # Previous interval end
+{{last_run_date}}               # When the previous run ended
+{{task_instance_start_date}}    # Actual start time of current run
+{{task_instance_end_date}}      # Actual end time of current run
+{{start_date}}                  # Task configured start date
+{{end_date}}                    # Task configured end date
+{{frequency}}                   # Cron expression or "ADHOC"
 
 # Execution state
-{{ state }}                       # Task state enum (running, success, error, ...)
-{{ iteration }}                   # Total run count (lifetime)
-{{ retry_number }}                # Current retry attempt (0 = first)
-{{ retry_interval }}              # Seconds between retries
-{{ total_retries }}               # Max retries configured
-{{ duration }}                    # Last run duration in seconds
-{{ priority }}                    # Priority level
+{{state}}                       # Task state enum (running, success, error, ...)
+{{iteration}}                   # Total run count (lifetime)
+{{retry_number}}                # Current retry attempt (0 = first)
+{{retry_interval}}              # Seconds between retries
+{{total_retries}}               # Max retries configured
+{{duration}}                    # Last run duration in seconds
+{{priority}}                    # Priority level
 
 # Identity
-{{ name }}                        # Task name
-{{ partition }}                   # Task partition
-{{ project_laui }}                # Project identifier
-{{ account_laui }}                # Account identifier
-{{ operator_laui }}               # Operator identifier
-{{ connection_laui }}             # Connection identifier
-{{ payload_laui }}                # Payload item identifier
+{{name}}                        # Task name
+{{partition}}                   # Task partition
+{{project_laui}}                # Project identifier
+{{account_laui}}                # Account identifier
+{{operator_laui}}               # Operator identifier
+{{connection_laui}}             # Connection identifier
+{{payload_laui}}                # Payload item identifier
 
 # Session & worker
-{{ executor }}                    # Celery worker name
-{{ task_instance }}               # Instance name
-{{ session_id }}                # Current session ID
-{{ last_run_session_id }}       # Previous session ID
+{{executor}}                    # Celery worker name
+{{task_instance}}               # Instance name
+{{session_id}}                # Current session ID
+{{last_run_session_id}}       # Previous session ID
 
 # NOT available: description, actions, payload, config
 
@@ -701,7 +701,7 @@ If a variable is not defined in parameters, task fields, or built-in variables, 
 ```json
 {
   "defined_param": "admin",
-  "undefined_param": "{{ api_token }}",
+  "undefined_param": "{{api_token}}",
   "system_var": "2026-01-08"
 }
 ```

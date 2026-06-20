@@ -96,7 +96,7 @@ Browse the operators folder and select one (e.g., `PostgresqlExecuteSQL`).
 When saving a new operator, fill in:
 
 - **Name**: e.g., `PostgresqlExecuteSQL`
-- **Codeblock**: Python with the 4 required methods (`initialize`, `run`, `checkCompletion`, `finish`)
+- **Codeblock**: Python with the 4 required methods (`initialize`, `run`, `check_completion`, `finish`)
 - **Bashblock**: Shell commands for dependencies (e.g., `pip install psycopg2-binary`)
 - **Connection Sample**: Example connection JSON
 - **Payload Sample**: Example payload JSON
@@ -115,7 +115,7 @@ The **payload** specifies the task-specific input — what the operator should d
 INSERT INTO reports.daily_summary SELECT * FROM staging.events WHERE date = '{{ds}}'
 ```
 
-`**{{ds}}**` is a built-in variable replaced at runtime with the task's logical date (e.g., `2026-03-30`). Parameters defined in a linked config are also available as `{{parameter_name}}`.
+**`{{ds}}`** is a built-in variable replaced at runtime with the task's logical date (e.g., `2026-03-30`). Parameters defined in a linked config are also available as `{{parameter_name}}`.
 
 ---
 
@@ -129,7 +129,7 @@ Combine everything into a runnable task:
   - **Name**: `process_daily_events`
   - **Operator**: Select your operator (e.g., `PostgresqlExecuteSQL`)
   - **Connection**: Select your connection (e.g., `postgres-prod`)
-  - **Frequency**: `ADHOC` for a one-time run, or a cron expression for scheduled (e.g., `0 2 * * `*)
+  - **Frequency**: `ADHOC` for a one-time run, or a cron expression for scheduled (e.g., `0 2 * * *`)
   - **Payload**: Paste your payload JSON
   - **Config**: Optional — attach a config for retry logic, parameters, default actions
   - **Start / End Dates**: Required for scheduled tasks; leave empty for ADHOC
@@ -191,7 +191,7 @@ This is equivalent to Airflow's `catchup=True` behavior and is always on by defa
 3. Logs show timestamps, function names, log level, and message
 4. For actions that ran on the task, logs are listed separately under the task's execution
 
-Logs are stored in Hive-partitioned format on local disk by default. Use actions (e.g., `LeastActionLogsToS3`) to ship them to cloud storage.
+Logs are stored in Hive-partitioned format on local disk by default. Use a post-action to ship them to cloud storage (e.g. an action that uploads the log partition to S3).
 
 ---
 
@@ -201,7 +201,7 @@ LeastAction handles dependencies through **actions**, not hard-coded DAG edges. 
 
 The key built-in action is:
 
-`**LeastActionCheckIfParentsAreDone`** — runs as a pre-action before task execution. It checks that all specified parent tasks completed successfully for the same logical date before allowing this task to run.
+**`LeastActionCheckIfParentsAreDone`** — runs as a pre-action before task execution. It checks that all specified parent tasks completed successfully for the same logical date before allowing this task to run.
 
 **Action variables structure:**
 

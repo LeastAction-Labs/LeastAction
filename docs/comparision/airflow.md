@@ -44,7 +44,7 @@ LeastAction doesn't trade power for accessibility. Engineers get a more capable 
 
 In Airflow, operators come from provider packages (`apache-airflow-providers-*`). If you need a custom operator, you write a Python class that extends `BaseOperator`, package it, publish it, and deploy it to every worker. If you need to change a connection field, you are constrained by what the provider's `hook` exposes.
 
-In LeastAction, operators are Python code with a four-function structure (`initialize`, `run`, `checkCompletion`, `finish`). Write one, save it to the catalog — it's immediately usable by any task in any workflow. No packages, no deployment pipeline for the operator itself. AI can generate the initial implementation from a description in seconds.
+In LeastAction, operators are Python code with a four-function structure (`initialize`, `run`, `check_completion`, `finish`). Write one, save it to the catalog — it's immediately usable by any task in any workflow. No packages, no deployment pipeline for the operator itself. AI can generate the initial implementation from a description in seconds.
 
 Connections follow the same pattern. The `content` field is free-form JSON — whatever fields the operator expects, you put in. The operator reads them directly. There are no provider-imposed constraints on what a connection can contain.
 

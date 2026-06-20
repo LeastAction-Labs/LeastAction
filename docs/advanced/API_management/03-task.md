@@ -213,7 +213,7 @@ Actions are lifecycle hooks executed at different stages of the task pipeline. E
         "connection_laui": "6650a1b2c3d4e5f6a7b8ca10",
         "action_variables": {
           "channel": "#alerts",
-          "message": "Task {{ name }} exceeded SLA"
+          "message": "Task {{name}} exceeded SLA"
         },
         "sla": 30,
         "timeout": 60,
@@ -226,7 +226,7 @@ Actions are lifecycle hooks executed at different stages of the task pipeline. E
         "connection_laui": "6650a1b2c3d4e5f6a7b8ca10",
         "action_variables": {
           "channel": "#data-team",
-          "message": "Task {{ name }} completed with status {{ state }}"
+          "message": "Task {{name}} completed with status {{state}}"
         },
         "sla": null,
         "timeout": 60,
@@ -261,7 +261,7 @@ The `parameters` sub-key has special merge semantics controlled by `overridable`
   "operator_laui": "6650a1b2c3d4e5f6a7b8c9d3",
   "connection_laui": "6650a1b2c3d4e5f6a7b8c9d4",
   "frequency": "ADHOC",
-  "payload": "SELECT * FROM {{ schema }}.{{ table }}",
+  "payload": "SELECT * FROM {{schema}}.{{table}}",
   "attached_config_lauis": [
     "6650a1b2c3d4e5f6a7b8ca20",
     "6650a1b2c3d4e5f6a7b8ca21"
@@ -709,14 +709,14 @@ After merge, `total_retries` and `retry_interval` are extracted from the merged 
 
 ### Jinja2 Payload Templating
 
-The payload and action variables support Jinja2 template syntax using `{{ variable }}` placeholders. Variables are resolved from two sources:
+The payload and action variables support Jinja2 template syntax using `{{variable}}` placeholders. Variables are resolved from two sources:
 
 1. **Config parameters** -- from the merged `config.parameters`
 2. **Builtin system variables** -- see table below (these take precedence over config parameters)
 
 Additionally, all task model fields (excluding `description`, `actions`, `payload`, `config`) are available as template variables.
 
-Undefined variables are preserved as-is in the output (e.g., `{{ unknown_var }}` remains `{{ unknown_var }}`).
+Undefined variables are preserved as-is in the output (e.g., `{{unknown_var}}` remains `{{unknown_var}}`).
 
 ### Builtin Template Variables
 
@@ -737,9 +737,9 @@ Derived from the task's `logical_date` (or current UTC time if `logical_date` is
 ```sql
 SELECT *
 FROM events
-WHERE event_date = '{{ ds }}'
-  AND region = '{{ region }}'
-  AND batch_id = '{{ ds_nodash }}_{{ name }}'
+WHERE event_date = '{{ds}}'
+  AND region = '{{region}}'
+  AND batch_id = '{{ds_nodash}}_{{name}}'
 ```
 
 If the task's `logical_date` is `2025-07-15T00:00:00Z`, `name` is `"etl-daily-load"`, and `config.parameters.region` is `"us-east-1"`, this renders to:
