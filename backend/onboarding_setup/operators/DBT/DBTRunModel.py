@@ -87,7 +87,7 @@ def finish(least_action_task_object, client, completion_details, run_details):
 
 bashblock = {"main.sh": "# No additional dependencies required — uses Python stdlib only (urllib, json)"}
 
-connection = {"dbt_server_url": "http://host.docker.internal:8001"}
+connection = {"dbt_server_url": "http://dbt-demo:8001"}
 
 payload = '{"model": "stg_badge_events"}'
 

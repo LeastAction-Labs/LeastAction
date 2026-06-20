@@ -433,7 +433,7 @@ action_variables = {
 }
 
 connection = {
-    "dbt_server_url": "http://host.docker.internal:8001"
+    "dbt_server_url": "http://dbt-demo:8001"
 }
 
 prompt = (
