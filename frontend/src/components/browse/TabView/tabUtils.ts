@@ -129,8 +129,9 @@ export function generateTabs(
 
   // Filter out form_excluded_fields in create/edit mode
   const formExcludedFields: string[] = schema?.form_excluded_fields ?? [];
-  // *_laui reference fields are never shown — auto-set from context
-  const autoContextFields = ['account_laui', 'project_laui', 'skill_laui', 'marketplace_laui'];
+  // *_laui reference fields are never shown — auto-set from context.
+  // (skill_laui is user-settable — e.g. wiring a Report Explorer skill to a folder — so it stays visible.)
+  const autoContextFields = ['account_laui', 'project_laui', 'marketplace_laui'];
   const allExcluded = new Set([
     ...autoContextFields,
     ...(mode !== 'view' ? formExcludedFields : []),

@@ -642,6 +642,18 @@ export default function TabView({ sidebar }: { sidebar?: ReactNode }) {
       );
     }
 
+    // Skill picker: let the user attach a skill (e.g. a Report Explorer skill) to a folder.
+    // Render the dropdown in create AND edit (FieldRenderer only shows it in create mode).
+    if (field.name === 'skill_laui' && (mode === 'create' || mode === 'edit')) {
+      return (
+        <LauiDropdown
+          fieldName="skill_laui"
+          value={value}
+          onChange={(_, skillLaui) => handleFieldChange('skill_laui', skillLaui)}
+        />
+      );
+    }
+
     // Attach-config field: only meaningful for workflow folders during creation
     if (field.name === 'attached_config') {
       const baseType = filterType?.split('.')[0] || '';

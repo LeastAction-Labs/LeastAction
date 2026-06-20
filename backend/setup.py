@@ -1004,7 +1004,7 @@ async def setup():
         account_laui=account_laui,
     )
 
-    report_explorer_skill_laui = skill_items.get("ReportExplorer/report_explorer_assistant")
+    report_explorer_skill_laui = skill_items.get("skills/LeastAction/report_explorer_assistant")
     folders["asset"] = await get_or_create_asset_folder(
         project_laui, account_laui, report_explorer_skill_laui
     )

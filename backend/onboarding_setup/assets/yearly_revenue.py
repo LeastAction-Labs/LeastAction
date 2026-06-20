@@ -4,7 +4,7 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 item_type = "html_report"
-skill_name = "ReportExplorer/report_explorer_assistant"
+skill_name = "skills/LeastAction/report_explorer_assistant"
 description = "Annual executive summary — cross-domain (finance, sales, marketing) for FY2025"
 html = """<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Annual Executive Summary</title><style>
