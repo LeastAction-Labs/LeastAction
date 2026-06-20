@@ -27,6 +27,7 @@ import { useGlobal } from '@/contexts/GlobalContext';
 import { createCatalogItem, searchCatalogItems } from '@/services';
 import { chatWithAI } from '@/services/ai.service';
 
+import ChatActions, { parseActionMessage } from './ChatActions';
 import ContentRenderer from './ContentRenderer';
 import type { ProviderConfig } from './ProviderList';
 import QuickTips from './QuickTips';
@@ -217,18 +218,19 @@ export default function ChatPanel({ providerConfig }: ChatPanelProps) {
     abortControllerRef.current?.abort();
   };
 
-  const handleSend = async () => {
-    if (!inputMessage.trim() || isLoading) return;
+  const handleSend = async (textArg?: string) => {
+    const text = (textArg ?? inputMessage).trim();
+    if (!text || isLoading) return;
 
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: inputMessage.trim(),
+      content: text,
       timestamp: new Date(),
     };
     const updated = [...messages, userMsg];
     setMessages(updated);
-    setInputMessage('');
+    if (textArg === undefined) setInputMessage('');
     setIsLoading(true);
 
     const controller = new AbortController();
@@ -241,7 +243,7 @@ export default function ChatPanel({ providerConfig }: ChatPanelProps) {
       const skillContent = buildSkillContent();
       const response = await chatWithAI(
         {
-          prompt: inputMessage.trim(),
+          prompt: text,
           chat_laui: providerConfig.aiChatLaui,
           messages: historyMessages,
           ...(providerConfig.connectionLaui
@@ -368,11 +370,29 @@ export default function ChatPanel({ providerConfig }: ChatPanelProps) {
                 )}
               </Typography>
             )}
-            <ContentRenderer
-              content={msg.content}
-              contentType={msg.role === 'user' ? 'text' : msg.contentType}
-              showExpand={msg.role === 'assistant'}
-            />
+            {msg.role === 'assistant' && !msg.isError && msg.contentType === 'actions' ? (
+              (() => {
+                const { text, actions } = parseActionMessage(msg.content);
+                return (
+                  <>
+                    {text && (
+                      <ContentRenderer content={text} contentType="markdown" showExpand={false} />
+                    )}
+                    <ChatActions
+                      actions={actions}
+                      onSend={(m) => void handleSend(m)}
+                      disabled={isLoading}
+                    />
+                  </>
+                );
+              })()
+            ) : (
+              <ContentRenderer
+                content={msg.content}
+                contentType={msg.role === 'user' ? 'text' : msg.contentType}
+                showExpand={msg.role === 'assistant'}
+              />
+            )}
           </Box>
         ))}
         {isLoading && (
