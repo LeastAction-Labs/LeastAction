@@ -15,7 +15,7 @@ from src.common.logger.logger import log_error, log_info
 from src.core.admin.api_request import AdminCreateUserRequest, GetUsersRequest, UpdateUserPayload
 from src.core.admin.service import AdminService, get_admin_service
 from src.core.ee.iam.user.service import UserService, get_user_service
-from src.core.mcp.server import ALL_MCP_TOOLS
+from src.core.mcp.server import ALL_MCP_TOOLS, MCP_TOOL_GROUPS
 
 admin_router = APIRouter()
 
@@ -105,7 +105,7 @@ async def get_all_mcp_tools():
     """Return the canonical list of all available MCP tool names."""
     try:
         log_info("api", "admin_router", "get_all_mcp_tools", f"user={get_user_laui()} payload={{}}")
-        return {"tools": ALL_MCP_TOOLS}
+        return {"tools": ALL_MCP_TOOLS, "groups": MCP_TOOL_GROUPS}
     except LAException as e:
         log_error(
             "api_traceback",

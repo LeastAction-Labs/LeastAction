@@ -179,9 +179,13 @@ async def lifespan(app: FastAPI):
         app.state.version_manager,
     )
 
+    from src.core.dataplane.mcp_proxy import McpProxyManager
     from src.core.mcp.server import create_mcp_server
 
-    app.state.mcp_server = create_mcp_server()
+    # Shared proxy manager for the awslabs/Azure MCP subprocesses — used by both the
+    # MCP tools and the /query route (Data Inspector) so they reuse the same servers.
+    app.state.mcp_proxy = McpProxyManager()
+    app.state.mcp_server = create_mcp_server(app.state.item_orchestrator, app.state.mcp_proxy)
     mcp_http_app = app.state.mcp_server.http_app(stateless_http=True, path="/")
     app.mount("/mcp", mcp_http_app)
 
@@ -194,6 +198,7 @@ async def lifespan(app: FastAPI):
 
         yield
 
+    await app.state.mcp_proxy.aclose()
     await app.state.mongo_client.close_connection()
 
 

@@ -80,6 +80,39 @@ function logBox(_title: string, _content: string, _isError = false) {
   //console.log(`${color}${bold}╚${border}╝${reset}\n`);
 }
 
+const nonEmptyString = (v: unknown): v is string =>
+  typeof v === 'string' && v.trim() !== '';
+
+// Derive a human-readable message from an error response body. Backend errors
+// come in several shapes and don't reliably carry a top-level `message`:
+//   - Middleware errors:  { message, detail }
+//   - Route HTTPException: { detail: { message, detail } }   (FastAPI nests it)
+//   - Plain FastAPI:       { detail: "..." }
+//   - Validation errors:   { detail: [ ... ] }
+//   - Non-JSON / empty body parses to null
+// Without unwrapping the nested case the banner renders empty even though the
+// real error is visible in the network response.
+function extractErrorMessage(data: any, res: Response): string {
+  if (data && typeof data === 'object') {
+    if (nonEmptyString(data.message)) return data.message;
+
+    const detail = data.detail;
+    if (nonEmptyString(detail)) return detail;
+    // FastAPI HTTPException wraps our { message, detail } under `detail`.
+    if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+      if (nonEmptyString(detail.message)) return detail.message;
+      if (nonEmptyString(detail.detail)) return detail.detail;
+    }
+    if (Array.isArray(detail) && detail.length > 0) {
+      const first = detail[0] as Record<string, unknown>;
+      if (first && nonEmptyString(first.msg)) return first.msg;
+      return 'Validation error';
+    }
+  }
+  if (nonEmptyString(data)) return data;
+  return `Request failed (${res.status} ${res.statusText || 'Error'})`;
+}
+
 function parseJsonSafe<T>(text: string): T | null {
   try {
     if (!text || text.trim() === '') {
@@ -131,10 +164,12 @@ export async function httpJson<TResponse>(
     if (res.status === 401 && unauthorizedCallback && !input.startsWith(MARKETPLACE_URL)) {
       unauthorizedCallback();
     }
+    const message = extractErrorMessage(data, res);
+    const errData = data && typeof data === 'object' ? (data as Record<string, unknown>) : undefined;
     if (!input.includes('check')) {
-      notify.error({ ...data, sessionId });
+      notify.error({ ...errData, message, sessionId: sessionId ?? undefined });
     }
-    throw new Error('error');
+    throw new Error(message);
   }
 
   const successInfo = {
@@ -200,8 +235,10 @@ export async function httpJsonWithSession<TResponse>(
     if (res.status === 401 && unauthorizedCallback && !input.startsWith(MARKETPLACE_URL)) {
       unauthorizedCallback();
     }
-    notify.error({ ...data, sessionId });
-    throw new Error('error');
+    const message = extractErrorMessage(data, res);
+    const errData = data && typeof data === 'object' ? (data as Record<string, unknown>) : undefined;
+    notify.error({ ...errData, message, sessionId: sessionId ?? undefined });
+    throw new Error(message);
   }
 
   const successInfo = {

@@ -156,6 +156,16 @@ export async function getAllMcpTools(): Promise<string[]> {
   return data.tools;
 }
 
+export type McpToolGroups = Record<string, string[]>;
+
+export async function getMcpToolGroups(): Promise<{ tools: string[]; groups: McpToolGroups }> {
+  const data = await httpJson<{ tools: string[]; groups?: McpToolGroups }>(
+    API_ENDPOINTS.getAllMcpTools,
+    { method: 'GET' },
+  );
+  return { tools: data.tools, groups: data.groups ?? { LeastAction: data.tools } };
+}
+
 export async function updateUserMcpTools(
   userId: string,
   allowedTools: string[] | null,

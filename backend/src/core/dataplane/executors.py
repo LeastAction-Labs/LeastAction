@@ -3,28 +3,39 @@
 # LeastAction Sustainable Use License (see LICENSE.md) or, for files
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
-# Experimental Preview — multi-database read-only inspect endpoint.
-# connection.AWS  → Athena | Redshift | S3 (DuckDB)
-# connection.gcp  → BigQuery | GCS (DuckDB)
-# connection.azure→ Azure Blob (DuckDB)
-# connection.postgresql / connection.mysql — direct drivers
-import asyncio
+"""In-process data-plane executors shared by the MCP tools and the /query route.
+
+Read-only access to catalog connections:
+  - SQL inspection (run_query) across PostgreSQL, MySQL, AWS (Athena/Redshift/S3),
+    GCP (BigQuery/GCS) and Azure Blob — extracted from the former query.py route.
+  - AWS per-service control-plane reads (aws_read_call) via boto3.
+  - GCP per-service control-plane reads (gcp_read_call) via the Discovery API.
+
+All credentials come from the connection item's free-form ``content`` dict, picked
+via the synonym maps below. Framework-agnostic: callers translate DataplaneError
+(route -> HTTPException, MCP tool -> {"error": ...}).
+"""
+
 import json
 import re
 import time
 
 import psycopg2
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from pydantic_mongo import PydanticObjectId
-
-from src.core.catalog.orchestrator import ItemOrchestrator, get_item_orchestrator
-
-query_router = APIRouter()
 
 _ROW_LIMIT = 10_000
 _DUCKDB_MEMORY = "512MB"  # per-query cap; prevents OOM on large S3/GCS/Azure scans
 _DUCKDB_THREADS = 2  # prevent CPU starvation on the shared server
+
+
+class DataplaneError(Exception):
+    """Framework-agnostic error carrying an HTTP-style status code and detail."""
+
+    def __init__(self, status_code: int, detail: str):
+        self.status_code = status_code
+        self.detail = detail
+        super().__init__(detail)
+
 
 # ── SQL validation ─────────────────────────────────────────────────────────────
 
@@ -55,17 +66,12 @@ def _validate_sql(sql: str) -> None:
     cleaned = _COMMENT_RE.sub(" ", sql)
     normalized = " ".join(cleaned.split()).lower()
     if not any(normalized.startswith(p) for p in _ALLOWED_PREFIXES):
-        raise HTTPException(
-            status_code=400, detail="Only SELECT / WITH / EXPLAIN queries are allowed."
-        )
+        raise DataplaneError(400, "Only SELECT / WITH / EXPLAIN queries are allowed.")
     if ";" in normalized:
-        raise HTTPException(
-            status_code=400,
-            detail="Multiple statements are not permitted i.e ';' is not permitted.",
-        )
+        raise DataplaneError(400, "Multiple statements are not permitted i.e ';' is not permitted.")
     for kw in _BLOCKED_KEYWORDS:
         if re.search(rf"\b{kw}\b", normalized):
-            raise HTTPException(status_code=400, detail=f"Keyword '{kw.upper()}' is not permitted.")
+            raise DataplaneError(400, f"Keyword '{kw.upper()}' is not permitted.")
 
 
 # ── Field synonym maps (first match wins) ──────────────────────────────────────
@@ -128,6 +134,11 @@ _AZURE_SYNONYMS: dict[str, list[str]] = {
     ],
     "account_name": ["account_name", "storage_account", "azure_account"],
     "account_key": ["account_key", "storage_key", "azure_key"],
+    # service-principal credentials for ARM control-plane / Azure MCP proxy
+    "tenant_id": ["tenant_id", "azure_tenant_id", "tenant"],
+    "client_id": ["client_id", "azure_client_id", "app_id", "application_id"],
+    "client_secret": ["client_secret", "azure_client_secret", "app_secret", "secret"],
+    "subscription_id": ["subscription_id", "azure_subscription_id", "subscription"],
 }
 
 
@@ -148,9 +159,8 @@ def _execute_postgresql(data: dict, sql: str) -> tuple[list[str], list[list]]:
     user = _pick(data, "user", _PG_SYNONYMS, "")
     password = _pick(data, "password", _PG_SYNONYMS, "")
     if not database or not user:
-        raise HTTPException(
-            status_code=400,
-            detail=f"PostgreSQL connection missing database/user. Got keys: {list(data.keys())}",
+        raise DataplaneError(
+            400, f"PostgreSQL connection missing database/user. Got keys: {list(data.keys())}"
         )
     try:
         conn = psycopg2.connect(
@@ -170,20 +180,16 @@ def _execute_postgresql(data: dict, sql: str) -> tuple[list[str], list[list]]:
         conn.close()
         return columns, rows
     except psycopg2.OperationalError as e:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to PostgreSQL: {e}")
+        raise DataplaneError(502, f"Cannot connect to PostgreSQL: {e}")
     except psycopg2.Error as e:
-        raise HTTPException(
-            status_code=400, detail=f"PostgreSQL query error: {e.pgerror or str(e)}"
-        )
+        raise DataplaneError(400, f"PostgreSQL query error: {e.pgerror or str(e)}")
 
 
 def _execute_mysql(data: dict, sql: str) -> tuple[list[str], list[list]]:
     try:
         import pymysql
     except ImportError:
-        raise HTTPException(
-            status_code=501, detail="pymysql not installed — add pymysql to backend dependencies."
-        )
+        raise DataplaneError(501, "pymysql not installed — add pymysql to backend dependencies.")
     host = _pick(data, "host", _MYSQL_SYNONYMS, "localhost")
     port = int(_pick(data, "port", _MYSQL_SYNONYMS, 3306))
     database = _pick(data, "database", _MYSQL_SYNONYMS, "")
@@ -191,9 +197,8 @@ def _execute_mysql(data: dict, sql: str) -> tuple[list[str], list[list]]:
     password = _pick(data, "password", _MYSQL_SYNONYMS, "")
     charset = _pick(data, "charset", _MYSQL_SYNONYMS, "utf8mb4")
     if not database or not user:
-        raise HTTPException(
-            status_code=400,
-            detail=f"MySQL connection missing database/user. Got keys: {list(data.keys())}",
+        raise DataplaneError(
+            400, f"MySQL connection missing database/user. Got keys: {list(data.keys())}"
         )
     try:
         conn = pymysql.connect(
@@ -213,9 +218,9 @@ def _execute_mysql(data: dict, sql: str) -> tuple[list[str], list[list]]:
         conn.close()
         return columns, rows
     except pymysql.OperationalError as e:
-        raise HTTPException(status_code=502, detail=f"Cannot connect to MySQL: {e}")
+        raise DataplaneError(502, f"Cannot connect to MySQL: {e}")
     except pymysql.Error as e:
-        raise HTTPException(status_code=400, detail=f"MySQL query error: {e}")
+        raise DataplaneError(400, f"MySQL query error: {e}")
 
 
 def _build_boto3_session(data: dict):
@@ -246,130 +251,25 @@ def _build_boto3_session(data: dict):
     return boto3.Session(region_name=region)
 
 
-def _execute_athena(data: dict, sql: str) -> tuple[list[str], list[list]]:
-    output_location = _pick(data, "output_location", _AWS_SYNONYMS)
-    database = _pick(data, "database", _AWS_SYNONYMS, "default")
-    workgroup = _pick(data, "workgroup", _AWS_SYNONYMS, "primary")
-    if not output_location:
-        raise HTTPException(
-            status_code=400,
-            detail="Athena connection missing output_location (S3 path for results).",
-        )
-    try:
-        session = _build_boto3_session(data)
-        client = session.client("athena")
-        resp = client.start_query_execution(
-            QueryString=sql,
-            ResultConfiguration={"OutputLocation": output_location},
-            QueryExecutionContext={"Database": database},
-            WorkGroup=workgroup,
-        )
-        qid = resp["QueryExecutionId"]
-        for _ in range(60):
-            time.sleep(2)
-            status = client.get_query_execution(QueryExecutionId=qid)["QueryExecution"]["Status"]
-            state = status["State"]
-            if state == "SUCCEEDED":
-                break
-            if state in ("FAILED", "CANCELLED"):
-                reason = status.get("StateChangeReason", "unknown")
-                raise HTTPException(status_code=400, detail=f"Athena query {state}: {reason}")
-        else:
-            raise HTTPException(status_code=504, detail="Athena query timed out after 120s.")
-
-        columns: list[str] = []
-        rows: list[list] = []
-        paginator = client.get_paginator("get_query_results")
-        done = False
-        for page_idx, page in enumerate(paginator.paginate(QueryExecutionId=qid)):
-            result_rows = page["ResultSet"]["Rows"]
-            if page_idx == 0:
-                columns = [c["VarCharValue"] for c in result_rows[0]["Data"]]
-                result_rows = result_rows[1:]
-            for row in result_rows:
-                rows.append([c.get("VarCharValue") for c in row["Data"]])
-                if len(rows) >= _ROW_LIMIT + 1:
-                    done = True
-                    break
-            if done:
-                break
-        return columns, rows
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Athena error: {e}")
-
-
-def _execute_redshift(data: dict, sql: str) -> tuple[list[str], list[list]]:
-    database = _pick(data, "database", _AWS_SYNONYMS, "")
-    cluster_id = _pick(data, "cluster_identifier", _AWS_SYNONYMS)
-    workgroup_name = _pick(data, "workgroup_name", _AWS_SYNONYMS)
-    if not database:
-        raise HTTPException(status_code=400, detail="Redshift connection missing database field.")
-    if not cluster_id and not workgroup_name:
-        raise HTTPException(
-            status_code=400,
-            detail="Redshift connection missing cluster_identifier or workgroup_name.",
-        )
-    try:
-        session = _build_boto3_session(data)
-        client = session.client("redshift-data")
-        kwargs = {"Sql": sql, "Database": database}
-        if cluster_id:
-            kwargs["ClusterIdentifier"] = cluster_id
-        else:
-            kwargs["WorkgroupName"] = workgroup_name
-        stmt_id = client.execute_statement(**kwargs)["Id"]
-        for _ in range(60):
-            time.sleep(2)
-            desc = client.describe_statement(Id=stmt_id)
-            status = desc["Status"]
-            if status == "FINISHED":
-                break
-            if status in ("FAILED", "ABORTED"):
-                raise HTTPException(
-                    status_code=400, detail=f"Redshift query {status}: {desc.get('Error', '')}"
-                )
-        else:
-            raise HTTPException(status_code=504, detail="Redshift query timed out after 120s.")
-
-        def _val(field: dict):
-            if field.get("isNull"):
-                return None
-            for k in ("stringValue", "longValue", "doubleValue", "booleanValue", "blobValue"):
-                if k in field:
-                    return field[k]
-            return None
-
-        columns: list[str] = []
-        rows: list[list] = []
-        paginator = client.get_paginator("get_statement_result")
-        done = False
-        for page_idx, page in enumerate(paginator.paginate(Id=stmt_id)):
-            if page_idx == 0:
-                columns = [c["label"] for c in page["ColumnMetadata"]]
-            for row in page["Records"]:
-                rows.append([_val(f) for f in row])
-                if len(rows) >= _ROW_LIMIT + 1:
-                    done = True
-                    break
-            if done:
-                break
-        return columns, rows
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Redshift error: {e}")
-
-
 def _execute_aws(data: dict, sql: str) -> tuple[list[str], list[list]]:
+    # Athena/Redshift SQL is served by the awslabs MCP servers (aws_athena /
+    # aws_redshift tools), not the in-process SQL path. Only raw S3 file reads
+    # (parquet/CSV via DuckDB) run here.
     if _pick(data, "output_location", _AWS_SYNONYMS):
-        return _execute_athena(data, sql)
+        raise DataplaneError(
+            400,
+            "Athena SQL is served by the awslabs MCP — use the aws_athena tool instead "
+            "of inspect_data / the query editor.",
+        )
     if _pick(data, "cluster_identifier", _AWS_SYNONYMS) or _pick(
         data, "workgroup_name", _AWS_SYNONYMS
     ):
-        return _execute_redshift(data, sql)
-    # No Athena/Redshift fields — treat as plain S3 connection (DuckDB)
+        raise DataplaneError(
+            400,
+            "Redshift SQL is served by the awslabs MCP — use the aws_redshift tool "
+            "(execute_query) instead of inspect_data / the query editor.",
+        )
+    # Plain S3 connection — read files via DuckDB.
     return _execute_duckdb_s3(data, sql)
 
 
@@ -378,14 +278,13 @@ def _execute_bigquery(data: dict, sql: str) -> tuple[list[str], list[list]]:
         from google.cloud import bigquery
         from google.oauth2 import service_account
     except ImportError:
-        raise HTTPException(status_code=501, detail="google-cloud-bigquery not installed.")
+        raise DataplaneError(501, "google-cloud-bigquery not installed.")
     project = _pick(data, "project", _BQ_SYNONYMS)
     creds_raw = _pick(data, "credentials", _BQ_SYNONYMS)
     location = _pick(data, "location", _BQ_SYNONYMS, "US")
     if not project:
-        raise HTTPException(
-            status_code=400,
-            detail=f"BigQuery connection missing project. Got keys: {list(data.keys())}",
+        raise DataplaneError(
+            400, f"BigQuery connection missing project. Got keys: {list(data.keys())}"
         )
     try:
         creds = None
@@ -406,10 +305,10 @@ def _execute_bigquery(data: dict, sql: str) -> tuple[list[str], list[list]]:
             if len(rows) >= _ROW_LIMIT + 1:
                 break
         return columns, rows
-    except HTTPException:
+    except DataplaneError:
         raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"BigQuery error: {e}")
+        raise DataplaneError(502, f"BigQuery error: {e}")
 
 
 def _execute_gcp(data: dict, sql: str) -> tuple[list[str], list[list]]:
@@ -455,7 +354,7 @@ def _execute_duckdb_s3(data: dict, sql: str) -> tuple[list[str], list[list]]:
             rows = [list(r) for r in result.fetchmany(_ROW_LIMIT + 1)]
             return columns, rows
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"S3/DuckDB query error: {e}")
+            raise DataplaneError(400, f"S3/DuckDB query error: {e}")
     finally:
         con.close()
 
@@ -471,9 +370,9 @@ def _execute_duckdb_gcs(data: dict, sql: str) -> tuple[list[str], list[list]]:
         secret_key = _pick(data, "secret_key", _GCS_SYNONYMS)
         endpoint = _pick(data, "endpoint", _GCS_SYNONYMS, "storage.googleapis.com")
         if not access_key or not secret_key:
-            raise HTTPException(
-                status_code=400,
-                detail=f"GCS connection missing HMAC access_key/secret_key. Got keys: {list(data.keys())}",
+            raise DataplaneError(
+                400,
+                f"GCS connection missing HMAC access_key/secret_key. Got keys: {list(data.keys())}",
             )
         con.execute(
             f"SET s3_endpoint='{endpoint}';"
@@ -486,10 +385,10 @@ def _execute_duckdb_gcs(data: dict, sql: str) -> tuple[list[str], list[list]]:
             columns = [d[0] for d in result.description]
             rows = [list(r) for r in result.fetchmany(_ROW_LIMIT + 1)]
             return columns, rows
-        except HTTPException:
+        except DataplaneError:
             raise
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"GCS/DuckDB query error: {e}")
+            raise DataplaneError(400, f"GCS/DuckDB query error: {e}")
     finally:
         con.close()
 
@@ -511,19 +410,19 @@ def _execute_duckdb_azure(data: dict, sql: str) -> tuple[list[str], list[list]]:
                 f"SET azure_account_name='{account_name}';SET azure_account_key='{account_key}';"
             )
         else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Azure connection missing connection_string or account_name+account_key. Got keys: {list(data.keys())}",
+            raise DataplaneError(
+                400,
+                f"Azure connection missing connection_string or account_name+account_key. Got keys: {list(data.keys())}",
             )
         try:
             result = con.execute(sql)
             columns = [d[0] for d in result.description]
             rows = [list(r) for r in result.fetchmany(_ROW_LIMIT + 1)]
             return columns, rows
-        except HTTPException:
+        except DataplaneError:
             raise
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Azure/DuckDB query error: {e}")
+            raise DataplaneError(400, f"Azure/DuckDB query error: {e}")
     finally:
         con.close()
 
@@ -533,67 +432,139 @@ def _execute_duckdb_azure(data: dict, sql: str) -> tuple[list[str], list[list]]:
 _DRIVER_MAP = {
     "connection.postgresql": _execute_postgresql,
     "connection.mysql": _execute_mysql,
-    "connection.AWS": _execute_aws,  # Athena → Redshift → S3 (DuckDB)
+    "connection.AWS": _execute_aws,  # S3 file reads (DuckDB); Athena/Redshift via awslabs MCP
     "connection.gcp": _execute_gcp,  # BigQuery → GCS (DuckDB)
     "connection.azure": _execute_duckdb_azure,  # Azure Blob (DuckDB)
 }
 
 
-# ── Models & endpoint ──────────────────────────────────────────────────────────
+# ── Connection resolution & SQL entrypoint ──────────────────────────────────────
 
 
-class QueryRequest(BaseModel):
-    connection_laui: str
-    sql: str
+async def resolve_connection(orchestrator, connection_laui: str) -> tuple[str, dict]:
+    """Resolve a connection item to (item_type, content_dict).
 
-
-class QueryResponse(BaseModel):
-    columns: list[str]
-    rows: list[list]
-    row_count: int
-    truncated: bool = False
-
-
-@query_router.post("/execute", response_model=QueryResponse)
-async def execute_query(
-    req: QueryRequest,
-    orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
-):
-    _validate_sql(req.sql)
-
+    Runs through the catalog service, which enforces per-user access via the
+    current user context — so callers must run inside an established user_context
+    (the auth middleware sets it for both API and /mcp requests).
+    """
     try:
-        item = await orchestrator.catalog_service.find_item(PydanticObjectId(req.connection_laui))
+        item = await orchestrator.catalog_service.find_item(PydanticObjectId(connection_laui))
     except Exception as e:
-        raise HTTPException(
-            status_code=404, detail=f"Connection item not found or access denied: {e}"
-        )
+        raise DataplaneError(404, f"Connection item not found or access denied: {e}")
 
-    if not (item.item_type or "").startswith("connection."):
-        raise HTTPException(status_code=400, detail="Item is not a connection type.")
-
-    executor = _DRIVER_MAP.get(item.item_type)
-    if not executor:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Connection type '{item.item_type}' is not supported for data inspection. "
-            f"Supported types: {list(_DRIVER_MAP)}",
-        )
+    item_type = item.item_type or ""
+    if not item_type.startswith("connection."):
+        raise DataplaneError(400, "Item is not a connection type.")
 
     raw = getattr(item, "content", None) or getattr(item, "data", None) or {}
     if isinstance(raw, str):
         raw = json.loads(raw or "{}")
     data: dict = raw if isinstance(raw, dict) else {}
+    return item_type, data
 
-    try:
-        columns, rows = await asyncio.wait_for(
-            asyncio.to_thread(executor, data, req.sql),
-            timeout=120.0,
+
+def run_query(item_type: str, data: dict, sql: str) -> tuple[list[str], list[list]]:
+    """Validate SQL and execute it against the connection. Synchronous — callers
+    should wrap with asyncio.to_thread under a timeout."""
+    _validate_sql(sql)
+    executor = _DRIVER_MAP.get(item_type)
+    if not executor:
+        raise DataplaneError(
+            400,
+            f"Connection type '{item_type}' is not supported for data inspection. "
+            f"Supported types: {list(_DRIVER_MAP)}",
         )
-    except TimeoutError:
-        raise HTTPException(status_code=504, detail="Query timed out after 2 minutes.")
+    return executor(data, sql)
 
-    truncated = len(rows) > _ROW_LIMIT
-    if truncated:
-        rows = rows[:_ROW_LIMIT]
 
-    return QueryResponse(columns=columns, rows=rows, row_count=len(rows), truncated=truncated)
+def _json_safe(obj):
+    return json.loads(json.dumps(obj, default=str))
+
+
+# ── GCP per-service control-plane reads (Discovery API) ──────────────────────────
+
+# tool name → (discovery api, version). BigQuery data still goes through inspect_data SQL.
+GCP_SERVICE_TOOLS: dict[str, tuple[str, str]] = {
+    "gcp_storage": ("storage", "v1"),
+    "gcp_bigquery": ("bigquery", "v2"),
+    "gcp_compute": ("compute", "v1"),
+    "gcp_logging": ("logging", "v2"),
+    "gcp_monitoring": ("monitoring", "v3"),
+    "gcp_iam": ("iam", "v1"),
+    "gcp_resourcemanager": ("cloudresourcemanager", "v3"),
+    "gcp_pubsub": ("pubsub", "v1"),
+}
+
+_GCP_READ_METHODS = {
+    "list",
+    "get",
+    "aggregatedList",
+    "search",
+    "getIamPolicy",
+    "testIamPermissions",
+    "query",
+    "read",
+}
+
+
+def _gcp_credentials(data: dict):
+    from google.oauth2 import service_account
+
+    creds_raw = _pick(data, "credentials", _BQ_SYNONYMS)
+    if not creds_raw:
+        raise DataplaneError(
+            400,
+            f"GCP connection missing service-account credentials. Got keys: {list(data.keys())}",
+        )
+    info = creds_raw if isinstance(creds_raw, dict) else json.loads(creds_raw)
+    return service_account.Credentials.from_service_account_info(
+        info, scopes=["https://www.googleapis.com/auth/cloud-platform.read-only"]
+    )
+
+
+def gcp_read_call(
+    data: dict,
+    api: str,
+    version: str,
+    method: str,
+    parameters: dict | None,
+    resource_path: str | None = None,
+) -> dict:
+    """Execute a read-only Google Cloud Discovery API call.
+
+    resource_path navigates nested resources, e.g. "instances" for compute, or
+    "projects.locations.buckets" — dotted. ``method`` is the final read verb.
+    """
+    leaf = (method or "").split(".")[-1]
+    if leaf not in _GCP_READ_METHODS:
+        raise DataplaneError(
+            400,
+            f"Method '{method}' is not a read-only method. Allowed: {sorted(_GCP_READ_METHODS)}.",
+        )
+    try:
+        from googleapiclient.discovery import build
+    except ImportError:
+        raise DataplaneError(501, "google-api-python-client not installed.")
+    try:
+        creds = _gcp_credentials(data)
+        service = build(api, version, credentials=creds, cache_discovery=False)
+    except DataplaneError:
+        raise
+    except Exception as e:
+        raise DataplaneError(502, f"Cannot build GCP client for '{api}/{version}': {e}")
+
+    # Walk the resource chain (e.g. "instances" or "projects.locations") then call method.
+    target = service
+    try:
+        for part in (resource_path or "").split("."):
+            if not part:
+                continue
+            target = getattr(target, part)()
+        request = getattr(target, leaf)(**(parameters or {}))
+        resp = request.execute()
+    except DataplaneError:
+        raise
+    except Exception as e:
+        raise DataplaneError(400, f"GCP {api}.{resource_path or ''}.{leaf} error: {e}")
+    return _json_safe(resp)

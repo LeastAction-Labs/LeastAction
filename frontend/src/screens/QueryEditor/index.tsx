@@ -33,41 +33,41 @@ const QUERY_CHEAT_SHEET = `
 
 #### connection.postgresql / connection.mysql
 \`\`\`sql
-SELECT * FROM my_table ORDER BY created_at DESC LIMIT 20;
-SELECT COUNT(*) FROM my_table WHERE date_col = '2026-05-26';
-SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'my_table';
-SELECT id, COUNT(*) FROM my_table GROUP BY id HAVING COUNT(*) > 1;
+SELECT * FROM my_table ORDER BY created_at DESC LIMIT 20
+SELECT COUNT(*) FROM my_table WHERE date_col = '2026-05-26'
+SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'my_table'
+SELECT id, COUNT(*) FROM my_table GROUP BY id HAVING COUNT(*) > 1
 \`\`\`
 
 #### connection.AWS — Athena / Redshift / S3
 \`\`\`sql
 -- Athena: filter on partition column
-SELECT COUNT(*) FROM my_db.my_table WHERE dt = '2026-05-26';
-DESCRIBE my_db.my_table;
+SELECT COUNT(*) FROM my_db.my_table WHERE dt = '2026-05-26'
+DESCRIBE my_db.my_table
 -- S3 parquet (no output_location in connection)
-SELECT * FROM read_parquet('s3://my-bucket/data/orders/*.parquet') LIMIT 50;
-DESCRIBE SELECT * FROM read_parquet('s3://my-bucket/data/file.parquet');
+SELECT * FROM read_parquet('s3://my-bucket/data/orders/*.parquet') LIMIT 50
+DESCRIBE SELECT * FROM read_parquet('s3://my-bucket/data/file.parquet')
 -- S3 CSV — auto_detect handles delimiter, header, and types
-SELECT * FROM read_csv('s3://my-bucket/raw/orders.csv', auto_detect=true) LIMIT 20;
-DESCRIBE SELECT * FROM read_csv('s3://my-bucket/raw/orders.csv', auto_detect=true);
+SELECT * FROM read_csv('s3://my-bucket/raw/orders.csv', auto_detect=true) LIMIT 20
+DESCRIBE SELECT * FROM read_csv('s3://my-bucket/raw/orders.csv', auto_detect=true)
 -- explicit types if auto_detect gets it wrong
 SELECT * FROM read_csv('s3://my-bucket/raw/orders.csv',
-  header=true, columns={'order_id':'VARCHAR','amount':'DOUBLE'}) LIMIT 20;
+  header=true, columns={'order_id':'VARCHAR','amount':'DOUBLE'}) LIMIT 20
 \`\`\`
 
 #### connection.gcp — BigQuery / GCS
 \`\`\`sql
 -- BigQuery (connection has project field)
-SELECT * FROM \`project.dataset.my_table\` WHERE DATE(_PARTITIONTIME) = '2026-05-26' LIMIT 20;
+SELECT * FROM \`project.dataset.my_table\` WHERE DATE(_PARTITIONTIME) = '2026-05-26' LIMIT 20
 -- GCS via DuckDB (connection has HMAC keys, no project)
-SELECT * FROM read_parquet('gs://my-bucket/data/orders/*.parquet') LIMIT 50;
-SELECT * FROM read_csv('gs://my-bucket/raw/orders.csv', header=true) LIMIT 20;
+SELECT * FROM read_parquet('gs://my-bucket/data/orders/*.parquet') LIMIT 50
+SELECT * FROM read_csv('gs://my-bucket/raw/orders.csv', header=true) LIMIT 20
 \`\`\`
 
 #### connection.azure — Blob Storage
 \`\`\`sql
-SELECT * FROM read_parquet('azure://my-container/data/orders/*.parquet') LIMIT 50;
-DESCRIBE SELECT * FROM read_parquet('azure://my-container/data/file.parquet');
+SELECT * FROM read_parquet('azure://my-container/data/orders/*.parquet') LIMIT 50
+DESCRIBE SELECT * FROM read_parquet('azure://my-container/data/file.parquet')
 \`\`\`
 
 > Max **10,000 rows** · Timeout **2 min** · Read-only (SELECT / WITH / EXPLAIN only)

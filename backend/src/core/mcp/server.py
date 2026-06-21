@@ -3,6 +3,7 @@
 # LeastAction Sustainable Use License (see LICENSE.md) or, for files
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
+import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -11,11 +12,54 @@ from fastmcp import FastMCP
 
 from src.common.context_vars.session_context import generate_session_id
 from src.core.ai.prompts import AGENT_SYSTEM_PROMPT
+from src.core.dataplane.executors import (
+    _ROW_LIMIT,
+    GCP_SERVICE_TOOLS,
+    DataplaneError,
+    _json_safe,
+    gcp_read_call,
+)
+from src.core.dataplane.mcp_proxy import (
+    AWS_MCP_SERVERS,
+    AZURE_NAMESPACE_TOOLS,
+    McpProxyManager,
+    aws_env,
+    azure_command_args,
+    azure_env,
+    execute_sql,
+)
 from src.core.mcp.api_client import mcp_api
 
 CONFIG_SCHEMA_DIR = Path(__file__).resolve().parents[4] / "config" / "schema"
 
-ALL_MCP_TOOLS = [
+
+async def _resolve_connection_via_api(connection_laui: str) -> tuple[str, dict]:
+    """Resolve a connection's (item_type, content) over the catalog HTTP API.
+
+    MCP tools resolve connections via mcp_api (not the in-process orchestrator)
+    because the /mcp request context lacks the request-scoped DB/transaction setup
+    that the catalog repository needs — the same reason the other MCP tools call
+    mcp_api. The cookie token carries the caller's identity, so access control and
+    per-user scoping are enforced by the API.
+    """
+    item = await mcp_api("GET", "catalog/get", params={"item_laui": connection_laui})
+    if not isinstance(item, dict) or item.get("error"):
+        detail = item.get("error") if isinstance(item, dict) else str(item)
+        raise DataplaneError(404, f"Connection item not found or access denied: {detail}")
+    item_type = item.get("item_type") or ""
+    if not item_type.startswith("connection."):
+        raise DataplaneError(400, "Item is not a connection type.")
+    raw = item.get("content") or item.get("data") or {}
+    if isinstance(raw, str):
+        raw = json.loads(raw or "{}")
+    data: dict = raw if isinstance(raw, dict) else {}
+    return item_type, data
+
+
+# Native LeastAction platform tools (proxy the catalog API via mcp_api), plus the
+# cross-cloud inspect_data SQL tool. Per-cloud service tools are added below from
+# the executor/azure tables so the registry and admin UI can group them.
+_LEASTACTION_TOOLS = [
     "get_my_access",
     "list_docs",
     "get_doc",
@@ -45,6 +89,18 @@ ALL_MCP_TOOLS = [
     "inspect_data",
 ]
 
+# Grouped tool registry, presented per-cloud in the admin UI and get_my_access.
+# The wire format for allowed_mcp_tools stays a flat list[str]; this only adds
+# grouping metadata. ALL_MCP_TOOLS is derived so every existing consumer works.
+MCP_TOOL_GROUPS: dict[str, list[str]] = {
+    "LeastAction": _LEASTACTION_TOOLS,
+    "AWS": list(AWS_MCP_SERVERS),
+    "GCP": list(GCP_SERVICE_TOOLS),
+    "Azure": list(AZURE_NAMESPACE_TOOLS),
+}
+
+ALL_MCP_TOOLS = [tool for tools in MCP_TOOL_GROUPS.values() for tool in tools]
+
 
 def _check_tool_access(tool_name: str) -> dict | None:
     """Returns an error dict if the tool is not permitted for the current user, or None if allowed."""
@@ -60,8 +116,14 @@ def _check_tool_access(tool_name: str) -> dict | None:
     return None
 
 
-def create_mcp_server() -> FastMCP:
+def create_mcp_server(orchestrator, proxy: McpProxyManager | None = None) -> FastMCP:
     mcp = FastMCP("LeastAction Assistant", instructions=AGENT_SYSTEM_PROMPT)
+
+    # Manager for proxied MCP subprocesses (awslabs servers + Azure MCP), one per
+    # (connection, server) with the connection's creds injected as env. Shared with
+    # the /query route (via app.state) so the Data Inspector reuses the same servers.
+    if proxy is None:
+        proxy = McpProxyManager()
 
     # ── Access info (always available, no restriction) ─────────────────
 
@@ -80,6 +142,7 @@ def create_mcp_server() -> FastMCP:
             "is_root_user": is_root_user(),
             "has_full_access": allowed is None,
             "allowed_tools": ALL_MCP_TOOLS if allowed is None else allowed,
+            "tool_groups": MCP_TOOL_GROUPS,
         }
 
     # ── Schema ─────────────────────────────────────────────────────────
@@ -776,9 +839,22 @@ def create_mcp_server() -> FastMCP:
         """
         if err := _check_tool_access("inspect_data"):
             return err
-        return await mcp_api(
-            "POST", "query/execute", json={"connection_laui": connection_laui, "sql": sql}
-        )
+        try:
+            item_type, data = await _resolve_connection_via_api(connection_laui)
+            columns, rows = await execute_sql(proxy, connection_laui, item_type, data, sql)
+        except DataplaneError as e:
+            return {"error": e.detail}
+        except TimeoutError:
+            return {"error": "Query timed out after 2 minutes."}
+        truncated = len(rows) > _ROW_LIMIT
+        if truncated:
+            rows = rows[:_ROW_LIMIT]
+        return {
+            "columns": columns,
+            "rows": _json_safe(rows),
+            "row_count": len(rows),
+            "truncated": truncated,
+        }
 
     @mcp.tool()
     async def update_task(task_laui: str, updates: dict) -> dict:
@@ -935,5 +1011,118 @@ def create_mcp_server() -> FastMCP:
             return convert_objectid_to_str(resp.json())
         except Exception as e:
             return {"error": str(e)}
+
+    # ── Cloud per-service tools (one tool per service, gated individually) ──────
+    # Generated from the server/service tables so each registers under its own
+    # name. Per-tool gating means a user granted only `aws_redshift` cannot reach
+    # `aws_s3`, `gcp_compute`, or `azure_storage`.
+
+    def _make_aws_tool(tool_name: str, command: str, args: list[str]):
+        async def _aws_tool(
+            connection_laui: str, tool: str | None = None, parameters: dict | None = None
+        ) -> dict:
+            if err := _check_tool_access(tool_name):
+                return err
+            try:
+                item_type, data = await _resolve_connection_via_api(connection_laui)
+                if item_type != "connection.AWS":
+                    return {"error": f"Connection is '{item_type}', expected connection.AWS."}
+                env = aws_env(data)
+                cache_key = f"{connection_laui}:{tool_name}"
+                if not tool:
+                    return await proxy.list_tools(cache_key, command, args, env)
+                return await proxy.call(cache_key, command, args, env, tool, parameters)
+            except DataplaneError as e:
+                return {"error": e.detail}
+
+        _aws_tool.__name__ = tool_name
+        _aws_tool.__doc__ = (
+            f"AWS operations proxied to the official awslabs MCP server '{command}', using "
+            f"credentials from a connection item.\n\n"
+            f"connection_laui: LAUI of a connection.AWS catalog item\n"
+            f"tool: the underlying awslabs tool to run (e.g. execute_query, list_clusters). "
+            f"Omit to list the available tools and their schemas.\n"
+            f"parameters: dict of arguments for the chosen tool."
+        )
+        return _aws_tool
+
+    for _tool_name, _spec in AWS_MCP_SERVERS.items():
+        _command = _spec["command"]
+        _args = _spec.get("args", [])
+        mcp.tool()(_make_aws_tool(_tool_name, _command, _args))
+
+    def _make_gcp_tool(tool_name: str, api: str, version: str):
+        async def _gcp_tool(
+            connection_laui: str,
+            method: str,
+            parameters: dict | None = None,
+            resource_path: str | None = None,
+        ) -> dict:
+            if err := _check_tool_access(tool_name):
+                return err
+            try:
+                item_type, data = await _resolve_connection_via_api(connection_laui)
+                if item_type != "connection.gcp":
+                    return {"error": f"Connection is '{item_type}', expected connection.gcp."}
+                return await asyncio.to_thread(
+                    gcp_read_call, data, api, version, method, parameters, resource_path
+                )
+            except DataplaneError as e:
+                return {"error": e.detail}
+
+        _gcp_tool.__name__ = tool_name
+        _gcp_tool.__doc__ = (
+            f"Read-only Google Cloud {api}/{version} operations using credentials from a "
+            f"connection item (service-account JSON).\n\n"
+            f"connection_laui: LAUI of a connection.gcp catalog item\n"
+            f"method: a read-only Discovery verb (list, get, aggregatedList, search). "
+            f"Write methods are rejected.\n"
+            f"resource_path: dotted nested-resource path (e.g. 'instances'); omit for top-level\n"
+            f"parameters: dict of request parameters for the method."
+        )
+        return _gcp_tool
+
+    for _tool_name, (_api, _version) in GCP_SERVICE_TOOLS.items():
+        mcp.tool()(_make_gcp_tool(_tool_name, _api, _version))
+
+    def _make_azure_tool(tool_name: str, prefixes: tuple[str, ...]):
+        async def _azure_tool(
+            connection_laui: str, tool: str | None = None, parameters: dict | None = None
+        ) -> dict:
+            if err := _check_tool_access(tool_name):
+                return err
+            try:
+                item_type, data = await _resolve_connection_via_api(connection_laui)
+                if item_type != "connection.azure":
+                    return {"error": f"Connection is '{item_type}', expected connection.azure."}
+                env = azure_env(data)
+                command, args = azure_command_args()
+                # One Azure MCP per connection (all namespaces); gate by prefix here.
+                cache_key = f"{connection_laui}:azure"
+                if not tool:
+                    return await proxy.list_tools(cache_key, command, args, env, prefixes)
+                if not tool.startswith(prefixes):
+                    return {
+                        "error": f"Tool '{tool}' is not in the '{tool_name}' namespace "
+                        f"(allowed prefixes: {', '.join(prefixes)})."
+                    }
+                return await proxy.call(cache_key, command, args, env, tool, parameters)
+            except DataplaneError as e:
+                return {"error": e.detail}
+
+        _azure_tool.__name__ = tool_name
+        _azure_tool.__doc__ = (
+            f"Read-only Azure operations in the '{tool_name}' namespace, proxied to the "
+            f"official Azure MCP server using the connection's service principal.\n\n"
+            f"connection_laui: LAUI of a connection.azure catalog item (with service-principal "
+            f"creds: tenant_id, client_id, client_secret, subscription_id)\n"
+            f"tool: the underlying azmcp tool name to run (must be in this namespace). "
+            f"Omit to list the available tools and their schemas.\n"
+            f"parameters: dict of arguments for the chosen azmcp tool."
+        )
+        return _azure_tool
+
+    for _tool_name, _prefixes in AZURE_NAMESPACE_TOOLS.items():
+        mcp.tool()(_make_azure_tool(_tool_name, _prefixes))
 
     return mcp
