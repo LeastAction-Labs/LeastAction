@@ -175,7 +175,7 @@ class TaskExecutionService:
             )
 
     async def execute_task(
-        self, la_task_object: TaskRequest, celery_task_id: str | None = None
+        self, la_task_object: TaskRequest, system_auth_token: str, celery_task_id: str | None = None
     ) -> None:
         start_time = datetime.now(UTC)
         task_history_details = {
@@ -244,6 +244,7 @@ class TaskExecutionService:
             try:
                 await self.api_client.update_item(
                     la_task_object.user_access_token,
+                    system_auth_token,
                     str(la_task_object.laui),
                     update_data=TaskUpdateData(
                         latest_heartbeat=datetime.now(UTC),
@@ -594,11 +595,14 @@ class TaskExecutionService:
                     task_update_data.retry_number = la_task_object.retry_number + 1
 
                 await self.api_client.update_item(
-                    la_task_object.user_access_token, str(la_task_object.laui), task_update_data
+                    la_task_object.user_access_token,
+                    system_auth_token,
+                    str(la_task_object.laui),
+                    task_update_data,
                 )
 
                 await self.api_client.finish_task(
-                    la_task_object.user_access_token, la_task_object.laui
+                    la_task_object.user_access_token, system_auth_token, la_task_object.laui
                 )
             except Exception as e:
                 log_error(

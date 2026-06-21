@@ -30,7 +30,7 @@ celery_cfg = get_celery_config()
     time_limit=celery_cfg.task_hard_time_limit,
     queue=celery_cfg.task_queue,
 )
-def execute_task(self, la_task_object: dict[str, Any]) -> AsyncResult:
+def execute_task(self, la_task_object: dict[str, Any], system_auth_token: str) -> AsyncResult:
     """
     Celery entrypoint for TASK execution.
     SYNC -> async bridge.
@@ -68,7 +68,9 @@ def execute_task(self, la_task_object: dict[str, Any]) -> AsyncResult:
         task_request = TaskRequest(**la_task_object)
 
         result = loop.run_until_complete(
-            get_task_execution_service().execute_task(task_request, celery_task_id=self.request.id)
+            get_task_execution_service().execute_task(
+                task_request, celery_task_id=self.request.id, system_auth_token=system_auth_token
+            )
         )
 
         return result

@@ -17,7 +17,7 @@ from pydantic_mongo import PydanticObjectId
 from src.common.exceptions import InvalidArgumentError, UnprocessableEntityError
 from src.core.api.common import PaginationRequest, PaginationResponse
 from src.core.catalog.config.schema.schema_manager import SchemaManager
-from src.core.catalog.item.repo import ItemProjection
+from src.core.catalog.item.repo import Item, ItemProjection
 from src.core.catalog.item_directory import ItemDirectoryItemNode
 from src.core.catalog.item_revision.schema import ItemRevision, ItemRevisionProjection
 from src.core.catalog.link.repo import Link
@@ -42,6 +42,7 @@ class TaskUpdateRequest(TaskUpdateData):
 
 class MultipleTaskRequest(BaseModel):
     task_lauis: list[PydanticObjectId]
+    tasks: list[Item]
     model_config = ConfigDict(extra="allow")
 
 

@@ -278,6 +278,21 @@ class AccessReader:
 
         return true_parent_permission if true_parent_permission else Permission.NONE
 
+    async def batch_check_permissions_aliter(
+        self, item_lauis_with_permissions: list[tuple[PydanticObjectId, Permission]], user_laui: str
+    ) -> list[bool]:
+        return await self.keto_client.batch_check_permissions(
+            relation_tuples=[
+                RelationTuple(
+                    namespace=Namespace.ITEM,
+                    object=str(item_laui),
+                    relation=permission,
+                    subject_id=user_laui,
+                )
+                for item_laui, permission in item_lauis_with_permissions
+            ]
+        )
+
     async def batch_check_permissions(
         self, permission_to_check: Permission, item_lauis: list[PydanticObjectId], user_laui: str
     ) -> list[bool]:
