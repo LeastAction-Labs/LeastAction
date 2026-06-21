@@ -79,11 +79,12 @@ export default function Breadcrumbs() {
   const { catalogState, editorState } = useCatalog();
   const { activeFilterType, selectedItem, isItemFromTable, lastFilterType, isBreadcrumbLocked } =
     catalogState;
-  const { formMode, viewingItem, editingItem, isEditorActive } = editorState;
+  const { formMode, viewingItem, editingItem, isEditorActive, createFilterType } = editorState;
 
   const { handleBreadcrumbSelect } = useBreadcrumbHandlers();
 
   const filterType =
+    (formMode === 'create' && createFilterType) ||
     activeFilterType ||
     (formMode === 'view' && viewingItem ? viewingItem.item_type : null) ||
     (isItemFromTable ? lastFilterType : null);
@@ -99,7 +100,8 @@ export default function Breadcrumbs() {
     if (isBreadcrumbLocked) return items;
 
     if (isEditorActive) {
-      const typeLabel = filterType ?? selectedItem?.item_type ?? '';
+      const rawType = filterType ?? selectedItem?.item_type ?? '';
+      const typeLabel = rawType === '__folder__' ? 'folder' : rawType;
       const viewingName = viewingItem?.name ?? typeLabel;
       const itemType = viewingItem?.item_type ?? editingItem?.item_type ?? 'form';
       items.push({
