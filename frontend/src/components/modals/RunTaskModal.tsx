@@ -964,6 +964,11 @@ export default function RunTaskModal() {
               : 'Task created successfully!';
         showSuccess(successMessage);
 
+        // Notify the opener (e.g. ItemsView) so it can refresh the list and
+        // show the just-created/updated task. Capture before handleClose, which
+        // resets taskModalState.
+        taskModalState.onSuccess?.();
+
         handleClose();
       } else if (taskModalState.mode === 'run') {
         // Run mode - show logs

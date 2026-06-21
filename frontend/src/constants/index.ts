@@ -100,6 +100,14 @@ export const COLORS = {
   // Purple — DEBUG, cancelled
   PURPLE: '#8b5cf6',
 
+  // Steel Blue / Sage — dependency-group accents (workflow Tasks DAG view)
+  INDIGO: '#9BB8CD',
+  INDIGO_BG: 'rgba(155,184,205,0.4)',
+  TEAL: '#D4E2D4',
+  TEAL_BG: 'rgba(212,226,212,0.4)',
+  // Dark text for use on light/pastel accent fills (e.g. dependency-number badge)
+  ON_ACCENT_DARK: 'rgba(0,0,0,0.82)',
+
   // Surface overlays — hover, selected, focus states
   HOVER: 'rgba(0, 0, 0, 0.08)',
   SELECTED: 'rgba(0, 0, 0, 0.12)',
@@ -245,8 +253,8 @@ export const TASK_STATE_COLORS = {
 // plus a very faint row `tint`; colors alternate (indigo / teal) per group.
 // ============================================================================
 export const TASK_DEPENDENCY_GROUP_COLORS = [
-  { bar: '#6366f1', tint: 'rgba(99,102,241,0.07)' }, // indigo
-  { bar: '#14b8a6', tint: 'rgba(20,184,166,0.07)' }, // teal
+  { bar: COLORS.INDIGO, tint: COLORS.INDIGO_BG },
+  { bar: COLORS.TEAL, tint: COLORS.TEAL_BG },
 ] as const;
 
 // ============================================================================
