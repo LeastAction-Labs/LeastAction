@@ -99,6 +99,10 @@ class ItemOrchestrator:
 
             if item_model.item_type == "task":
                 task_data = TaskCreationValidationModel(**item_model.model_dump())
+                if existing_item is not None:
+                    # Preserve scheduling progress on updates — don't rewind to start_date
+                    task_data.logical_date = getattr(existing_item, "logical_date", None)
+                    task_data.next_run_date = getattr(existing_item, "next_run_date", None)
                 item_model = await self.task_manager.validate_task_creation(task_data)
 
             if existing_item:
