@@ -816,11 +816,7 @@ export default function ItemsTable({
         if (itemType === 'task' && !schemaColumns.includes(RUNS_COLUMN)) {
           allColumns = [...schemaColumns];
           const stateIdx = allColumns.indexOf('state');
-          allColumns.splice(
-            stateIdx >= 0 ? stateIdx + 1 : allColumns.length,
-            0,
-            RUNS_COLUMN,
-          );
+          allColumns.splice(stateIdx >= 0 ? stateIdx + 1 : allColumns.length, 0, RUNS_COLUMN);
         }
         setColumns(allColumns);
 

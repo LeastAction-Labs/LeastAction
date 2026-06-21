@@ -766,8 +766,7 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
 
   const openTaskModal = (taskModalMode: TaskModalMode) => {
     const operatorLaui = taskData.operator_laui;
-    const serializePayload = (p: any) =>
-      typeof p === 'string' ? p : JSON.stringify(p, null, 2);
+    const serializePayload = (p: any) => (typeof p === 'string' ? p : JSON.stringify(p, null, 2));
     const payloadValue = taskData.payload ? serializePayload(taskData.payload) : undefined;
     const initialTaskData = {
       laui: taskData.laui || '',
@@ -1781,7 +1780,12 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                 <Box sx={{ ...styles.card, p: 0, overflow: 'hidden' }}>
                   {[
                     { label: 'Pre', color: '#fbbf24', actions: preActions, key: 'pre_actions' },
-                    { label: 'Running', color: '#4ade80', actions: runningActions, key: 'running_actions' },
+                    {
+                      label: 'Running',
+                      color: '#4ade80',
+                      actions: runningActions,
+                      key: 'running_actions',
+                    },
                     { label: 'Post', color: '#f87171', actions: postActions, key: 'post_actions' },
                   ].map((col, colIdx, arr) => {
                     const counts = getActionCounts(col.actions, col.key);
@@ -1815,20 +1819,43 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                               <Chip
                                 label={`${counts.success}`}
                                 size="small"
-                                sx={{ bgcolor: '#4ade80', color: '#fff', fontSize: '10px', height: 16, minWidth: 16, fontWeight: 700, '& .MuiChip-label': { px: 0.5 } }}
+                                sx={{
+                                  bgcolor: '#4ade80',
+                                  color: '#fff',
+                                  fontSize: '10px',
+                                  height: 16,
+                                  minWidth: 16,
+                                  fontWeight: 700,
+                                  '& .MuiChip-label': { px: 0.5 },
+                                }}
                               />
                             )}
                             {counts.failed > 0 && (
                               <Chip
                                 label={`${counts.failed}`}
                                 size="small"
-                                sx={{ bgcolor: '#f87171', color: '#fff', fontSize: '10px', height: 16, minWidth: 16, fontWeight: 700, '& .MuiChip-label': { px: 0.5 } }}
+                                sx={{
+                                  bgcolor: '#f87171',
+                                  color: '#fff',
+                                  fontSize: '10px',
+                                  height: 16,
+                                  minWidth: 16,
+                                  fontWeight: 700,
+                                  '& .MuiChip-label': { px: 0.5 },
+                                }}
                               />
                             )}
                             <Chip
                               label={col.actions.length}
                               size="small"
-                              sx={{ bgcolor: 'var(--bg-primary)', color: 'var(--text-secondary)', fontSize: '10px', height: 16, minWidth: 16, '& .MuiChip-label': { px: 0.5 } }}
+                              sx={{
+                                bgcolor: 'var(--bg-primary)',
+                                color: 'var(--text-secondary)',
+                                fontSize: '10px',
+                                height: 16,
+                                minWidth: 16,
+                                '& .MuiChip-label': { px: 0.5 },
+                              }}
                             />
                           </Box>
                         </Box>
@@ -1838,7 +1865,9 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                           )}
                           {col.actions.length === 0 && (
                             <Box sx={{ p: 1.5 }}>
-                              <Typography sx={{ fontSize: FONT_SIZES.XS, color: 'var(--text-dim)' }}>
+                              <Typography
+                                sx={{ fontSize: FONT_SIZES.XS, color: 'var(--text-dim)' }}
+                              >
                                 None
                               </Typography>
                             </Box>
@@ -1911,10 +1940,19 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                             const isOverdue =
                               taskData.next_run_date &&
                               new Date(taskData.next_run_date) < new Date() &&
-                              (taskData.state === 'error' || taskData.state === 'ERROR' ||
-                               taskData.state === 'fail' || taskData.state === 'FAIL');
+                              (taskData.state === 'error' ||
+                                taskData.state === 'ERROR' ||
+                                taskData.state === 'fail' ||
+                                taskData.state === 'FAIL');
                             return (
-                              <Tooltip title={taskData.next_run_date ? formatDate(taskData.next_run_date) : 'Not set'} placement="top">
+                              <Tooltip
+                                title={
+                                  taskData.next_run_date
+                                    ? formatDate(taskData.next_run_date)
+                                    : 'Not set'
+                                }
+                                placement="top"
+                              >
                                 <Typography
                                   sx={{
                                     ...styles.metadataValue,
@@ -1923,7 +1961,9 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                                     color: isOverdue ? '#ef4444' : 'var(--text-primary)',
                                   }}
                                 >
-                                  {taskData.next_run_date ? formatDateCompact(taskData.next_run_date) : 'N/A'}
+                                  {taskData.next_run_date
+                                    ? formatDateCompact(taskData.next_run_date)
+                                    : 'N/A'}
                                 </Typography>
                               </Tooltip>
                             );
@@ -2185,7 +2225,6 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                       </Typography>
                     </Box>
                   )}
-
 
                   {/* Latest Action Logs — expanded by default, keyed to logical_date partition */}
                   {latestActionFiles.length > 0 && (

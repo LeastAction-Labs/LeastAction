@@ -120,9 +120,8 @@ export default function RecentRunsStrip({
     if (isAdhoc) return [];
 
     const nowMs = Date.now();
-    const lastTs = allRuns.length > 0
-      ? parseLogicalDateUtc(allRuns[allRuns.length - 1].logical_date)
-      : NaN;
+    const lastTs =
+      allRuns.length > 0 ? parseLogicalDateUtc(allRuns[allRuns.length - 1].logical_date) : NaN;
 
     // No runs yet — show a single pending slot if the task is overdue.
     if (isNaN(lastTs)) {
@@ -138,7 +137,7 @@ export default function RecentRunsStrip({
       const endDate = new Date(nowMs);
       if (startDate >= endDate) return [];
 
-      const expr = CronExpressionParser.parse(frequency!, {
+      const expr = CronExpressionParser.parse(frequency, {
         currentDate: startDate,
         startDate,
         endDate,
@@ -193,9 +192,15 @@ export default function RecentRunsStrip({
       ) : showEmpty ? (
         <Typography sx={{ fontSize: FONT_SIZES.XXS, color: 'var(--text-secondary)' }}>—</Typography>
       ) : isAdhoc ? (
-        allRuns.slice(-SLOT_COUNT).map((run, idx) => (
-          <RunBox key={`${run.session_id ?? run.fileName}-${idx}`} run={run} onRunClick={onRunClick} />
-        ))
+        allRuns
+          .slice(-SLOT_COUNT)
+          .map((run, idx) => (
+            <RunBox
+              key={`${run.session_id ?? run.fileName}-${idx}`}
+              run={run}
+              onRunClick={onRunClick}
+            />
+          ))
       ) : (
         slots.map((slot, idx) =>
           slot.run ? (
@@ -221,7 +226,12 @@ function RunBox({
     <Tooltip
       arrow
       placement="top"
-      PopperProps={{ modifiers: [{ name: 'flip', enabled: true }, { name: 'preventOverflow', enabled: true, options: { boundary: 'window' } }] }}
+      PopperProps={{
+        modifiers: [
+          { name: 'flip', enabled: true },
+          { name: 'preventOverflow', enabled: true, options: { boundary: 'window' } },
+        ],
+      }}
       title={formatDateTimeFull(run.logical_date)}
     >
       <Box
@@ -251,7 +261,12 @@ function PendingBox({ slotMs }: { slotMs: number }) {
     <Tooltip
       arrow
       placement="top"
-      PopperProps={{ modifiers: [{ name: 'flip', enabled: true }, { name: 'preventOverflow', enabled: true, options: { boundary: 'window' } }] }}
+      PopperProps={{
+        modifiers: [
+          { name: 'flip', enabled: true },
+          { name: 'preventOverflow', enabled: true, options: { boundary: 'window' } },
+        ],
+      }}
       title={formatDateTimeFull(label)}
     >
       <Box
