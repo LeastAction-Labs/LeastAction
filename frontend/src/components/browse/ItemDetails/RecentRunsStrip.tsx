@@ -9,10 +9,10 @@ import { useEffect, useRef, useState } from 'react';
 
 import { Box, CircularProgress, Tooltip, Typography } from '@mui/material';
 
-import { FONT_SIZES, FONT_WEIGHTS } from '@/constants';
+import { COLORS, FONT_SIZES, FONT_WEIGHTS } from '@/constants';
 import { STATUS_COLORS } from '@/constants/logConstants';
 import { useRecentRuns } from '@/hooks/useRecentRuns';
-import { formatDateOnly } from '@/utils/timeFormat';
+import { formatDateOnly, formatDateTimeFull } from '@/utils/timeFormat';
 
 const RECENT_RUNS_LIMIT = 15;
 
@@ -56,6 +56,13 @@ export default function RecentRunsStrip({
 
   const { runs, loading } = useRecentRuns(taskLaui, RECENT_RUNS_LIMIT, inView, refreshKey);
 
+  // Default to showing the most recent run (strip is ordered oldest → newest,
+  // so the latest sits at the far right).
+  useEffect(() => {
+    const el = containerRef.current;
+    if (el && runs.length > 0) el.scrollLeft = el.scrollWidth;
+  }, [runs]);
+
   return (
     <Box
       ref={containerRef}
@@ -69,7 +76,7 @@ export default function RecentRunsStrip({
         // Slim scrollbar that only hints when content overflows
         '&::-webkit-scrollbar': { height: 4 },
         '&::-webkit-scrollbar-thumb': {
-          backgroundColor: 'var(--border)',
+          backgroundColor: COLORS.SCROLLBAR_THUMB,
           borderRadius: 2,
         },
       }}
@@ -94,6 +101,11 @@ export default function RecentRunsStrip({
                   >
                     {formatDateOnly(run.logical_date)}
                   </Typography>
+                  {run.start_time && (
+                    <Typography sx={{ fontSize: FONT_SIZES.XXS }}>
+                      {formatDateTimeFull(run.start_time)}
+                    </Typography>
+                  )}
                   <Typography sx={{ fontSize: FONT_SIZES.XXS, textTransform: 'capitalize' }}>
                     {run.status}
                   </Typography>

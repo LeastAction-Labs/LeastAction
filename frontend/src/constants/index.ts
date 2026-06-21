@@ -104,6 +104,9 @@ export const COLORS = {
   HOVER: 'rgba(0, 0, 0, 0.08)',
   SELECTED: 'rgba(0, 0, 0, 0.12)',
   SELECTED_HOVER: 'rgba(0, 0, 0, 0.16)',
+
+  // Neutral gray overlay — scrollbar thumbs, muted dividers (theme-agnostic)
+  SCROLLBAR_THUMB: 'rgba(150, 150, 150, 0.35)',
 } as const;
 
 // ============================================================================
@@ -234,6 +237,17 @@ export const TASK_STATE_COLORS = {
     dot: 'rgba(139,92,246,0.8)',
   },
 } as const;
+
+// ============================================================================
+// TASK DEPENDENCY GROUP COLORS
+// Alternating styles for the workflow Tasks list so the user can see which tasks
+// form a connected dependency group (DAG). Each group gets a solid left `bar`
+// plus a very faint row `tint`; colors alternate (indigo / teal) per group.
+// ============================================================================
+export const TASK_DEPENDENCY_GROUP_COLORS = [
+  { bar: '#6366f1', tint: 'rgba(99,102,241,0.07)' }, // indigo
+  { bar: '#14b8a6', tint: 'rgba(20,184,166,0.07)' }, // teal
+] as const;
 
 // ============================================================================
 // OPACITY
