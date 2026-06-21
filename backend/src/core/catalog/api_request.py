@@ -191,14 +191,16 @@ class SearchItemsFilter(BaseModel):
                 detail="When 'get_by_pk' is True, you must specify an 'item_type' parameter.",
             )
         if self.get_by_pk:
-            schema_manager = SchemaManager(item_type=self.item_type)
+            base_item_type = self.item_type.split(".")[0]
+            schema_manager = SchemaManager(item_type=base_item_type)
             primary_keys = sorted(schema_manager.primary_keys)
             missing_keys = []
             pk_values_array = []
             for key in primary_keys:
-                if not getattr(self, key, None):
+                value = base_item_type if key == "item_type" else getattr(self, key, None)
+                if not value:
                     missing_keys.append(key)
-                pk_values_array.append(str(getattr(self, key, None)))
+                pk_values_array.append(str(value))
             if missing_keys:
                 raise UnprocessableEntityError(
                     message="Unprocessable entity: missing primary keys",
