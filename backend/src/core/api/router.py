@@ -16,7 +16,7 @@ from src.core.api.routes.docs import docs_router
 from src.core.api.routes.embed import embed_router
 from src.core.api.routes.group import group_router
 from src.core.api.routes.logs import logs_router
-from src.core.api.routes.query import query_router
+from src.core.api.routes.dataplane import query_router
 from src.core.api.routes.task import task_router
 from src.core.api.routes.user import user_router
 

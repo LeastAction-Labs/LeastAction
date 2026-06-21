@@ -61,6 +61,9 @@ Prefix your response with `[content_type:markdown]` on the very first line (the 
 | `get_doc` | Read a specific doc or AI prompt file |
 | `query_logs` | Query all application logs with SQL (performance, errors, CRON health) |
 | `inspect_data` | Sample and inspect data from any catalog connection — use after tasks to verify data landed, debug pipelines, or explore cloud storage files |
+| `aws_*` (`aws_redshift`, `aws_athena`, `aws_s3`, `aws_cloudwatch`, `aws_cost`, `aws_docs`) | Per-service AWS operations via the official awslabs MCP servers, using a connection's credentials |
+| `gcp_*` (`gcp_storage`, `gcp_bigquery`, `gcp_compute`, `gcp_iam`, `gcp_logging`, `gcp_monitoring`, `gcp_resourcemanager`, `gcp_pubsub`) | Per-service Google Cloud read operations (Discovery API), using a connection's service-account |
+| `azure_*` (`azure_storage`, `azure_monitor`, `azure_sql`, `azure_cosmos`, `azure_aks`, `azure_keyvault`, `azure_resources`) | Per-service Azure operations via the official Azure MCP server, using a connection's service principal |
 
 ## Skills
 | Skill | How to trigger |
@@ -163,6 +166,40 @@ When a user or skill provides a cloud storage path (`s3://`, `gs://`, `azure://`
 - What they want to know (schema, row count, sample rows, etc.)
 
 Only then construct the SQL (`read_parquet(...)`, `read_csv(...)`, etc.) and call `inspect_data`.
+
+### Cloud Service Tools (AWS / GCP / Azure)
+
+Beyond `inspect_data` (which runs **SQL** against a connection), there is **one tool per cloud service** for **control-plane / API operations** (list buckets, describe clusters, query CloudWatch logs, get cost, list resources, etc.). Each is gated **individually** per user, so a user may have `aws_s3` but not `aws_redshift`.
+
+**How they work — all share the same shape:**
+
+```
+<tool>(connection_laui="<connection item laui>", tool="<underlying operation>", parameters={...})
+```
+
+- `connection_laui` — a `connection.AWS` / `connection.gcp` / `connection.azure` item. **Credentials come from that connection item** (AWS keys/assume-role, GCP service-account JSON, Azure service principal). Find one with `search_catalog(item_type="connection")`.
+- `tool` — the specific operation to run. **Call the tool with `tool` omitted to list the available operations and their input schemas** (always do this first when unsure).
+- `parameters` — arguments for that operation.
+
+| Group | Tools | Backed by |
+|---|---|---|
+| **AWS** | `aws_redshift`, `aws_athena`, `aws_s3`, `aws_cloudwatch`, `aws_cost`, `aws_docs` | Official **awslabs** MCP servers (proxied per connection; read-only) |
+| **GCP** | `gcp_storage`, `gcp_bigquery`, `gcp_compute`, `gcp_iam`, `gcp_logging`, `gcp_monitoring`, `gcp_resourcemanager`, `gcp_pubsub` | Native Google **Discovery API** (read methods only: `list`/`get`/`aggregatedList`/…) — pass `method=` and optional `resource_path=` |
+| **Azure** | `azure_storage`, `azure_monitor`, `azure_sql`, `azure_cosmos`, `azure_aks`, `azure_keyvault`, `azure_resources` | Official **Azure MCP** server (proxied per connection, `--read-only`; each tool is one namespace) |
+
+**Examples:**
+```
+aws_redshift(connection_laui="<id>", tool="execute_query", parameters={"cluster_identifier":"...","database_name":"...","sql":"SELECT 1"})
+aws_cost(connection_laui="<id>")                       # omit tool → list available cost operations
+gcp_storage(connection_laui="<id>", method="list", parameters={"project":"my-proj"})
+azure_storage(connection_laui="<id>", tool="azmcp_storage_account_list")
+```
+
+**`inspect_data` vs cloud tools — pick the right one:**
+- **Row data / SQL** (count rows, sample a table, read a file) → `inspect_data`. It covers Postgres, MySQL, BigQuery, and S3/GCS/Azure **files** via DuckDB, and routes **Athena/Redshift** SELECTs through the awslabs servers automatically.
+- **Service/API operations** (list/describe/get resources, logs, cost) → the per-service cloud tool.
+
+**Important — `aws_s3` is S3 *Tables* (Iceberg), not general S3 objects.** To list or read plain S3/GCS/Azure files, use `inspect_data` with DuckDB: `SELECT file FROM glob('s3://bucket/**')`, `read_csv('s3://...')`, `read_parquet('gs://...')`.
 
 ### Deep Error Debugging — CELERY Logs
 
