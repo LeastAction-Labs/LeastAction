@@ -100,7 +100,7 @@ const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
 
 // Frontend-only virtual column showing a strip of a task's most recent runs.
 // Not part of the schema preview fields — injected into the task column list.
-const RECENT_RUNS_COLUMN = 'recent_runs';
+const RUNS_COLUMN = 'recent_runs';
 
 const styles = {
   tableContainer: {
@@ -272,7 +272,7 @@ const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
   priority: 90,
   duration: 90,
   actions_status: 110,
-  [RECENT_RUNS_COLUMN]: 160,
+  [RUNS_COLUMN]: 160,
 };
 const DEFAULT_COLUMN_WIDTH_FALLBACK = 150;
 
@@ -281,7 +281,7 @@ const buildTaskDateColumnTooltips = (tz: string): Record<string, string> => ({
   next_run_date: `Scheduler trigger date (${tz}) — when next_run_date ≤ wall clock, the cron dispatches this task. Advances one cron interval from the previous next_run_date (not from physical run time), enabling automatic catch-up for missed runs.`,
   prev_interval_start: `The logical_date (${tz}) of the most recently completed run — used to index logs and track the last successfully processed data period.`,
   last_run_date: `Wall-clock time (${tz}) when this task last executed.`,
-  [RECENT_RUNS_COLUMN]:
+  [RUNS_COLUMN]:
     'The most recent runs of this task (newest on the right), colored by status. Hover a box for its logical date; click to open that run in the Logs tab.',
 });
 
@@ -628,6 +628,7 @@ function ActionsStatusBar({
 }
 
 function formatColumnName(name: string): string {
+  if (name === RUNS_COLUMN) return 'Runs';
   return name
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -812,13 +813,13 @@ export default function ItemsTable({
         // (append if `state` isn't present). It's frontend-only, so it must be
         // added to the column list used both for display and prefs filtering.
         let allColumns = schemaColumns;
-        if (itemType === 'task' && !schemaColumns.includes(RECENT_RUNS_COLUMN)) {
+        if (itemType === 'task' && !schemaColumns.includes(RUNS_COLUMN)) {
           allColumns = [...schemaColumns];
           const stateIdx = allColumns.indexOf('state');
           allColumns.splice(
             stateIdx >= 0 ? stateIdx + 1 : allColumns.length,
             0,
-            RECENT_RUNS_COLUMN,
+            RUNS_COLUMN,
           );
         }
         setColumns(allColumns);
@@ -973,7 +974,29 @@ export default function ItemsTable({
       orderByLaui.set(it.laui, { number: i + 1, posInGroup, groupSize: groupSize.get(g) ?? 1 });
     });
 
-    return { items, groupIndexByLaui, orderByLaui };
+    // For each task, record the root task's (posInGroup=1) next_run_date and
+    // laui so all tasks in a group share the same schedule anchor and the same
+    // canonical run timeline, keeping the Runs columns aligned across the group.
+    const rootNextRunDateByLaui = new Map<string, string>();
+    const rootNextRunDateByGroup = new Map<number, string>();
+    const rootLauiByGroup = new Map<number, string>();
+    items.forEach((it) => {
+      const g = groupIndexByLaui.get(it.laui) ?? -1;
+      const pos = orderByLaui.get(it.laui)?.posInGroup ?? 1;
+      if (pos === 1) {
+        if (it.next_run_date) rootNextRunDateByGroup.set(g, it.next_run_date);
+        rootLauiByGroup.set(g, it.laui);
+      }
+    });
+    const rootLauiByLaui = new Map<string, string>();
+    items.forEach((it) => {
+      const g = groupIndexByLaui.get(it.laui) ?? -1;
+      const root = rootNextRunDateByGroup.get(g) ?? it.next_run_date ?? '';
+      rootNextRunDateByLaui.set(it.laui, root);
+      rootLauiByLaui.set(it.laui, rootLauiByGroup.get(g) ?? it.laui);
+    });
+
+    return { items, groupIndexByLaui, orderByLaui, rootNextRunDateByLaui, rootLauiByLaui };
   }, [groupingActive, currentItemsRaw]);
 
   const currentItems = dependencyGroups?.items ?? currentItemsRaw;
@@ -1663,7 +1686,7 @@ export default function ItemsTable({
                           color: 'var(--text-primary)',
                         }}
                       >
-                        {col.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                        {formatColumnName(col)}
                       </Typography>
                     }
                     sx={{ m: 0, width: '100%' }}
@@ -2171,7 +2194,7 @@ export default function ItemsTable({
                         fieldConfig?.display_type === 'status_icon' && fieldConfig?.enum_colors;
                       const isActionsStatus = column === 'actions_status';
                       const isStateCol = column === 'state' && isTaskType;
-                      const isRecentRunsCol = column === RECENT_RUNS_COLUMN && isTaskType;
+                      const isRecentRunsCol = column === RUNS_COLUMN && isTaskType;
 
                       const pillStyle =
                         isStateCol && value
@@ -2333,6 +2356,8 @@ export default function ItemsTable({
                               <RecentRunsStrip
                                 taskLaui={item.laui}
                                 refreshKey={runsRefreshKey}
+                                frequency={item.frequency}
+                                nextRunDate={item.next_run_date}
                                 onRunClick={(sessionId) =>
                                   void handleViewItem(item, { itemTab: 'logs', sessionId })
                                 }

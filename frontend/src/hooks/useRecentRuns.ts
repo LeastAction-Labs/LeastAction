@@ -22,6 +22,8 @@ const RECENT_RUNS_LOOKBACK_DAYS = 14;
 
 export interface UseRecentRunsResult {
   runs: TaskHistoryEntry[];
+  /** Entries parsed from latest_*.log files — used to colour empty canonical slots. */
+  latestRuns: TaskHistoryEntry[];
   loading: boolean;
 }
 
@@ -47,6 +49,7 @@ export function useRecentRuns(
   refreshKey = 0,
 ): UseRecentRunsResult {
   const [runs, setRuns] = useState<TaskHistoryEntry[]>([]);
+  const [latestRuns, setLatestRuns] = useState<TaskHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -65,9 +68,12 @@ export function useRecentRuns(
         const dates = datesInRange(from, to);
 
         // List every day-partition in parallel and collect history file refs
-        // (without reading their contents yet).
+        // (without reading their contents yet). Separate latest_*.log files
+        // from regular session logs — they carry the task's most recent state
+        // and are used to colour empty canonical slots.
         type FileRef = { folderPath: string; name: string; modified: number; date: string };
         const refs: FileRef[] = [];
+        const latestRefs: FileRef[] = [];
         await Promise.all(
           dates.map(async (date) => {
             try {
@@ -78,15 +84,19 @@ export function useRecentRuns(
                 if (
                   item.type === 'file' &&
                   typeof item.name === 'string' &&
-                  item.name.endsWith('.log') &&
-                  !item.name.startsWith('latest_')
+                  item.name.endsWith('.log')
                 ) {
-                  refs.push({
+                  const ref: FileRef = {
                     folderPath,
                     name: item.name,
                     modified: typeof item.modified === 'number' ? item.modified : 0,
                     date,
-                  });
+                  };
+                  if (item.name.startsWith('latest_')) {
+                    latestRefs.push(ref);
+                  } else {
+                    refs.push(ref);
+                  }
                 }
               }
             } catch {
@@ -95,7 +105,7 @@ export function useRecentRuns(
           }),
         );
 
-        // Read only the newest `limit` files (bounded cost regardless of how
+        // Read only the newest `limit` regular files (bounded cost regardless of how
         // often the task runs).
         refs.sort((a, b) => b.modified - a.modified);
         const newest = refs.slice(0, limit);
@@ -119,7 +129,28 @@ export function useRecentRuns(
           return ta - tb;
         });
 
-        if (!cancelled) setRuns(entries);
+        // Read the most-recently-modified latest_*.log files. We only need a
+        // handful since they are used purely to fill empty canonical slots.
+        latestRefs.sort((a, b) => b.modified - a.modified);
+        const newestLatest = latestRefs.slice(0, 5);
+
+        const parsedLatest = await Promise.all(
+          newestLatest.map(async (ref) => {
+            try {
+              const content = await fetchFileContent(`${ref.folderPath}/${ref.name}`);
+              return parseRunFile(content, ref.name, ref.date);
+            } catch {
+              return null;
+            }
+          }),
+        );
+
+        const latestEntries = parsedLatest.filter((e): e is TaskHistoryEntry => e != null);
+
+        if (!cancelled) {
+          setRuns(entries);
+          setLatestRuns(latestEntries);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -131,5 +162,5 @@ export function useRecentRuns(
     };
   }, [taskLaui, limit, enabled, refreshKey]);
 
-  return { runs, loading };
+  return { runs, latestRuns, loading };
 }
