@@ -86,8 +86,13 @@ import { QuickSearch } from '../../ui';
 import Pagination from '../Pagination';
 import type { CatalogItem } from '../types';
 import EmptyState from './EmptyState';
+import RecentRunsStrip from './RecentRunsStrip';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
+
+// Frontend-only virtual column showing a strip of a task's most recent runs.
+// Not part of the schema preview fields — injected into the task column list.
+const RECENT_RUNS_COLUMN = 'recent_runs';
 
 const styles = {
   tableContainer: {
@@ -259,6 +264,7 @@ const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
   priority: 90,
   duration: 90,
   actions_status: 110,
+  [RECENT_RUNS_COLUMN]: 160,
 };
 const DEFAULT_COLUMN_WIDTH_FALLBACK = 150;
 
@@ -267,6 +273,8 @@ const buildTaskDateColumnTooltips = (tz: string): Record<string, string> => ({
   next_run_date: `Scheduler trigger date (${tz}) — when next_run_date ≤ wall clock, the cron dispatches this task. Advances one cron interval from the previous next_run_date (not from physical run time), enabling automatic catch-up for missed runs.`,
   prev_interval_start: `The logical_date (${tz}) of the most recently completed run — used to index logs and track the last successfully processed data period.`,
   last_run_date: `Wall-clock time (${tz}) when this task last executed.`,
+  [RECENT_RUNS_COLUMN]:
+    'The most recent runs of this task (newest on the right), colored by status. Hover a box for its logical date; click to open that run in the Logs tab.',
 });
 
 function formatDateValue(value: string): string {
@@ -700,10 +708,17 @@ export default function ItemsTable({
     Record<string, { icon: React.ComponentType<any>; color: string }>
   >({});
   const [bulkUsecaseOpen, setBulkUsecaseOpen] = useState(false);
+  // Bumped whenever the filtered list is (re)loaded (refresh button, create,
+  // delete, …) so visible recent-run strips re-fetch their history.
+  const [runsRefreshKey, setRunsRefreshKey] = useState(0);
 
   useEffect(() => {
     onSelectionChange?.(selectedTasks);
   }, [selectedTasks]);
+
+  useEffect(() => {
+    setRunsRefreshKey((k) => k + 1);
+  }, [catalogState.filteredItemsByType]);
   const [selectedTaskControlAction, setSelectedTaskControlAction] = useState<string>('');
   const [taskControlSelectOpen, setTaskControlSelectOpen] = useState(false);
   const [showSelectTasksHint, setShowSelectTasksHint] = useState(false);
@@ -780,13 +795,27 @@ export default function ItemsTable({
           getSchemaUiPreviewFields(itemType),
           getProjectionFieldsConfig(itemType),
         ]);
-        setColumns(schemaColumns);
+
+        // Inject the virtual "recent runs" column for tasks, right after `state`
+        // (append if `state` isn't present). It's frontend-only, so it must be
+        // added to the column list used both for display and prefs filtering.
+        let allColumns = schemaColumns;
+        if (itemType === 'task' && !schemaColumns.includes(RECENT_RUNS_COLUMN)) {
+          allColumns = [...schemaColumns];
+          const stateIdx = allColumns.indexOf('state');
+          allColumns.splice(
+            stateIdx >= 0 ? stateIdx + 1 : allColumns.length,
+            0,
+            RECENT_RUNS_COLUMN,
+          );
+        }
+        setColumns(allColumns);
 
         const stored = localStorage.getItem(`column_prefs_${itemType}`);
         if (stored) {
           try {
             const parsed: string[] = JSON.parse(stored);
-            setVisibleColumns(parsed.filter((c) => schemaColumns.includes(c)));
+            setVisibleColumns(parsed.filter((c) => allColumns.includes(c)));
           } catch {
             setVisibleColumns(null);
           }
@@ -2047,6 +2076,7 @@ export default function ItemsTable({
                       fieldConfig?.display_type === 'status_icon' && fieldConfig?.enum_colors;
                     const isActionsStatus = column === 'actions_status';
                     const isStateCol = column === 'state' && isTaskType;
+                    const isRecentRunsCol = column === RECENT_RUNS_COLUMN && isTaskType;
 
                     const pillStyle =
                       isStateCol && value
@@ -2159,6 +2189,14 @@ export default function ItemsTable({
                                 {value}
                               </Typography>
                             </Box>
+                          ) : isRecentRunsCol ? (
+                            <RecentRunsStrip
+                              taskLaui={item.laui}
+                              refreshKey={runsRefreshKey}
+                              onRunClick={(sessionId) =>
+                                void handleViewItem(item, { itemTab: 'logs', sessionId })
+                              }
+                            />
                           ) : shouldShowIcon && value ? (
                             <Box
                               sx={{
