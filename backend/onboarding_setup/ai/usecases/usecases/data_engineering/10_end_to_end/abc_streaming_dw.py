@@ -325,22 +325,16 @@ CREATE TABLE landing.titles (
     runtime_minutes INTEGER
 );
 
-INSERT INTO landing.titles (title_id, tconst, title_name, release_year, genre, runtime_minutes) VALUES
-('t001','tt0120737','The Fellowship Journey',2001,'Adventure',178),
-('t002','tt0816692','Interstellar Dreams',2014,'Sci-Fi',169),
-('t003','tt1375666','Inception Protocol',2010,'Sci-Fi',148),
-('t004','tt0468569','Dark Vigilante',2008,'Action',152),
-('t005','tt0137523','Project Mayhem',1999,'Drama',139),
-('t006','tt0109830','Running Memories',1994,'Drama',142),
-('t007','tt0133093','Simulation Theory',1999,'Sci-Fi',136),
-('t008','tt0245429','Spirit Journey',2001,'Animation',125),
-('t009','tt6751668','Parasite Lives',2019,'Thriller',132),
-('t010','tt7286456','Clown Origins',2019,'Drama',122),
-('t011','tt4154796','Heroes Assembly',2019,'Action',181),
-('t012','tt0050083','Deliberation Room',1957,'Drama',96),
-('t013','tt0076759','Space Opera I',1977,'Sci-Fi',121),
-('t014','tt0167261','Two Towers Quest',2002,'Adventure',179),
-('t015','tt0167260','Return Home',2003,'Adventure',201);
+INSERT INTO landing.titles (title_id, tconst, title_name, release_year, genre, runtime_minutes)
+SELECT
+    't' || LPAD(ROW_NUMBER() OVER (ORDER BY tconst)::TEXT, 3, '0'),
+    tconst,
+    primary_title,
+    CASE WHEN start_year ~ '^[0-9]+$' THEN start_year::INTEGER END,
+    genres,
+    CASE WHEN runtime_minutes ~ '^[0-9]+$' THEN runtime_minutes::INTEGER END
+FROM imdb_base.title_basics
+ORDER BY tconst;
 
 DROP TABLE IF EXISTS landing.customers;
 CREATE TABLE landing.customers (
@@ -426,13 +420,28 @@ CREATE TABLE landing.stream_events (
 INSERT INTO landing.stream_events (event_id, customer_id, title_id, device_id, event_date, minutes_watched, completion_pct)
 SELECT
     'e' || LPAD(s.i::TEXT, 6, '0'),
-    'c' || LPAD((FLOOR(RANDOM() * 20) + 1)::TEXT, 3, '0'),
-    't' || LPAD((FLOOR(RANDOM() * 15) + 1)::TEXT, 3, '0'),
-    'd' || LPAD((FLOOR(RANDOM() * 30) + 1)::TEXT, 3, '0'),
+    c.customer_id,
+    t.title_id,
+    d.device_id,
     CURRENT_DATE - (FLOOR(RANDOM() * 90))::INTEGER,
     (FLOOR(RANDOM() * 120) + 10)::INTEGER,
     ROUND((RANDOM() * 100)::NUMERIC, 2)
-FROM generate_series(1, 2000) AS s(i);
+FROM generate_series(1, 2000) AS s(i)
+JOIN LATERAL (
+    SELECT customer_id FROM landing.customers
+    OFFSET (FLOOR(RANDOM() * (SELECT COUNT(*) FROM landing.customers)))::INTEGER
+    LIMIT 1
+) c ON true
+JOIN LATERAL (
+    SELECT title_id FROM landing.titles
+    OFFSET (FLOOR(RANDOM() * (SELECT COUNT(*) FROM landing.titles)))::INTEGER
+    LIMIT 1
+) t ON true
+JOIN LATERAL (
+    SELECT device_id FROM landing.devices
+    OFFSET (FLOOR(RANDOM() * (SELECT COUNT(*) FROM landing.devices)))::INTEGER
+    LIMIT 1
+) d ON true;
 """,
 
     "02_raw_dedup.sql": """\
@@ -551,15 +560,11 @@ SELECT
     ROW_NUMBER() OVER (ORDER BY t.title_id) AS title_sk,
     t.title_id,
     t.tconst,
-    REPLACE(COALESCE(b.primary_title, t.title_name), ':', ' -') AS display_name,
-    t.title_name AS synthetic_name,
+    REPLACE(t.title_name, ':', ' -') AS display_name,
     COALESCE(b.title_type, 'movie') AS title_type,
-    COALESCE(b.start_year, t.release_year::TEXT) AS release_year,
-    COALESCE(b.genres, t.genre) AS genres,
-    COALESCE(
-        CASE WHEN b.runtime_minutes ~ '^[0-9]+$' THEN b.runtime_minutes::INTEGER ELSE NULL END,
-        t.runtime_minutes
-    ) AS runtime_minutes,
+    t.release_year,
+    t.genre AS genres,
+    t.runtime_minutes,
     r.average_rating,
     r.num_votes
 FROM landing.titles t
@@ -572,9 +577,8 @@ SELECT DISTINCT
     t.title_id,
     TRIM(g.genre) AS genre
 FROM landing.titles t
-LEFT JOIN imdb_base.title_basics b ON t.tconst = b.tconst
 CROSS JOIN LATERAL unnest(
-    string_to_array(COALESCE(b.genres, t.genre), ',')
+    string_to_array(t.genre, ',')
 ) AS g(genre)
 WHERE TRIM(g.genre) IS NOT NULL AND LENGTH(TRIM(g.genre)) > 0;
 
