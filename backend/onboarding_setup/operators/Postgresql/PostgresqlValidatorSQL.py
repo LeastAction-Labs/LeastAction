@@ -268,7 +268,9 @@ def send_report_to_catalog(html_content, report_title, output_parent_laui, task_
             "name": report_name,
             "description": report_title,
             "html": html_content,
-            "parent_laui": output_parent_laui
+            "parent_laui": output_parent_laui,
+            "project_laui": str(task_object.get('project_laui')),
+            "account_laui": str(task_object.get('account_laui'))
         }
         
         response = requests.post(
