@@ -291,4 +291,4 @@ For legal inquiries related to these Terms, please contact:
 
 **LeastAction Labs, Inc.**
 Email: [legal@leastactionlabs.com](mailto:legal@leastactionlabs.com)
-Web: [https://leastactionlabs.com/contactus](/contactus)
+Web: [https://leastactionlabs.com/contact](/contact)

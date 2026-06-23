@@ -143,4 +143,4 @@ For questions about our use of cookies:
 
 **LeastAction Labs, Inc.**
 Email: [privacy@leastactionlabs.com](mailto:privacy@leastactionlabs.com)
-Web: [https://leastactionlabs.com/contactus](/contactus)
+Web: [https://leastactionlabs.com/contact](/contact)

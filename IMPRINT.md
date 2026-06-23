@@ -14,7 +14,7 @@
 
 ## Contact Information
 
-**General Inquiries:** [https://leastactionlabs.com/contactus](/contactus)
+**General Inquiries:** [https://leastactionlabs.com/contact](/contact)
 
 **Legal:** [legal@leastactionlabs.com](mailto:legal@leastactionlabs.com)
 

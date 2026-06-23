@@ -6,7 +6,7 @@ IMPORTANT — READ CAREFULLY. THIS END USER LICENSE AGREEMENT (THE "AGREEMENT") 
 
 BY DOWNLOADING, INSTALLING, OR USING THE SOFTWARE, YOU AGREE THAT YOU HAVE READ AND AGREE TO BE LEGALLY BOUND BY THIS AGREEMENT. IF YOU ARE ENTERING INTO THIS AGREEMENT ON BEHALF OF A COMPANY OR OTHER LEGAL ENTITY, YOU REPRESENT THAT YOU HAVE THE AUTHORITY TO BIND THAT ENTITY TO THIS AGREEMENT. IF YOU DO NOT AGREE TO THIS AGREEMENT, DO NOT DOWNLOAD, INSTALL, OR USE THE SOFTWARE.
 
-If you have any questions about this Agreement or the Software, please contact us at [https://leastactionlabs.com/contactus](https://leastactionlabs.com/contactus).
+If you have any questions about this Agreement or the Software, please contact us at [https://leastactionlabs.com/contact](https://leastactionlabs.com/contact).
 
 ---
 

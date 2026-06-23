@@ -61,4 +61,4 @@ First-time contributors will be reminded automatically if this is missing.
 
 ## Questions
 
-Open a GitHub issue or reach out at [leastactionlabs.com/contactus](https://leastactionlabs.com/contactus).
+Open a GitHub issue or reach out at [leastactionlabs.com/contact](https://leastactionlabs.com/contact).

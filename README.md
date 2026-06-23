@@ -188,4 +188,4 @@ The LeastAction core is licensed under the [LeastAction Sustainable Use License]
 
 Enterprise Edition features (RBAC, SSO/SAML, multi-user beyond 1) are governed by the [Enterprise Edition License](LICENSE_EE.md) and require a commercial license from LeastAction Labs, Inc.
 
-For licensing inquiries: [leastactionlabs.com/contactus](https://leastactionlabs.com/contactus)
+For licensing inquiries: [leastactionlabs.com/contact](https://leastactionlabs.com/contact)
