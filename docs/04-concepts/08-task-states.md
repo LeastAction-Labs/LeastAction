@@ -17,44 +17,51 @@
 
 ## State Transition Diagram
 
-```
-                    ┌──────────┐
-                    │ created  │
-                    └────┬─────┘
-                         │
-                    ┌────▼─────┐
-              ┌─────│scheduled │◄──────────────────────┐
-              │     └────┬─────┘                       │
-              │          │                             │
-              │   ┌──────▼──────────────┐              │
-              │   │queued_for_connection│              │
-              │   └──────┬──────────────┘              │
-              │          │                             │
-              │   ┌──────▼───────────┐                 │
-              │   │ queued_in_redis  │                 │
-              │   └──────┬───────────┘                 │
-              │          │                             │
-              │   ┌──────▼─────┐                       │
-              │   │  running   │───────────┐           │
-              │   └──┬──┬──┬───┘           │           │
-              │      │  │  │               │           │
-              │      │  │  │          ┌────▼─────┐     │
-              │      │  │  │          │ cancelled│     │
-              │      │  │  │          └──────────┘     │
-              │      │  │  │                           │
-         ┌────▼──┐   │  │  └──────┐                    │
-         │ fail  │   │  │    ┌────▼────┐               │
-         └───────┘   │  │    │ timeout │──── retry ────┘
-                     │  │    └─────────┘
-              ┌──────┘  └──────┐
-              │                │
-         ┌────▼────┐    ┌──────▼──┐
-         │ success │    │  error  │──── retry ────┐
-         └────┬────┘    └─────────┘               │
-              │                              ┌────▼─────┐
-              │                              │scheduled │
-              └──── (if scheduled) ──────────►(next run)│
-                                             └──────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> created
+    created --> scheduled
+    scheduled --> queued_for_connection
+    queued_for_connection --> queued_in_redis
+    queued_in_redis --> running
+
+    running --> success
+    running --> error
+    running --> timeout
+    running --> cancelled: user cancel
+    running --> fail: invalid operator
+
+    success --> scheduled: if scheduled (next run)
+    error --> scheduled: retry
+    timeout --> scheduled: retry
+
+    success --> [*]
+    error --> [*]: retries exhausted
+    timeout --> [*]: retries exhausted
+    cancelled --> [*]
+    fail --> [*]
+
+    classDef created fill:#94a3b8,color:#ffffff,stroke:#7c899c
+    classDef scheduled fill:#60a5fa,color:#ffffff,stroke:#3b82f6
+    classDef queued_for_connection fill:#a78bfa,color:#ffffff,stroke:#8b5cf6
+    classDef queued_in_redis fill:#c084fc,color:#ffffff,stroke:#a855f7
+    classDef running fill:#fbbf24,color:#1d1d1f,stroke:#f59e0b
+    classDef success fill:#4ade80,color:#1d1d1f,stroke:#22c55e
+    classDef error fill:#f87171,color:#ffffff,stroke:#ef4444
+    classDef timeout fill:#fb923c,color:#1d1d1f,stroke:#f97316
+    classDef cancelled fill:#64748b,color:#ffffff,stroke:#475569
+    classDef fail fill:#dc2626,color:#ffffff,stroke:#b91c1c
+
+    class created created
+    class scheduled scheduled
+    class queued_for_connection queued_for_connection
+    class queued_in_redis queued_in_redis
+    class running running
+    class success success
+    class error error
+    class timeout timeout
+    class cancelled cancelled
+    class fail fail
 ```
 
 ## State Transitions in Detail

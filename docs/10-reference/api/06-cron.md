@@ -112,18 +112,15 @@ Note: This model uses `extra="forbid"` — no additional fields allowed.
 
 ## Cron Status Lifecycle
 
-```
-    START                 (scheduler loop running)           STOP
-      │                          │                             │
- ┌────▼────┐              ┌──────▼──────┐              ┌──────▼──────┐
- │ STARTED │──────────────│   RUNNING   │──────────────│    STOP     │
- └─────────┘              └──────┬──────┘              └──────┬──────┘
-                                 │                            │
-                          (if error)                   (executor stops)
-                                 │                            │
-                          ┌──────▼──────┐              ┌──────▼──────┐
-                          │    ERROR    │              │   STOPPED   │
-                          └─────────────┘              └─────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> STARTED: start
+    STARTED --> RUNNING: scheduler loop running
+    RUNNING --> ERROR: on error
+    RUNNING --> STOP: stop requested
+    STOP --> STOPPED: executor stops
+    ERROR --> [*]
+    STOPPED --> [*]
 ```
 
 | Status | Description |

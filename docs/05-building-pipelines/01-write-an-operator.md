@@ -116,12 +116,11 @@ Every operator must follow this structure:
 
 Operators implement four methods that execute in sequence:
 
-```
-┌─────────────┐     ┌─────────┐     ┌──────────────────┐     ┌────────┐
-│ initialize  │ --> │   run   │ --> │ check_completion │ --> │ finish │
-│             │     │         │     │  (polled until   │     │        │
-│ Setup client│     │ Start   │     │   done)          │     │ Cleanup│
-└─────────────┘     └─────────┘     └──────────────────┘     └────────┘
+```mermaid
+flowchart LR
+    A["initialize<br/><small>setup client</small>"] --> B["run<br/><small>start work</small>"]
+    B --> C["check_completion<br/><small>polled until done</small>"]
+    C --> D["finish<br/><small>cleanup</small>"]
 ```
 
 ### 1. initialize()

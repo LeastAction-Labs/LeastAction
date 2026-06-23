@@ -181,20 +181,14 @@ You generate `agent` items in the wizard under `AI > AI Agent`, or create them m
 
 The chat endpoint enforces identity at every call:
 
-```
-User token → generate_mcp API
-      ↓
-resolves user identity
-      ↓
-fetches connection (from token, not client input)
-      ↓
-fetches skills (laui items user/group has access to)
-      ↓
-filters MCP tools (mcp_tool_supported + per-user allow-list)
-      ↓
-calls Claude + MCP (with user token forwarded)
-      ↓
-returns only final text
+```mermaid
+flowchart TD
+    T["User token → generate_mcp API"] --> I[Resolve user identity]
+    I --> C["Fetch connection<br/><small>from token, not client input</small>"]
+    C --> S["Fetch skills<br/><small>laui items user/group can access</small>"]
+    S --> F["Filter MCP tools<br/><small>mcp_tool_supported + per-user allow-list</small>"]
+    F --> X["Call Claude + MCP<br/><small>user token forwarded</small>"]
+    X --> R[Return only final text]
 ```
 
 The connection is resolved server-side from the user's token — the client never supplies credentials directly. Skills and MCP tools are filtered to only what the user's token has access to. The AI cannot act outside that boundary.

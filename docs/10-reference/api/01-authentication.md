@@ -4,33 +4,18 @@ All authentication endpoints are public (no Bearer token required).
 
 ## OAuth Flow Overview
 
-```
-Client App                    LeastAction Backend                  Frontend
-    │                               │                                │
-    │  GET /auth?client_id=...      │                                │
-    │──────────────────────────────►│                                │
-    │                               │  (no session cookie)           │
-    │                               │───────────────────────────────►│
-    │                               │  Redirect to /public/login     │
-    │                               │                                │
-    │                               │  POST /login (form data)       │
-    │                               │◄───────────────────────────────│
-    │                               │  Sets session cookie           │
-    │                               │  Redirect to /redirect-with-code│
-    │                               │                                │
-    │  Redirect with ?state=        │                                │
-    │  (+ ?code= if email_totp off) │                                │
-    │◄──────────────────────────────│                                │
-    │                               │                                │
-    │  POST /token                  │                                │
-    │  {grant_type:                 │                                │
-    │   "authorization_code",       │                                │
-    │   credentials: {code: "..."}} │                                │
-    │──────────────────────────────►│                                │
-    │                               │                                │
-    │  {must_change_password: bool} │                                │
-    │  + frontend_token cookie      │                                │
-    │◄──────────────────────────────│                                │
+```mermaid
+sequenceDiagram
+    participant C as Client App
+    participant B as LeastAction Backend
+    participant F as Frontend
+    C->>B: GET /auth?client_id=...
+    B->>F: No session cookie → redirect to /public/login
+    F->>B: POST /login (form data)
+    B-->>F: Set session cookie → redirect to /redirect-with-code
+    B-->>C: Redirect with ?state= (+ ?code= if email_totp off)
+    C->>B: POST /token {grant_type: "authorization_code", credentials: {code}}
+    B-->>C: {must_change_password} + frontend_token cookie
 ```
 
 ---

@@ -52,12 +52,10 @@ Prefect uses Variables (key-value pairs) and Blocks for configuration. These are
 
 LeastAction's config system is a three-level hierarchy:
 
-```
-Workflow config
-    ↓ (overridable where allowed)
-Task config
-    ↓ (overridable where allowed)
-Inline task config
+```mermaid
+flowchart TD
+    W[Workflow config] -->|overridable where allowed| T[Task config]
+    T -->|overridable where allowed| I[Inline task config]
 ```
 
 A workflow owner can lock parameters (`not_overridable`) so individual tasks cannot override environment settings, while explicitly permitting others (`overridable`) to be customised per task. Config items are reusable catalog items — attach the same config to dozens of workflows, update once, every workflow picks it up.
