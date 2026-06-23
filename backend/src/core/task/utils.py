@@ -9,14 +9,13 @@ from croniter import croniter
 
 
 def calculate_logical_date(frequency: str, logical_date: datetime | None) -> datetime | None:
-    # ADHOC tasks don't have a scheduled next run
     if frequency == "ADHOC":
         return None
 
     try:
         cron = croniter(frequency, logical_date)
         next_run = cron.get_next(datetime)
-        return next_run
+        return next_run.replace(second=0, microsecond=0)
     except Exception as e:
         raise ValueError(f"Invalid cron expression: {frequency}") from e
 
