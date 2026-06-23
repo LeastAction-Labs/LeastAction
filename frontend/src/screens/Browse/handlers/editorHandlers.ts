@@ -270,7 +270,10 @@ export function useEditorHandlers() {
     }
   };
 
-  const handleViewItem = async (item: CatalogItem) => {
+  const handleViewItem = async (
+    item: CatalogItem,
+    opts?: { itemTab?: string; sessionId?: string },
+  ) => {
     if (item.item_type === 'folder.account') return;
     setIsBreadcrumbLocked(false);
 
@@ -319,6 +322,9 @@ export function useEditorHandlers() {
             if (prev.tab) next.tab = prev.tab;
             if (prev.sessionId) next.sessionId = prev.sessionId;
           }
+          // Explicit deep-link target (e.g. opening a specific run's logs) wins.
+          if (opts?.itemTab) next.itemTab = opts.itemTab;
+          if (opts?.sessionId) next.sessionId = opts.sessionId;
           return next;
         },
       });

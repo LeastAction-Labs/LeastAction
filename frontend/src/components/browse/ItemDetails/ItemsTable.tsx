@@ -5,7 +5,7 @@
  * marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
  * Use of this file outside those terms is not permitted.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNavigate, useSearch } from '@tanstack/react-router';
 
@@ -56,7 +56,14 @@ import _ from 'lodash';
 import BulkPublishUsecaseModal from '@/components/browse/modals/BulkPublishUsecaseModal';
 import LAMarketplaceIcon from '@/components/marketplace/LAMarketplaceIcon/LAMarketplaceIcon';
 import { Chip } from '@/components/ui';
-import { BUTTON_SIZES, COLORS, FONT_SIZES, FONT_WEIGHTS, TASK_STATE_COLORS } from '@/constants';
+import {
+  BUTTON_SIZES,
+  COLORS,
+  FONT_SIZES,
+  FONT_WEIGHTS,
+  TASK_DEPENDENCY_GROUP_COLORS,
+  TASK_STATE_COLORS,
+} from '@/constants';
 import { RunActionModalMode, useActionContext } from '@/contexts/ActionContext';
 import { useCatalog } from '@/contexts/CatalogContext';
 import { CatalogType, useGlobal } from '@/contexts/GlobalContext';
@@ -83,11 +90,17 @@ import { getIconComponent } from '@/utils/iconMapping';
 import { formatDateValue as formatDateValueUtil, getTimeZoneLabel } from '@/utils/timeFormat';
 
 import { QuickSearch } from '../../ui';
+import { groupTasksByDependency } from '../Flows/WorkflowDiagram';
 import Pagination from '../Pagination';
 import type { CatalogItem } from '../types';
 import EmptyState from './EmptyState';
+import RecentRunsStrip from './RecentRunsStrip';
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
+
+// Frontend-only virtual column showing a strip of a task's most recent runs.
+// Not part of the schema preview fields — injected into the task column list.
+const RUNS_COLUMN = 'recent_runs';
 
 const styles = {
   tableContainer: {
@@ -259,6 +272,7 @@ const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
   priority: 90,
   duration: 90,
   actions_status: 110,
+  [RUNS_COLUMN]: 160,
 };
 const DEFAULT_COLUMN_WIDTH_FALLBACK = 150;
 
@@ -267,6 +281,8 @@ const buildTaskDateColumnTooltips = (tz: string): Record<string, string> => ({
   next_run_date: `Scheduler trigger date (${tz}) — when next_run_date ≤ wall clock, the cron dispatches this task. Advances one cron interval from the previous next_run_date (not from physical run time), enabling automatic catch-up for missed runs.`,
   prev_interval_start: `The logical_date (${tz}) of the most recently completed run — used to index logs and track the last successfully processed data period.`,
   last_run_date: `Wall-clock time (${tz}) when this task last executed.`,
+  [RUNS_COLUMN]:
+    'The most recent runs of this task (newest on the right), colored by status. Hover a box for its logical date; click to open that run in the Logs tab.',
 });
 
 function formatDateValue(value: string): string {
@@ -612,6 +628,7 @@ function ActionsStatusBar({
 }
 
 function formatColumnName(name: string): string {
+  if (name === RUNS_COLUMN) return 'Runs';
   return name
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -638,6 +655,9 @@ interface ItemsTableProps {
   // callback to trigger refresh in parent after usecase creation
   onUsecaseCreateSuccess?: () => void;
   loadingItems?: boolean;
+  // When true (workflow Tasks tab), group & tint tasks by their dependency DAG
+  // in the default (unsorted) view.
+  dependencyGrouping?: boolean;
 }
 
 export default function ItemsTable({
@@ -654,6 +674,7 @@ export default function ItemsTable({
   onDeleteSuccess,
   onUsecaseCreateSuccess,
   loadingItems,
+  dependencyGrouping,
 }: ItemsTableProps) {
   const { timeZone } = useTimeFormat();
   const tzLabel = timeZone === 'utc' ? 'UTC' : getTimeZoneLabel();
@@ -700,10 +721,17 @@ export default function ItemsTable({
     Record<string, { icon: React.ComponentType<any>; color: string }>
   >({});
   const [bulkUsecaseOpen, setBulkUsecaseOpen] = useState(false);
+  // Bumped whenever the filtered list is (re)loaded (refresh button, create,
+  // delete, …) so visible recent-run strips re-fetch their history.
+  const [runsRefreshKey, setRunsRefreshKey] = useState(0);
 
   useEffect(() => {
     onSelectionChange?.(selectedTasks);
   }, [selectedTasks]);
+
+  useEffect(() => {
+    setRunsRefreshKey((k) => k + 1);
+  }, [catalogState.filteredItemsByType]);
   const [selectedTaskControlAction, setSelectedTaskControlAction] = useState<string>('');
   const [taskControlSelectOpen, setTaskControlSelectOpen] = useState(false);
   const [showSelectTasksHint, setShowSelectTasksHint] = useState(false);
@@ -780,13 +808,23 @@ export default function ItemsTable({
           getSchemaUiPreviewFields(itemType),
           getProjectionFieldsConfig(itemType),
         ]);
-        setColumns(schemaColumns);
+
+        // Inject the virtual "recent runs" column for tasks, right after `state`
+        // (append if `state` isn't present). It's frontend-only, so it must be
+        // added to the column list used both for display and prefs filtering.
+        let allColumns = schemaColumns;
+        if (itemType === 'task' && !schemaColumns.includes(RUNS_COLUMN)) {
+          allColumns = [...schemaColumns];
+          const stateIdx = allColumns.indexOf('state');
+          allColumns.splice(stateIdx >= 0 ? stateIdx + 1 : allColumns.length, 0, RUNS_COLUMN);
+        }
+        setColumns(allColumns);
 
         const stored = localStorage.getItem(`column_prefs_${itemType}`);
         if (stored) {
           try {
             const parsed: string[] = JSON.parse(stored);
-            setVisibleColumns(parsed.filter((c) => schemaColumns.includes(c)));
+            setVisibleColumns(parsed.filter((c) => allColumns.includes(c)));
           } catch {
             setVisibleColumns(null);
           }
@@ -895,7 +933,69 @@ export default function ItemsTable({
           (item.name || '').toLowerCase().includes(nameFilter.trim().toLowerCase()),
         )
       : null;
-  const currentItems = nameFilteredItems ?? baseItems;
+  const currentItemsRaw = nameFilteredItems ?? baseItems;
+
+  // DAG grouping (workflow Tasks tab default view): reorder so dependency-linked
+  // tasks sit together in topological order, and expose a per-task group index
+  // for alternating row tints. Disabled when the user applies a column sort.
+  const groupingActive = !!dependencyGrouping && isTaskType && !sortBy;
+  const dependencyGroups = useMemo(() => {
+    if (!groupingActive) return null;
+    const { orderedLauis, groupIndexByLaui } = groupTasksByDependency(currentItemsRaw);
+    const byLaui = new Map(currentItemsRaw.map((it) => [it.laui, it]));
+    const items = orderedLauis
+      .map((laui) => byLaui.get(laui))
+      .filter((it): it is CatalogItem => it != null);
+    // Defensive: keep any rows the grouping didn't cover (e.g. name collisions).
+    const seen = new Set(orderedLauis);
+    for (const it of currentItemsRaw) if (!seen.has(it.laui)) items.push(it);
+
+    // Per-task ordering for the row number badge: a global 1-based `number`
+    // (position down the DAG-ordered list) plus the task's step within its
+    // dependency group.
+    const groupSize = new Map<number, number>();
+    items.forEach((it) => {
+      const g = groupIndexByLaui.get(it.laui) ?? -1;
+      groupSize.set(g, (groupSize.get(g) ?? 0) + 1);
+    });
+    const posCounter = new Map<number, number>();
+    const orderByLaui = new Map<
+      string,
+      { number: number; posInGroup: number; groupSize: number }
+    >();
+    items.forEach((it, i) => {
+      const g = groupIndexByLaui.get(it.laui) ?? -1;
+      const posInGroup = (posCounter.get(g) ?? 0) + 1;
+      posCounter.set(g, posInGroup);
+      orderByLaui.set(it.laui, { number: i + 1, posInGroup, groupSize: groupSize.get(g) ?? 1 });
+    });
+
+    // For each task, record the root task's (posInGroup=1) next_run_date and
+    // laui so all tasks in a group share the same schedule anchor and the same
+    // canonical run timeline, keeping the Runs columns aligned across the group.
+    const rootNextRunDateByLaui = new Map<string, string>();
+    const rootNextRunDateByGroup = new Map<number, string>();
+    const rootLauiByGroup = new Map<number, string>();
+    items.forEach((it) => {
+      const g = groupIndexByLaui.get(it.laui) ?? -1;
+      const pos = orderByLaui.get(it.laui)?.posInGroup ?? 1;
+      if (pos === 1) {
+        if (it.next_run_date) rootNextRunDateByGroup.set(g, it.next_run_date);
+        rootLauiByGroup.set(g, it.laui);
+      }
+    });
+    const rootLauiByLaui = new Map<string, string>();
+    items.forEach((it) => {
+      const g = groupIndexByLaui.get(it.laui) ?? -1;
+      const root = rootNextRunDateByGroup.get(g) ?? it.next_run_date ?? '';
+      rootNextRunDateByLaui.set(it.laui, root);
+      rootLauiByLaui.set(it.laui, rootLauiByGroup.get(g) ?? it.laui);
+    });
+
+    return { items, groupIndexByLaui, orderByLaui, rootNextRunDateByLaui, rootLauiByLaui };
+  }, [groupingActive, currentItemsRaw]);
+
+  const currentItems = dependencyGroups?.items ?? currentItemsRaw;
   const serverHasNext = serverPagination?.has_next ?? false;
   const itemsReturned = filteredItems.length;
   const pageSize = isServerPaginated ? (serverPagination?.per_page ?? itemsPerPage) : itemsPerPage;
@@ -1221,7 +1321,11 @@ export default function ItemsTable({
       : columns;
 
   const totalColumns =
-    (isTaskType && !folderMode ? 2 : 1) + displayColumns.length + 1 + (restoreAble ? 1 : 0);
+    (isTaskType && !folderMode ? 2 : 1) +
+    displayColumns.length +
+    1 +
+    (restoreAble ? 1 : 0) +
+    (groupingActive ? 1 : 0);
 
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
 
@@ -1578,7 +1682,7 @@ export default function ItemsTable({
                           color: 'var(--text-primary)',
                         }}
                       >
-                        {col.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                        {formatColumnName(col)}
                       </Typography>
                     }
                     sx={{ m: 0, width: '100%' }}
@@ -1903,6 +2007,11 @@ export default function ItemsTable({
                   />
                 </TableCell>
               )}
+              {groupingActive && (
+                <TableCell data-col="__rownum__" align="center" sx={{ width: 44 }}>
+                  #
+                </TableCell>
+              )}
               {displayColumns.map((column) => (
                 <React.Fragment key={column}>
                   <TableCell
@@ -2007,401 +2116,494 @@ export default function ItemsTable({
                 </TableCell>
               </TableRow>
             ) : currentItems.length > 0 ? (
-              currentItems.map((item, index) => (
-                <TableRow
-                  key={item.laui || index}
-                  sx={isTaskType ? styles.taskTableRow : styles.tableRow}
-                  onClick={(e) => handleView(item, e)}
-                >
-                  {!isMarketplaceCatalog && (
-                    <TableCell
-                      padding="checkbox"
-                      sx={{ width: 40 }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Checkbox
-                        size="small"
-                        checked={selectedTasks.includes(item.laui)}
-                        disabled={!canSelectTask(item)}
-                        onChange={(e) => handleSelectTask(item.laui, e as any)}
+              currentItems.map((item, index) => {
+                const groupStyle = dependencyGroups
+                  ? TASK_DEPENDENCY_GROUP_COLORS[
+                      (dependencyGroups.groupIndexByLaui.get(item.laui) ?? 0) %
+                        TASK_DEPENDENCY_GROUP_COLORS.length
+                    ]
+                  : undefined;
+                const orderInfo = dependencyGroups?.orderByLaui.get(item.laui);
+                return (
+                  <TableRow
+                    key={item.laui || index}
+                    sx={{
+                      ...(isTaskType ? styles.taskTableRow : styles.tableRow),
+                      ...(groupStyle
+                        ? {
+                            bgcolor: groupStyle.tint,
+                            // solid left bar on the first cell; rows stack into one
+                            // continuous bar per dependency group
+                            '& > td:first-of-type': {
+                              boxShadow: `inset 3px 0 0 0 ${groupStyle.bar}`,
+                            },
+                          }
+                        : {}),
+                    }}
+                    onClick={(e) => handleView(item, e)}
+                  >
+                    {!isMarketplaceCatalog && (
+                      <TableCell
+                        padding="checkbox"
+                        sx={{ width: 40 }}
                         onClick={(e) => e.stopPropagation()}
-                        sx={{
-                          p: 0.5,
-                          color: 'var(--text-secondary)',
-                          '&.Mui-checked': {
-                            color: 'var(--primary-main)',
-                          },
-                          '&.Mui-disabled': {
-                            color: 'var(--text-disabled)',
-                            opacity: 0.3,
-                          },
-                        }}
-                      />
-                    </TableCell>
-                  )}
-
-                  {displayColumns.map((column) => {
-                    const value = getColumnValue(item, column);
-                    const fieldConfig = projectionConfig?.[column];
-                    const shouldShowIcon =
-                      fieldConfig?.display_type === 'status_icon' && fieldConfig?.enum_colors;
-                    const isActionsStatus = column === 'actions_status';
-                    const isStateCol = column === 'state' && isTaskType;
-
-                    const pillStyle =
-                      isStateCol && value
-                        ? (TASK_STATE_COLORS[
-                            value.toLowerCase() as keyof typeof TASK_STATE_COLORS
-                          ] ?? TASK_STATE_COLORS.scheduled)
-                        : null;
-
-                    const isFolderTypeCol = folderMode && column === 'item_type';
-                    const folderTypeEntry = isFolderTypeCol
-                      ? folderIconCache[item.item_type ?? '']
-                      : undefined;
-                    // For generate_history sessions, show the item type that was
-                    // generated (action/operator/payload/agent/generate) instead of
-                    // the literal "generate_history". chat_history is left untouched.
-                    const folderTypeValue =
-                      isFolderTypeCol && item.item_type === 'generate_history'
-                        ? ((getRawColumnValue(item, 'created_item_type') as string) ?? value)
-                        : value;
-
-                    return (
-                      <React.Fragment key={column}>
-                        <TableCell
+                      >
+                        <Checkbox
+                          size="small"
+                          checked={selectedTasks.includes(item.laui)}
+                          disabled={!canSelectTask(item)}
+                          onChange={(e) => handleSelectTask(item.laui, e as any)}
+                          onClick={(e) => e.stopPropagation()}
                           sx={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            p: 0.5,
+                            color: 'var(--text-secondary)',
+                            '&.Mui-checked': {
+                              color: 'var(--primary-main)',
+                            },
+                            '&.Mui-disabled': {
+                              color: 'var(--text-disabled)',
+                              opacity: 0.3,
+                            },
                           }}
-                        >
-                          {isFolderTypeCol ? (
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 0.5,
-                              }}
-                            >
-                              {folderTypeEntry?.icon
-                                ? React.createElement(folderTypeEntry.icon, {
-                                    sx: {
-                                      fontSize: 13,
-                                      color: folderTypeEntry.color,
-                                      flexShrink: 0,
-                                    },
-                                  })
-                                : item.item_type?.startsWith('folder') && (
-                                    <Box
-                                      component="span"
-                                      sx={{
+                        />
+                      </TableCell>
+                    )}
+
+                    {groupingActive && (
+                      <TableCell
+                        align="center"
+                        sx={{
+                          width: 44,
+                          color: 'var(--text-secondary)',
+                          fontSize: FONT_SIZES.XS,
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {index + 1}
+                      </TableCell>
+                    )}
+
+                    {displayColumns.map((column) => {
+                      const value = getColumnValue(item, column);
+                      const fieldConfig = projectionConfig?.[column];
+                      const shouldShowIcon =
+                        fieldConfig?.display_type === 'status_icon' && fieldConfig?.enum_colors;
+                      const isActionsStatus = column === 'actions_status';
+                      const isStateCol = column === 'state' && isTaskType;
+                      const isRecentRunsCol = column === RUNS_COLUMN && isTaskType;
+
+                      const pillStyle =
+                        isStateCol && value
+                          ? (TASK_STATE_COLORS[
+                              value.toLowerCase() as keyof typeof TASK_STATE_COLORS
+                            ] ?? TASK_STATE_COLORS.scheduled)
+                          : null;
+
+                      const isFolderTypeCol = folderMode && column === 'item_type';
+                      const folderTypeEntry = isFolderTypeCol
+                        ? folderIconCache[item.item_type ?? '']
+                        : undefined;
+                      // For generate_history sessions, show the item type that was
+                      // generated (action/operator/payload/agent/generate) instead of
+                      // the literal "generate_history". chat_history is left untouched.
+                      const folderTypeValue =
+                        isFolderTypeCol && item.item_type === 'generate_history'
+                          ? ((getRawColumnValue(item, 'created_item_type') as string) ?? value)
+                          : value;
+
+                      return (
+                        <React.Fragment key={column}>
+                          <TableCell
+                            sx={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              // Pin the runs column to its width so the strip
+                              // scrolls inside the cell instead of widening it.
+                              ...(isRecentRunsCol
+                                ? (() => {
+                                    const w =
+                                      columnWidths[column] ||
+                                      DEFAULT_COLUMN_WIDTHS[column] ||
+                                      DEFAULT_COLUMN_WIDTH_FALLBACK;
+                                    return { width: w, maxWidth: w };
+                                  })()
+                                : {}),
+                            }}
+                          >
+                            {column === 'name' && orderInfo && (
+                              <Tooltip
+                                arrow
+                                enterDelay={300}
+                                title={
+                                  orderInfo.groupSize > 1
+                                    ? `Step ${orderInfo.posInGroup} of ${orderInfo.groupSize} in this dependency group — tasks run in this order; lower numbers are dependencies of the later ones.`
+                                    : `Standalone task — no dependencies.`
+                                }
+                              >
+                                <Box
+                                  component="span"
+                                  sx={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    minWidth: 18,
+                                    height: 18,
+                                    px: 0.5,
+                                    mr: 0.75,
+                                    borderRadius: '4px',
+                                    bgcolor: groupStyle?.bar ?? 'var(--text-secondary)',
+                                    color: COLORS.ON_ACCENT_DARK,
+                                    fontSize: FONT_SIZES.XXS,
+                                    fontWeight: FONT_WEIGHTS.WEIGHT_600,
+                                    lineHeight: 1,
+                                    verticalAlign: 'middle',
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  {orderInfo.posInGroup}
+                                </Box>
+                              </Tooltip>
+                            )}
+                            {isFolderTypeCol ? (
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 0.5,
+                                }}
+                              >
+                                {folderTypeEntry?.icon
+                                  ? React.createElement(folderTypeEntry.icon, {
+                                      sx: {
                                         fontSize: 13,
-                                        color: 'var(--text-secondary)',
+                                        color: folderTypeEntry.color,
                                         flexShrink: 0,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                      }}
-                                    >
-                                      📁
-                                    </Box>
-                                  )}
-                              <Typography
-                                sx={{
-                                  fontSize: FONT_SIZES.SM,
-                                  color: folderTypeEntry?.color ?? 'var(--text-secondary)',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {folderTypeValue}
-                              </Typography>
-                            </Box>
-                          ) : !isMarketplaceCatalog && isActionsStatus ? (
-                            <ActionsStatusBar
-                              actions={getRawColumnValue(item, 'actions') as ActionsConfig | null}
-                              actionsStatus={
-                                getRawColumnValue(item, 'actions_status') as ActionsStatus | null
-                              }
-                            />
-                          ) : isStateCol && pillStyle ? (
-                            <Box
-                              sx={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 0.5,
-                                px: 1,
-                                py: 0.25,
-                                borderRadius: '999px',
-                                bgcolor: pillStyle.bg,
-                                border: `1px solid ${pillStyle.border}`,
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  width: 6,
-                                  height: 6,
-                                  borderRadius: '50%',
-                                  bgcolor: pillStyle.dot,
-                                  flexShrink: 0,
-                                }}
-                              />
-                              <Typography
-                                sx={{
-                                  fontSize: FONT_SIZES.XS,
-                                  fontWeight: FONT_WEIGHTS.WEIGHT_600,
-                                  color: pillStyle.text,
-                                  textTransform: 'uppercase',
-                                  letterSpacing: '0.04em',
-                                }}
-                              >
-                                {value}
-                              </Typography>
-                            </Box>
-                          ) : shouldShowIcon && value ? (
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1,
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  width: 10,
-                                  height: 10,
-                                  borderRadius: '50%',
-                                  backgroundColor: fieldConfig.enum_colors?.[value] || '#94a3b8',
-                                  flexShrink: 0,
-                                }}
-                              />
-                              <span>{value}</span>
-                            </Box>
-                          ) : column === 'name' &&
-                            item.marketplace_laui &&
-                            !isMarketplaceCatalog ? (
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1,
-                                minWidth: 0,
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  width: 28,
-                                  height: 28,
-                                  flexShrink: 0,
-                                  borderRadius: 1,
-                                  overflow: 'hidden',
-                                }}
-                              >
-                                {item.image_url ? (
-                                  <img
-                                    src={item.image_url}
-                                    width={28}
-                                    height={28}
-                                    style={{
-                                      objectFit: 'cover',
-                                      display: 'block',
-                                    }}
-                                  />
-                                ) : (
-                                  <LAMarketplaceIcon
-                                    size={28}
-                                    color="var(--accent)"
-                                    seed={item.marketplace_laui}
-                                  />
-                                )}
-                              </Box>
-                              <Box sx={{ minWidth: 0 }}>
+                                      },
+                                    })
+                                  : item.item_type?.startsWith('folder') && (
+                                      <Box
+                                        component="span"
+                                        sx={{
+                                          fontSize: 13,
+                                          color: 'var(--text-secondary)',
+                                          flexShrink: 0,
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                        }}
+                                      >
+                                        📁
+                                      </Box>
+                                    )}
                                 <Typography
                                   sx={{
                                     fontSize: FONT_SIZES.SM,
-                                    fontWeight: FONT_WEIGHTS.WEIGHT_600,
-                                    color: 'var(--text-primary)',
+                                    color: folderTypeEntry?.color ?? 'var(--text-secondary)',
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
                                     whiteSpace: 'nowrap',
-                                    lineHeight: 1.3,
                                   }}
                                 >
-                                  {value || '-'}
+                                  {folderTypeValue}
                                 </Typography>
+                              </Box>
+                            ) : !isMarketplaceCatalog && isActionsStatus ? (
+                              <ActionsStatusBar
+                                actions={getRawColumnValue(item, 'actions') as ActionsConfig | null}
+                                actionsStatus={
+                                  getRawColumnValue(item, 'actions_status') as ActionsStatus | null
+                                }
+                              />
+                            ) : isStateCol && pillStyle ? (
+                              <Box
+                                sx={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 0.5,
+                                  px: 1,
+                                  py: 0.25,
+                                  borderRadius: '999px',
+                                  bgcolor: pillStyle.bg,
+                                  border: `1px solid ${pillStyle.border}`,
+                                }}
+                              >
                                 <Box
                                   sx={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 0.5,
-                                    mt: 0.25,
-                                    flexWrap: 'wrap',
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: '50%',
+                                    bgcolor: pillStyle.dot,
+                                    flexShrink: 0,
+                                  }}
+                                />
+                                <Typography
+                                  sx={{
+                                    fontSize: FONT_SIZES.XS,
+                                    fontWeight: FONT_WEIGHTS.WEIGHT_600,
+                                    color: pillStyle.text,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.04em',
                                   }}
                                 >
-                                  <Chip
-                                    icon={
-                                      <StorefrontIcon
-                                        sx={{
-                                          fontSize: '10px !important',
-                                        }}
-                                      />
-                                    }
-                                    label="From MP"
-                                    variant="mp"
-                                  />
-                                  {item.publisher && (
-                                    <Chip
-                                      label={item.publisher}
-                                      variant={
-                                        item.publisher === 'LeastAction' ? 'official' : 'publisher'
-                                      }
+                                  {value}
+                                </Typography>
+                              </Box>
+                            ) : isRecentRunsCol ? (
+                              <RecentRunsStrip
+                                taskLaui={item.laui}
+                                refreshKey={runsRefreshKey}
+                                frequency={item.frequency}
+                                nextRunDate={item.next_run_date}
+                                onRunClick={(sessionId) =>
+                                  void handleViewItem(item, { itemTab: 'logs', sessionId })
+                                }
+                              />
+                            ) : shouldShowIcon && value ? (
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                }}
+                              >
+                                <Box
+                                  sx={{
+                                    width: 10,
+                                    height: 10,
+                                    borderRadius: '50%',
+                                    backgroundColor: fieldConfig.enum_colors?.[value] || '#94a3b8',
+                                    flexShrink: 0,
+                                  }}
+                                />
+                                <span>{value}</span>
+                              </Box>
+                            ) : column === 'name' &&
+                              item.marketplace_laui &&
+                              !isMarketplaceCatalog ? (
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 1,
+                                  minWidth: 0,
+                                }}
+                              >
+                                <Box
+                                  sx={{
+                                    width: 28,
+                                    height: 28,
+                                    flexShrink: 0,
+                                    borderRadius: 1,
+                                    overflow: 'hidden',
+                                  }}
+                                >
+                                  {item.image_url ? (
+                                    <img
+                                      src={item.image_url}
+                                      width={28}
+                                      height={28}
+                                      style={{
+                                        objectFit: 'cover',
+                                        display: 'block',
+                                      }}
+                                    />
+                                  ) : (
+                                    <LAMarketplaceIcon
+                                      size={28}
+                                      color="var(--accent)"
+                                      seed={item.marketplace_laui}
                                     />
                                   )}
                                 </Box>
+                                <Box sx={{ minWidth: 0 }}>
+                                  <Typography
+                                    sx={{
+                                      fontSize: FONT_SIZES.SM,
+                                      fontWeight: FONT_WEIGHTS.WEIGHT_600,
+                                      color: 'var(--text-primary)',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      lineHeight: 1.3,
+                                    }}
+                                  >
+                                    {value || '-'}
+                                  </Typography>
+                                  <Box
+                                    sx={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 0.5,
+                                      mt: 0.25,
+                                      flexWrap: 'wrap',
+                                    }}
+                                  >
+                                    <Chip
+                                      icon={
+                                        <StorefrontIcon
+                                          sx={{
+                                            fontSize: '10px !important',
+                                          }}
+                                        />
+                                      }
+                                      label="From MP"
+                                      variant="mp"
+                                    />
+                                    {item.publisher && (
+                                      <Chip
+                                        label={item.publisher}
+                                        variant={
+                                          item.publisher === 'LeastAction'
+                                            ? 'official'
+                                            : 'publisher'
+                                        }
+                                      />
+                                    )}
+                                  </Box>
+                                </Box>
                               </Box>
-                            </Box>
-                          ) : (
-                            <Tooltip title={value || '-'} arrow enterDelay={500}>
-                              <span>{value || '-'}</span>
+                            ) : (
+                              <Tooltip title={value || '-'} arrow enterDelay={500}>
+                                <span>{value || '-'}</span>
+                              </Tooltip>
+                            )}
+                          </TableCell>
+                          {restoreAble && column === 'name' && (
+                            <TableCell>
+                              <Tooltip title={itemPaths[item.laui] || ''} arrow>
+                                <Typography
+                                  sx={{
+                                    fontSize: FONT_SIZES.XS,
+                                    color: 'var(--text-secondary)',
+                                    maxWidth: 200,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {itemPaths[item.laui] || '…'}
+                                </Typography>
+                              </Tooltip>
+                            </TableCell>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                    <TableCell sx={styles.actionsCell} align="right">
+                      <Box sx={styles.actionButtons}>
+                        {/* Run/Pause buttons for tasks */}
+                        {!isMarketplaceCatalog && !item.deleted_at && shouldShowRunButton(item) && (
+                          <Tooltip title={runButtonTooltipText(item)}>
+                            <IconButton
+                              sx={{
+                                ...styles.iconButton,
+                                color: 'var(--success-main)',
+                                '&:hover': {
+                                  color: 'var(--success-dark)',
+                                },
+                              }}
+                              onClick={(e) => {
+                                if (
+                                  item.item_type === 'chat_history' ||
+                                  item.item_type === 'generate_history'
+                                ) {
+                                  e.stopPropagation();
+                                  void navigate({
+                                    to: '/ai/create',
+                                    search: {
+                                      sessionId: item.name,
+                                    },
+                                  });
+                                } else if (item.item_type === 'task') void handleRunTask(item, e);
+                                else void handleRunAction(item, e);
+                              }}
+                              size="small"
+                            >
+                              <PlayArrow fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {!item.deleted_at && shouldShowPauseButton(item) && (
+                          <Tooltip title="Pause Task">
+                            <IconButton
+                              sx={{
+                                ...styles.iconButton,
+                                color: 'var(--warning-main)',
+                                '&:hover': {
+                                  color: 'var(--warning-dark)',
+                                },
+                              }}
+                              onClick={(e) => void handlePauseTask(item, e)}
+                              size="small"
+                            >
+                              <Pause fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {/* Share button - shown for all items with permission */}
+                        {!isMarketplaceCatalog &&
+                          ['edit', 'own'].includes(item.permission) &&
+                          !item.deleted_at && (
+                            <Tooltip title="Share">
+                              <IconButton
+                                sx={{
+                                  ...styles.iconButton,
+                                  ...styles.editIcon,
+                                }}
+                                onClick={(e) => handleShare(item, e)}
+                                size="small"
+                              >
+                                <Share fontSize="small" />
+                              </IconButton>
                             </Tooltip>
                           )}
-                        </TableCell>
-                        {restoreAble && column === 'name' && (
-                          <TableCell>
-                            <Tooltip title={itemPaths[item.laui] || ''} arrow>
-                              <Typography
-                                sx={{
-                                  fontSize: FONT_SIZES.XS,
-                                  color: 'var(--text-secondary)',
-                                  maxWidth: 200,
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {itemPaths[item.laui] || '…'}
-                              </Typography>
-                            </Tooltip>
-                          </TableCell>
+                        {deletePermission && !restoreAble && !item.deleted_at && (
+                          <Tooltip title="Delete">
+                            <IconButton
+                              sx={{
+                                ...styles.iconButton,
+                                ...styles.deleteIcon,
+                              }}
+                              onClick={(e) => handleDelete(item, e)}
+                              size="small"
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                         )}
-                      </React.Fragment>
-                    );
-                  })}
-                  <TableCell sx={styles.actionsCell} align="right">
-                    <Box sx={styles.actionButtons}>
-                      {/* Run/Pause buttons for tasks */}
-                      {!isMarketplaceCatalog && !item.deleted_at && shouldShowRunButton(item) && (
-                        <Tooltip title={runButtonTooltipText(item)}>
-                          <IconButton
-                            sx={{
-                              ...styles.iconButton,
-                              color: 'var(--success-main)',
-                              '&:hover': {
-                                color: 'var(--success-dark)',
-                              },
-                            }}
-                            onClick={(e) => {
-                              if (
-                                item.item_type === 'chat_history' ||
-                                item.item_type === 'generate_history'
-                              ) {
-                                e.stopPropagation();
-                                void navigate({
-                                  to: '/ai/create',
-                                  search: {
-                                    sessionId: item.name,
-                                  },
-                                });
-                              } else if (item.item_type === 'task') void handleRunTask(item, e);
-                              else void handleRunAction(item, e);
-                            }}
-                            size="small"
-                          >
-                            <PlayArrow fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {!item.deleted_at && shouldShowPauseButton(item) && (
-                        <Tooltip title="Pause Task">
-                          <IconButton
-                            sx={{
-                              ...styles.iconButton,
-                              color: 'var(--warning-main)',
-                              '&:hover': {
-                                color: 'var(--warning-dark)',
-                              },
-                            }}
-                            onClick={(e) => void handlePauseTask(item, e)}
-                            size="small"
-                          >
-                            <Pause fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {/* Share button - shown for all items with permission */}
-                      {!isMarketplaceCatalog &&
-                        ['edit', 'own'].includes(item.permission) &&
-                        !item.deleted_at && (
-                          <Tooltip title="Share">
+                        {restoreAble && (
+                          <Tooltip title="Restore">
                             <IconButton
                               sx={{
                                 ...styles.iconButton,
                                 ...styles.editIcon,
                               }}
-                              onClick={(e) => handleShare(item, e)}
+                              onClick={(e) => handleRestore(item, e)}
                               size="small"
                             >
-                              <Share fontSize="small" />
+                              <Restore fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         )}
-                      {deletePermission && !restoreAble && !item.deleted_at && (
-                        <Tooltip title="Delete">
-                          <IconButton
-                            sx={{
-                              ...styles.iconButton,
-                              ...styles.deleteIcon,
-                            }}
-                            onClick={(e) => handleDelete(item, e)}
-                            size="small"
-                          >
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {restoreAble && (
-                        <Tooltip title="Restore">
-                          <IconButton
-                            sx={{
-                              ...styles.iconButton,
-                              ...styles.editIcon,
-                            }}
-                            onClick={(e) => handleRestore(item, e)}
-                            size="small"
-                          >
-                            <Restore fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {isMarketplaceCatalog && (
-                        <Tooltip title="Import">
-                          <IconButton
-                            sx={{
-                              ...styles.iconButton,
-                              ...styles.editIcon,
-                            }}
-                            onClick={(e) => void handleImport(item, e)}
-                            size="small"
-                          >
-                            <ImportIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))
+                        {isMarketplaceCatalog && (
+                          <Tooltip title="Import">
+                            <IconButton
+                              sx={{
+                                ...styles.iconButton,
+                                ...styles.editIcon,
+                              }}
+                              onClick={(e) => void handleImport(item, e)}
+                              size="small"
+                            >
+                              <ImportIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell colSpan={totalColumns} align="center" sx={{ py: 4 }}>

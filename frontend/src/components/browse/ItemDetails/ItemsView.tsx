@@ -80,10 +80,15 @@ const styles = {
   },
 };
 
+interface ItemsViewProps {
+  /** When true, the task table groups & tints tasks by their dependency DAG (workflow Tasks tab). */
+  dependencyGrouping?: boolean;
+}
+
 /**
  * ItemsView - Displays a list/table of filtered catalog items
  */
-export default function ItemsView() {
+export default function ItemsView({ dependencyGrouping }: ItemsViewProps = {}) {
   const { trashLaui, catalogType } = useGlobal();
   const { catalogState } = useCatalog();
   const { setTaskModalState } = useTaskModalContext();
@@ -573,7 +578,7 @@ export default function ItemsView() {
           </Box>
         )}
 
-        <ItemsTable onSelectionChange={setSelectedItems} />
+        <ItemsTable onSelectionChange={setSelectedItems} dependencyGrouping={dependencyGrouping} />
 
         <BaseModal
           open={bulkDeleteOpen}
