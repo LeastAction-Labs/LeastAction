@@ -13,7 +13,7 @@ A **connection** holds credentials and resource settings for an external system,
 1. Navigate to your project folder in the UI.
 2. Click **Create Connection**.
 3. Fill in the form:
-   - **Name** — descriptive, e.g. `postgres-prod`
+   - **Name** — descriptive, e.g. `postgresql` (the name of the bundled demo connection)
    - **Description** — optional
    - **Content** — JSON with credentials
    - **Max Parallelism** — max concurrent tasks using this connection (e.g. `10`)
@@ -22,17 +22,27 @@ A **connection** holds credentials and resource settings for an external system,
 
 ```json
 {
-  "host": "db.example.com",
+  "host": "postgres-demo",
   "port": 5432,
-  "database": "analytics",
-  "user": "pipeline_user",
-  "password": "${AWS_SECRET_MANAGER:db-password}"
+  "database": "postgres_demo_db",
+  "user": "postgres",
+  "password": "postgres"
 }
 ```
 
-> **Security:** never store plain-text passwords — reference secrets with `${AWS_SECRET_MANAGER:secret-name}` or environment variables. See [Configuration](/path?laui=getting-started-02-installation-02-configuration&itemtype=doc.file&itemname=Configuration).
+> These are the bundled demo values (the `postgres-demo` database that ships with the docker stack). Point `host` / `database` / `user` / `password` at your own PostgreSQL instance when you're ready.
+
+> **Security:** connection values are passed to the operator **exactly as stored** — LeastAction does **not** expand `${...}` placeholders. `PostgresqlExecuteSQL` reads `password` literally, so put the real value here and protect the connection with catalog permissions. For credential-free auth use IAM roles / managed identities, or an operator that takes a native secret reference (e.g. `secret_arn`). See [How secrets work](/path?laui=getting-started-04-concepts-02-connection&itemtype=doc.file&itemname=Connection) and [Configuration](/path?laui=getting-started-02-installation-02-configuration&itemtype=doc.file&itemname=Configuration).
 
 Connections take **whatever fields your operator expects** — AWS connections use `region`, `aws_access_key_id`, etc.; a dbt connection uses `dbt_server_url`. The full field reference per system is in the [Connection concept](/path?laui=getting-started-04-concepts-02-connection&itemtype=doc.file&itemname=Connection).
+
+## Or create it with the AI
+
+Anything you can do in the UI you can also do through the AI. There's no `AI > Connection` wizard, so create connections by asking the assistant (Service AI chat) or any MCP-connected client:
+
+> "create a postgres connection named `postgresql` pointing at `postgres-demo:5432`, database `postgres_demo_db`, user `postgres`."
+
+The agent calls `create_catalog_item` with `item_type: connection` and reports the new item's laui. See [MCP](/path?laui=getting-started-06-ai-05-mcp&itemtype=doc.file&itemname=Mcp).
 
 ## Next
 

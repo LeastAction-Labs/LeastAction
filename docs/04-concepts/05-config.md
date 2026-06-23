@@ -419,10 +419,10 @@ Any parameters defined in your config can be accessed by name:
 ```json
 {
   "parameters": {
-    "username": "admin",
-    "host": "localhost",
+    "user": "postgres",
+    "host": "postgres-demo",
     "port": "5432",
-    "database": "mydb"
+    "database": "postgres_demo_db"
   }
 }
 ```

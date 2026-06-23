@@ -244,9 +244,9 @@ return client
 
 **Best Practice:**
 
-1. Use Workload Identity to access credentials
-2. Never store service account JSON key directly in connection
-3. Use GCP Secret Manager for sensitive data
+1. Use Workload Identity so no key lives in the connection
+2. If a key file is needed, mount it on the LeastAction host and reference its path (as above)
+3. Protect the connection with catalog permissions and a least-privilege service account
 4. Always start with AI-generated connection sample
   **AI-Generated Sample:** When creating a GCP BigQuery operator via AI:
 
@@ -312,9 +312,9 @@ return client
 
 **Best Practice:**
 
-1. Use Azure Managed Identity assigned to LeastAction's VM/Container instance
-2. Store sensitive configuration in Azure Key Vault
-3. Reference Key Vault secrets using placeholders
+1. Use Azure Managed Identity assigned to LeastAction's VM/Container instance — no secret in the connection
+2. If credentials are unavoidable, store the real value and protect the connection with catalog permissions
+3. Scope the identity/service principal to least privilege
 4. Start with AI-generated connection sample
   **AI-Generated Sample:** When creating an Azure Blob Storage operator:
 
@@ -333,7 +333,7 @@ return client
 
 ### PostgreSQL Connection
 
-**Type:** `connection.postgres`
+**Type:** `connection.postgresql`
 **Use Cases:**
 
 - SQL query execution
@@ -342,16 +342,15 @@ return client
 **Access Pattern in Operators:**
 
 ```python
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
 connection = least_action_task_object.get('connection', {})
 # Direct access to connection fields (flat structure)
 conn = psycopg2.connect(
 host=connection.get('host'),
 port=connection.get('port', 5432),
 database=connection.get('database'),
-user=connection.get('username'),
+user=connection.get('user'),
 password=connection.get('password'),
-sslmode=connection.get('ssl_mode', 'require')
 )
 return conn
 ```
@@ -360,16 +359,15 @@ return conn
 
 ```json
 {
-"item_type": "connection.postgres",
-"name": "postgres-analytics",
+"item_type": "connection.postgresql",
+"name": "postgresql",
 "parent_laui": "folder-connection-laui",
 "content": {
-    "host": "postgres.example.com",
+    "host": "postgres-demo",
     "port": 5432,
-    "database": "analytics",
-    "username": "leastaction_user",
-    "password": "${AWS_SECRET_MANAGER:prod/postgres/password}",
-    "ssl_mode": "require"
+    "database": "postgres_demo_db",
+    "user": "postgres",
+    "password": "postgres"
     },
 "max_parallelism": 20,
 "sort_order": {
@@ -378,24 +376,24 @@ return conn
 }
 ```
 
+> This is the **bundled demo connection** (`postgresql`), which points at the internal `postgres-demo` database that ships with the docker stack. Edit `host` / `port` / `database` / `user` / `password` to point at your own PostgreSQL instance.
+
 **Best Practice:**
 
-1. Store database password in your cloud provider's secret manager
-2. Use SSL/TLS for connections (`ssl_mode: "require"`)
-3. Use read-only database users when possible
-4. Always start with AI-generated connection sample
+1. `PostgresqlExecuteSQL` reads `user` / `password` literally — store the real values and protect the connection with catalog permissions
+2. Use read-only database users when possible
+3. Always start with AI-generated connection sample
   **AI-Generated Sample:** When creating a PostgreSQL operator:
 
 ```json
 {
-"name": "PostgreSQL Analytics",
-"type": "connection.postgres",
+"name": "postgresql",
+"type": "connection.postgresql",
 "content": {
-    "host": "postgres.example.com",
+    "host": "postgres-demo",
     "port": 5432,
-    "database": "analytics",
-    "username": "leastaction_user",
-    "ssl_mode": "require"
+    "database": "postgres_demo_db",
+    "user": "postgres"
     }
 }
 ```
@@ -820,13 +818,13 @@ Create separate connections for each environment:
 
 ```
 production-connections/
-├── aws-lambda-prod
-├── postgres-prod
-└── gcp-bigquery-prod
+├── aws-lambda
+├── postgresql
+└── gcp-bigquery
 staging-connections/
-├── aws-lambda-staging
-├── postgres-staging
-└── gcp-bigquery-staging
+├── aws-lambda
+├── postgresql
+└── gcp-bigquery
 ```
 
 ---
@@ -977,18 +975,19 @@ GET /api/v1/catalog/item/{connection_laui}
 
 ### Time-Critical Database Connection
 
+The same `postgresql` connection, tuned for in-order processing (lower parallelism, oldest-first):
+
 ```json
 {
-"item_type": "connection.postgres",
-"name": "postgres-time-critical",
+"item_type": "connection.postgresql",
+"name": "postgresql",
 "parent_laui": "conn-folder-123",
 "content": {
-    "host": "postgres.example.com",
+    "host": "postgres-demo",
     "port": 5432,
-    "database": "realtime_analytics",
-    "username": "leastaction_user",
-    "password": "${AWS_SECRET_MANAGER:prod/postgres/password}",
-    "ssl_mode": "require"
+    "database": "postgres_demo_db",
+    "user": "postgres",
+    "password": "postgres"
     },
 "max_parallelism": 10,
 "sort_order": {
@@ -1147,8 +1146,8 @@ GET /api/v1/catalog/list?parent_laui={folder_laui}&item_type=connection
 
 ## ✅ **Always use AI-generated connection samples** - They have the correct structure for the operator
 ✅ **Connection content uses flat structure** - Not nested under `content.aws` or similar
-✅ **Store credentials in cloud secret managers** - Never in connection content directly
-✅ **Use IAM roles and managed identities** - Most secure approach for cloud providers
+✅ **Connection values pass to the operator as-is** - LeastAction does not resolve `${...}` placeholders; secret handling is operator-specific (e.g. `secret_arn`)
+✅ **Use IAM roles and managed identities** - Most secure approach for cloud providers; no credentials in the connection
 ✅ **Test connection with AI sample first** - Then customize for your environment
 
 ## Support

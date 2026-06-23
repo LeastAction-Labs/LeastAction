@@ -1,6 +1,6 @@
 # Configuration
 
-Two layers of configuration: **deployment** (env / `deploy/.env`) and **platform** (`config/system.yml`). Secrets are referenced, never stored in plain text.
+Two layers of configuration: **deployment** (env / `deploy/.env`) and **platform** (`config/system.yml`). Platform-level secrets come from the environment (optionally AWS Secrets Manager); connection credentials are handled per-operator.
 
 ## Deployment configuration — `deploy/.env`
 
@@ -28,17 +28,20 @@ Everything works with no `.env` at all. See `deploy/.env.example` for the full l
 
 ## Secrets
 
-Never store plain-text credentials in a connection. Reference a secret with a placeholder, resolved at runtime:
+There are two separate concerns:
 
-```json
-{
-  "host": "db.example.com",
-  "user": "pipeline_user",
-  "password": "${AWS_SECRET_MANAGER:db-password}"
-}
-```
+**Platform secrets** (root password, the LLM/Claude API key, infra credentials) resolve through
+`backend/src/common/secrets.py:get_secret()` — environment first, then AWS Secrets Manager when
+`USE_AWS_SECRETS=true` (with `AWS_SECRETS_NAME` / `AWS_REGION`). Set these in `deploy/.env` or the
+environment; they are read at startup and never sent to the browser.
 
-Supported placeholders include AWS Secrets Manager and environment variables (and others — see the [Connection concept](/path?laui=getting-started-04-concepts-02-connection&itemtype=doc.file&itemname=Connection)). The resolved value never leaves the server.
+**Connection credentials** are **not** templated. LeastAction passes connection field values to the
+operator exactly as stored — it does **not** expand `${...}` placeholders. So secret handling depends
+on the operator: prefer IAM roles / managed identities (no credential in the connection), or an
+operator that accepts a cloud-native secret reference (e.g. `AWSRedshiftDataExecuteSQL`'s `secret_arn`,
+resolved by the AWS SDK). For operators that read fields directly (e.g. `PostgresqlExecuteSQL`), store
+the real value and protect the connection with catalog permissions. Full detail in the
+[Connection concept → How secrets actually work](/path?laui=getting-started-04-concepts-02-connection&itemtype=doc.file&itemname=Connection).
 
 ## AI providers
 

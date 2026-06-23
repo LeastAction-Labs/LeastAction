@@ -5,9 +5,11 @@ The **payload** is the task-specific input — the **WHAT** the operator should 
 ## Example — a PostgreSQL payload
 
 ```sql
-INSERT INTO reports.daily_summary
-SELECT * FROM staging.events WHERE date = '{{ds}}'
+INSERT INTO people (name, age, logical_date)
+VALUES ('Alice', 28, '{{logical_date}}')
 ```
+
+This is the same `people` table the bundled `postgresql-demo-foundations` demo uses, so you can run it against the included `postgres-demo` database right away.
 
 ## Runtime variables
 
@@ -17,7 +19,19 @@ SELECT * FROM staging.events WHERE date = '{{ds}}'
 
 This is what makes one payload work for every date and partition — the values are injected per run. See [Scheduling](/path?laui=getting-started-04-concepts-09-scheduling&itemtype=doc.file&itemname=Scheduling) for how `{{ds}}` is derived, and the [Payload concept](/path?laui=getting-started-04-concepts-04-payload&itemtype=doc.file&itemname=Payload) for the full variable reference and resolution order.
 
-> **Tip:** generate a payload with AI — go to **AI > Payload**, pick the operator, and describe what the task should do; the AI produces a compatible payload with placeholders to fill in.
+> **Tip:** generate a payload with AI — go to **AI > Payload**, pick the operator, and describe what the task should do; the AI produces a compatible payload with placeholders to fill in. (You can also ask the Service AI / an MCP client directly.)
+
+## Recommended: keep payloads and tasks in Git
+
+For anything beyond a quick experiment, store your task `.py` files in a Git repo and import them with the **`LeastActionGitToTask`** action (or just ask the AI to run it). It clones the repo, scans a folder, and **creates or updates** the matching catalog tasks — variables: `git_repo_url`, `git_branch`, `folder_path`, `workflow_folder_laui` (auth via a `git_username` + `git_token` connection).
+
+Why this is the recommended path:
+
+- **Fast recovery / reproducibility** — your tasks are version-controlled; re-import to rebuild a workflow exactly.
+- **A/B testing & parallel parameter runs** — keep payload/parameter variants as separate task files (or partitions) and import them side by side to compare runs.
+- **Review & CI/CD** — payload changes go through pull requests like any other code.
+
+Full setup: [Git to Task](/path?laui=getting-started-08-cicd-01-git-to-task&itemtype=doc.file&itemname=Git%20To%20Task).
 
 ## Next
 

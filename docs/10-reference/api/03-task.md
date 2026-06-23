@@ -268,14 +268,14 @@ The `parameters` sub-key has special merge semantics controlled by `overridable`
   ],
   "config": {
     "parameters": {
-      "schema": "analytics",
-      "table": "daily_summary"
+      "schema": "public",
+      "table": "people"
     }
   }
 }
 ```
 
-In this example, if config `ca20` defines `{"parameters": {"schema": "raw"}}` and the inline config defines `{"parameters": {"schema": "analytics"}}`, the inline config wins because it has higher precedence.
+In this example, if config `ca20` defines `{"parameters": {"schema": "staging"}}` and the inline config defines `{"parameters": {"schema": "public"}}`, the inline config wins because it has higher precedence.
 
 ### Variation 7: Task with Retry Configuration
 

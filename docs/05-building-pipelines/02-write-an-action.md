@@ -234,12 +234,11 @@ The connection object contains credentials and configuration needed to connect t
 **3. Database**:
 ```json
 {
-  "host": "db.example.com",
+  "host": "postgres-demo",
   "port": 5432,
-  "database": "mydb",
-  "username": "dbuser",
-  "password": "dbpassword",
-  "ssl_enabled": true,
+  "database": "postgres_demo_db",
+  "user": "postgres",
+  "password": "postgres",
   "completed": true
 }
 ```

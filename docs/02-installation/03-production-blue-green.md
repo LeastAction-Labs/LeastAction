@@ -1,5 +1,7 @@
 # Production Deploys (Blue-Green)
 
+This is the **production / self-hosting** install path. For local development & testing use [Docker Compose](/path?laui=getting-started-02-installation-01-docker-compose&itemtype=doc.file&itemname=Docker%20Compose) instead.
+
 `blue-green-run.sh` (repo root) installs and redeploys LeastAction on a single machine with Docker, **zero downtime**. The app runs in one of two slots (`blue` / `green`); each deploy brings the inactive slot up next to the active one, switches traffic only after the new backend is verified healthy, and drains the old slot's in-flight work before removing it. If the new slot fails to come up, the active one keeps serving.
 
 > The canonical, always-current reference is [`deploy/README.md`](../../deploy/README.md) in the repo. This page summarizes it.
@@ -7,10 +9,14 @@
 ## Commands
 
 ```bash
+chmod +x blue-green-run.sh             # one-time (or run `bash blue-green-run.sh ...`)
+
 ./blue-green-run.sh --fresh            # first install (data volumes kept)
 ./blue-green-run.sh                     # redeploy, zero downtime (swap blue <-> green)
 ./blue-green-run.sh --build             # build images from local source
 ```
+
+> The script ships without the execute bit — run `chmod +x blue-green-run.sh` once (or prefix with `bash`), otherwise you'll see `permission denied`.
 
 | Flag | Effect |
 |---|---|

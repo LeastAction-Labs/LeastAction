@@ -160,7 +160,7 @@ To use a catalog payload, reference its laui in the task's `payload_laui` field 
 
 ## **Best Practices**
 
-**Store payloads in Git.** Inline payloads in the UI work, but Git-stored payloads give you version history, review, and the ability to redeploy quickly.
+**Store payloads in Git.** Inline payloads in the UI work, but Git-stored task files give you version history, review, and fast redeploy. Import them with the **`LeastActionGitToTask`** action (or ask the AI), which creates/updates the catalog tasks from a repo folder — this is also the easiest way to run A/B or parallel-parameter variants side by side and to recover a workflow exactly. See [Git to Task](/path?laui=getting-started-08-cicd-01-git-to-task&itemtype=doc.file&itemname=Git%20To%20Task).
 
 **Use config parameters for environment differences.** Instead of separate payloads for dev and prod, use a single parameterized payload with `{{environment}}`, `{{s3_bucket}}`, etc., resolved from config at runtime.
 

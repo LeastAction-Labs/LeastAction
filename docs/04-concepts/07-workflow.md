@@ -355,14 +355,14 @@ connection_operator_mapping:
 
 ```json
 {
-  "operator": "operator.postgres",
+  "operator": "operator.postgresql",
   "connection": "lambda-prod"
 }
 ```
 
-This fails because `connection.AWSIAMRole` doesn't map to `operator.postgres` in `system.yml`. The API returns a clear validation error directly to the UI, for example:
+This fails because `connection.AWSIAMRole` doesn't map to `operator.postgresql` in `system.yml`. The API returns a clear validation error directly to the UI, for example:
 
-> *"Invalid connection-operator mapping: AWSIAMRole does not support postgres. Allowed: AWSIAMRole"*
+> *"Invalid connection-operator mapping: AWSIAMRole does not support postgresql. Allowed: AWSIAMRole"*
 
 Or if the connection type has no mapping at all:
 
@@ -849,7 +849,7 @@ Task control actions manage task execution metadata and state. These are typical
       {
         "action": "LeastActionUpdateConnectionUtilization",
         "interval": 300,
-        "connection": "postgres-prod",
+        "connection": "postgresql",
         "variables": {
           "metric": "cpu_utilization"
         }

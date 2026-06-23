@@ -21,7 +21,7 @@ To use AI-powered operators and actions (e.g. an action that calls Claude to gen
 **Example — Anthropic Claude AI chat:**
 ```json
 {
-  "api_key": "${AWS_SECRET_MANAGER:claude-api-key}",
+  "api_key": "<your-anthropic-api-key>",
   "model": "claude-haiku-4-5-20251001",
   "token_limit": 10000
 }
@@ -30,7 +30,7 @@ To use AI-powered operators and actions (e.g. an action that calls Claude to gen
 **Example — OpenAI AI chat:**
 ```json
 {
-  "api_key": "${AWS_SECRET_MANAGER:openai-api-key}",
+  "api_key": "<your-openai-api-key>",
   "model": "gpt-4o",
   "max_tokens": 4096
 }
@@ -39,12 +39,12 @@ To use AI-powered operators and actions (e.g. an action that calls Claude to gen
 **Example — Gemini AI chat:**
 ```json
 {
-  "api_key": "${AWS_SECRET_MANAGER:gemini-api-key}",
+  "api_key": "<your-gemini-api-key>",
   "model": "gemini-1.5-pro"
 }
 ```
 
-Store credentials using secret references (`${AWS_SECRET_MANAGER:secret-name}`) — never plain text. Once the AI chat is saved, any operator or action you generate can reference it.
+The `api_key` is stored on the connection and read by the chat as-is (placeholders are not expanded). Keep it out of source control and protect the connection with catalog permissions. The platform's own LLM key can instead come from the environment / AWS Secrets Manager (`USE_AWS_SECRETS`) — see [Configuration](/path?laui=getting-started-02-installation-02-configuration&itemtype=doc.file&itemname=Configuration). Once the AI chat is saved, any operator or action you generate can reference it.
 
 ---
 
@@ -93,7 +93,7 @@ See [Action Guide](/path?laui=getting-started-04-concepts-06-action&itemtype=doc
 
 Navigate to `AI > Payload`, select an operator, and describe what the task should do. The generator reads the operator's expected payload format and produces a compatible payload with placeholders for values you need to fill in.
 
-**Example:** Select `PostgresqlExecuteSQL`, describe *"insert today's sales summary into the reports table"* — the AI generates the SQL with `{{ds}}` for the date.
+**Example:** Select `PostgresqlExecuteSQL`, describe *"insert today's rows into the `people` table"* — the AI generates the SQL with `{{logical_date}}` for the date.
 
 Payloads can be any format the operator expects: JSON, SQL, Python, plain string. See [Payload Guide](/path?laui=getting-started-04-concepts-04-payload&itemtype=doc.file&itemname=Payload).
 

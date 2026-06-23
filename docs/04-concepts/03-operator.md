@@ -758,8 +758,8 @@ pip install boto3
 
 ### Example 2: PostgreSQL Query Operator
 
-**Type**: `operator.postgres`
-**Compatible Connections**: `connection.postgres`
+**Type**: `operator.postgresql`
+**Compatible Connections**: `connection.postgresql`
 **Use Cases**: SQL query execution, data extraction
 
 **Complete Code:**
@@ -782,9 +782,8 @@ def initialize(least_action_task_object):
             host=connection.get('host'),
             port=connection.get('port', 5432),
             database=connection.get('database'),
-            user=connection.get('username'),
+            user=connection.get('user'),
             password=connection.get('password'),
-            sslmode=connection.get('ssl_mode', 'require')
         )
 
         log_info("task", "initialize", "connection_verified",

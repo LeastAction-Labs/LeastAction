@@ -559,11 +559,11 @@ The connection object works the same way in operators as in actions.
 **Database:**
 ```json
 {
-  "host": "db.example.com",
+  "host": "postgres-demo",
   "port": 5432,
-  "database": "mydb",
-  "username": "dbuser",
-  "password": "dbpassword"
+  "database": "postgres_demo_db",
+  "user": "postgres",
+  "password": "postgres"
 }
 ```
 

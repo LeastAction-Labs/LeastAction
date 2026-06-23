@@ -176,10 +176,9 @@ The `folder_path` variable tells the action where to look inside your repo. All 
 ```
 my-repo/
 └── tasks/                    ← set folder_path = "tasks"
-    ├── extract_sales.sql
-    ├── transform_revenue.py
-    ├── load_to_warehouse.sql
-    └── daily_summary.yaml
+    ├── 00_create_table.sql
+    ├── 01_insert_rows.sql
+    └── 02_update_rows.sql
 ```
 
 ---

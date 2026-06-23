@@ -7,28 +7,30 @@ Install LeastAction and run your first task in a few minutes. For a deeper, manu
 From the repo root:
 
 ```bash
-# First install (zero-downtime blue/green stack: backend, workers, frontend, infra)
-./blue-green-run.sh --fresh
-
-# Developers: build images from local source instead of pulling
-./blue-green-run.sh --fresh --build
+# Development & testing — Docker Compose
+docker compose up -d --build   # first time / after pulling new source
+docker compose up -d           # subsequent starts
 ```
 
-The app comes up at **<http://localhost:8080>** — default login `admin@example.com` / `admin123` (override via `deploy/.env`). The first run also loads the **bootstrap catalog** (sample operators, connections, configs, skills, and usecases) so there's something to run immediately.
+> This is the **development & testing** path. For production/self-hosting use the zero-downtime blue-green deploy — see [Production (Blue-Green)](/path?laui=getting-started-02-installation-03-production-blue-green&itemtype=doc.file&itemname=Production%20Blue%20Green).
+
+The app comes up at **<http://localhost:8080>** — default login `admin@example.com` (or username `admin123`) / password `admin123` (override via `deploy/.env`). The install bundles a **dbt** runner and a **`postgres-demo`** database, and loads the **bootstrap catalog** (sample operators, connections, configs, skills, and usecases).
 
 > Details, flags, configuration, and how the blue/green deploy works: [Installation](/path?laui=getting-started-02-installation-01-docker-compose&itemtype=doc.file&itemname=Docker%20Compose) and [Production (Blue-Green)](/path?laui=getting-started-02-installation-03-production-blue-green&itemtype=doc.file&itemname=Production%20Blue%20Green).
 
-## 2. Run your first task — the fast path
+## 2. Run your first task
 
-The bootstrap ships a minimal pipeline (`postgresql-demo-foundations`: create table → insert → update) wired to the included `postgres-demo` database. Two ways to run it:
+**You don't have to build anything for the first run.** A fresh install **pre-creates** a Postgres demo workflow — three dependent tasks (create table → insert rows → update rows) on the included `postgres-demo` database, scheduled every 3 minutes. They **start running on their own within ~3 minutes** of setup and run for about 30 minutes.
 
-**A — Deploy a usecase with the AI (recommended).** Open the AI chat (or connect via MCP) and say:
+- **Watch it run** — open the workflow folder in the UI and you'll see the three tasks move through their states (the insert/update wait on their parent via a dependency action).
+- **Trigger it now** — don't want to wait? Open a task and click **Run** to fire it immediately.
+- **Re-enable later** — after the ~30-minute window (or anytime), use the **Schedule** action (`LeastActionSchedule`) on a task to (re)start its schedule.
+
+**Want to deploy a pipeline yourself?** Do it through the AI instead of building by hand — open the AI chat (or connect via MCP) and say:
 
 > "deploy usecase postgresql-demo-foundations, then run it and check the status"
 
-The agent creates the three tasks, runs them in order, and reports state + logs.
-
-**B — From the UI.** Browse to the workflow folder → **Create Task** → pick the `PostgresqlExecuteSQL` operator and the `postgresql` connection → paste a SQL payload → **Create**, then **Run**.
+The agent creates the tasks, runs them in order, and reports state + logs. This is the recommended way to stand up new pipelines (see the [Tutorial](/path?laui=getting-started-03-tutorial-01-create-a-connection&itemtype=doc.file&itemname=Create%20A%20Connection) for the manual UI path).
 
 ## 3. Verify the data
 

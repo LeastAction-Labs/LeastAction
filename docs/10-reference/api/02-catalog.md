@@ -200,15 +200,14 @@ The `name` field must match regex `^[a-zA-Z0-9_\-]+\.action$`.
 ```json
 {
   "item_type": "connection",
-  "name": "Production Postgres",
-  "description": "Read-only connection to production database",
+  "name": "postgresql",
+  "description": "Connection to the bundled postgres-demo database",
   "parent_laui": "60d5ec49f1b2c72b8c9a1e06",
   "content": {
-    "host": "db.example.com",
+    "host": "postgres-demo",
     "port": 5432,
-    "database": "analytics",
-    "username": "readonly_user",
-    "ssl": true
+    "database": "postgres_demo_db",
+    "user": "postgres"
   },
   "max_parallelism": 5,
   "sort_dict": {}

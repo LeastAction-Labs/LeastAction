@@ -228,11 +228,11 @@ SELECT COUNT(*) FROM orders WHERE created_at > '2026-05-26 10:00:00';
 **Connection item content example:**
 ```json
 {
-  "host": "db.internal",
+  "host": "postgres-demo",
   "port": 5432,
-  "database": "analytics",
-  "user": "readonly_user",
-  "password": "..."
+  "database": "postgres_demo_db",
+  "user": "postgres",
+  "password": "postgres"
 }
 ```
 
