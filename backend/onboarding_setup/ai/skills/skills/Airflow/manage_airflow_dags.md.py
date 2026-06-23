@@ -58,7 +58,7 @@ LeastAction is the control plane. Airflow is the execution target. This skill br
 - `least_action_task_object.get('connection')` — Airflow credentials: `base_url`, `username`, `password`
 - `least_action_task_object.get('name')` — task name, useful for logging and dag_id derivation
 - LeastAction config parameters (`{{logical_date}}`, `{{dag_id}}`, `{{airflow_pool}}`, etc.) are resolved before the operator runs
-- Parameters doc: LeastAction/frontend/docs/advanced/config.md
+- Parameters doc: LeastAction/docs/04-concepts/05-config.md
 
 ### Reference files if system prompt is not given
 - Action system prompt: LeastAction/config/AI/action.txt
@@ -66,8 +66,8 @@ LeastAction is the control plane. Airflow is the execution target. This skill br
 - Payload system prompt: LeastAction/config/AI/payload.txt
 - Example action (agent pattern): LeastAction/backend/bootstrap/ideas/AggReporting/AggReportingAction/PostgresqlToClaudeChatToHtmlReportToAsset.py
 - GitToTask reference: LeastAction/backend/bootstrap/ideas/done/GitToTask/ — how to fetch from Git inside an action
-- Action config docs: LeastAction/frontend/docs/advanced/action.md
-- Config/parameters docs: LeastAction/frontend/docs/advanced/config.md
+- Action config docs: LeastAction/docs/04-concepts/06-action.md
+- Config/parameters docs: LeastAction/docs/04-concepts/05-config.md
 - Notify pattern: the `leastaction-pipelines-notify` usecase (search_catalog item_type=usecase)
 - Running/control actions: the `leastaction-pipelines-control` usecase — reference for chaining pattern
 

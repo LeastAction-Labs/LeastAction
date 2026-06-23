@@ -16,7 +16,10 @@ const docModules = import.meta.glob('../../../docs/**/*.md', {
 
 // Helper function to convert file path to a readable name
 const pathToName = (path: string): string => {
-  const fileName = path.split('/').pop()?.replace('.md', '') || '';
+  const fileName = (path.split('/').pop()?.replace('.md', '') || '')
+    // Strip a leading ordering prefix like "01-" / "02_" so folders/files
+    // can be numbered for sidebar order while displaying a clean label.
+    .replace(/^\d+[-_]/, '');
   // Convert kebab-case or snake_case to Title Case
   return fileName
     .split(/[-_]/)
@@ -137,7 +140,9 @@ const buildTreeFromPaths = (): CatalogNode => {
 
     if (aIsFolder && !bIsFolder) return -1;
     if (!aIsFolder && bIsFolder) return 1;
-    return a.item.name.localeCompare(b.item.name);
+    // Sort by laui (keeps the numeric NN- ordering prefix) so the sidebar
+    // follows the learning journey even though display names hide the number.
+    return a.item.laui.localeCompare(b.item.laui);
   });
 
   return {

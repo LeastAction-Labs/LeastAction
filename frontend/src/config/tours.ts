@@ -102,7 +102,7 @@ export const DOC_LINKS: DocLink[] = [
     quickLinkAction: 'navigate',
   },
   {
-    laui: 'getting-started-advanced-AI_managment-app',
+    laui: 'getting-started-06-ai-01-overview',
     itemName: 'AI App',
     label: 'AI App Guide',
     description: 'Full Claude Code + MCP setup, tool reference, and skills.',
@@ -246,7 +246,7 @@ export const TOURS: Record<string, TourConfig> = {
         id: 'mcp',
         title: 'MCP & Claude Code',
         description: 'Wire Claude Code or claude.ai to LeastAction using the MCP server.',
-        docLaui: 'getting-started-advanced-AI_managment-app',
+        docLaui: 'getting-started-06-ai-01-overview',
         docItemName: 'AI App',
       },
     ],
@@ -338,7 +338,7 @@ export const TOURS: Record<string, TourConfig> = {
         title: 'Setup Guide',
         description:
           'Follow the full setup guide to point Claude Code at the LeastAction MCP server and verify the connection.',
-        docLaui: 'getting-started-advanced-AI_managment-mcp',
+        docLaui: 'getting-started-06-ai-05-mcp',
       },
       {
         id: 'view-report',

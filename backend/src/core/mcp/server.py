@@ -183,7 +183,7 @@ def create_mcp_server(orchestrator, proxy: McpProxyManager | None = None) -> Fas
     async def get_doc(path: str, category: str = "docs") -> dict:
         """Read a documentation or AI prompt file by its relative path.
 
-        path: relative path returned by list_docs() (e.g. 'advanced/task_managment/workflow.md')
+        path: relative path returned by list_docs() (e.g. '04-concepts/07-workflow.md')
         category: 'docs' for platform docs, 'ai_prompts' for /config/AI/ files
         """
         if err := _check_tool_access("get_doc"):

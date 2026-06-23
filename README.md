@@ -18,7 +18,7 @@ Airflow, Dagster, and Prefect are excellent at running pipelines. LeastAction ta
 
 Works on the stack you already have, self-hosted, with no migration.
 
-**Honest, detailed comparisons:** [vs Apache Airflow](docs/comparision/airflow.md) · [vs Dagster](docs/comparision/dagster.md) · [vs Prefect](docs/comparision/prefect.md)
+**Honest, detailed comparisons:** [vs Apache Airflow](docs/11-comparisons/airflow.md) · [vs Dagster](docs/11-comparisons/dagster.md) · [vs Prefect](docs/11-comparisons/prefect.md)
 
 ---
 
@@ -52,7 +52,7 @@ describe a pipeline as SKILL or Usecase → AI generates operator + task → run
 
 No terminal switching, no BI tool, no separate database client. The `inspect_data` MCP tool connects directly to any catalog connection (PostgreSQL, MySQL, Athena, Redshift, BigQuery, S3, GCS, Azure Blob) and returns results inline — so the AI can verify what a task wrote, validate row counts, sample loaded data, and self-correct without human intervention at each step.
 
-Admins can restrict which MCP tools each user can access — for example, disabling destructive operations like `delete_item` or `reset_task` for specific users. Managed per-user from **Admin → MCP Access**. See [MCP setup guide](docs/advanced/AI_managment/mcp.md) for details.
+Admins can restrict which MCP tools each user can access — for example, disabling destructive operations like `delete_item` or `reset_task` for specific users. Managed per-user from **Admin → MCP Access**. See [MCP setup guide](docs/06-ai/05-mcp.md) for details.
 
 
 ![Claude Code + MCP](images/MCP-Claude-VSC.png)
@@ -85,7 +85,7 @@ The **Report Explorer** gives business users direct access to reports — organi
 
 Supported types: `html_report` (AI-generated HTML stored in the catalog) plus live embeds for Power BI, Looker Enterprise, Looker Studio, QuickSight, and Tableau. Each live dashboard (except Looker Studio) points to a `connection`; the backend exchanges credentials for a short-lived embed URL so secrets never reach the browser. Looker Studio needs no connection — it renders via the user's Google browser session.
 
-See [Report Explorer — User Guide](docs/AI_explore_intro.md) for the full overview.
+See [Report Explorer — User Guide](docs/06-ai/06-report-explorer.md) for the full overview.
 
 ![Explorer View](images/Explorer-view.png)
 
@@ -159,10 +159,10 @@ failed deploys automatically. See [deploy/README.md](deploy/README.md).
 
 All product documentation lives in [`docs/`](docs/). Start here:
 
-- [Getting Started](docs/task_intro.md) — core concepts, your first task in under 20 minutes
-- [Advanced](docs/advanced/) — connections, operators, actions, config, workflows, CI/CD, monitoring
+- [Getting Started](docs/01-getting-started/02-quickstart.md) — core concepts, your first task in under 20 minutes
+- [Concepts](docs/04-concepts/) — connections, operators, actions, config, workflows, CI/CD, monitoring
 - [Examples](docs/examples/) — real patterns built on LeastAction
-- [Data Inspector](docs/advanced/API_management/12-query.md) — (Experimental Preview) `inspect_data` MCP tool + REST endpoint for read-only queries across any catalog connection; primary use is AI-driven post-task verification; UI at `/query` is a debug surface for engineers
+- [Data Inspector](docs/10-reference/api/12-query.md) — (Experimental Preview) `inspect_data` MCP tool + REST endpoint for read-only queries across any catalog connection; primary use is AI-driven post-task verification; UI at `/query` is a debug surface for engineers
 - [Production deployment](deploy/README.md) — local blue-green zero-downtime deploys via `./blue-green-run.sh`: two-slot (blue/green) swap from Docker Hub images or local source, automatic rollback on failed health, graceful worker draining
 
 ---
