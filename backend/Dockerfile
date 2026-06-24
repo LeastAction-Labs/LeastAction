@@ -71,6 +71,7 @@ RUN uv tool install awslabs.redshift-mcp-server \
     && uv tool install awslabs.billing-cost-management-mcp-server \
     && uv tool install awslabs.aws-documentation-mcp-server \
     && chmod -R a+rX /opt/uv-tools /opt/uv-cache
+    && chown -R celeryuser:celeryuser /opt/uv-cache \
 
 # Copy virtual environment from builder
 COPY --from=builder --chown=celeryuser:celeryuser /backend/.venv /backend/.venv
@@ -90,7 +91,6 @@ RUN mkdir -p /logs && chown celeryuser:celeryuser /logs
 
 # Switch to non-root user
 USER celeryuser
-&& chown -R celeryuser:celeryuser /opt/uv-cache \
 
 # Default command
 CMD ["bash"]
