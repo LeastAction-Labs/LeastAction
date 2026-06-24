@@ -904,13 +904,15 @@ async def get_or_create_badge_attendance_reports_folder(
     asset_folder_laui: str, project_laui: str, account_laui: str
 ) -> str:
     """Create a single asset folder for badge attendance reports."""
-    resp = await create_item({
-        "item_type": "folder.asset",
-        "name": "badge_attendance_reports",
-        "parent_laui": asset_folder_laui,
-        "project_laui": project_laui,
-        "account_laui": account_laui,
-    })
+    resp = await create_item(
+        {
+            "item_type": "folder.asset",
+            "name": "badge_attendance_reports",
+            "parent_laui": asset_folder_laui,
+            "project_laui": project_laui,
+            "account_laui": account_laui,
+        }
+    )
     laui = resp.get("item_laui")
     print(f"[setup] Created badge_attendance_reports folder: {laui}")
     return laui
@@ -955,17 +957,17 @@ async def get_or_create_dbt_badge_attendance_tasks(
                 "    pass_condition: 'missing == 0'\n"
                 "    display: scalar\n"
                 "\n  - name: 'PK — students badge_id unique'\n"
-                "    sql: \"SELECT badge_id, COUNT(*) AS dupes FROM students GROUP BY badge_id HAVING COUNT(*) > 1\"\n"
+                '    sql: "SELECT badge_id, COUNT(*) AS dupes FROM students GROUP BY badge_id HAVING COUNT(*) > 1"\n'
                 "    severity: critical\n"
                 "    pass_condition: 'row_count == 0'\n"
                 "    display: table\n"
                 "\n  - name: 'Volume — students count'\n"
-                "    sql: \"SELECT COUNT(*) AS row_count FROM students\"\n"
+                '    sql: "SELECT COUNT(*) AS row_count FROM students"\n'
                 "    severity: critical\n"
                 "    pass_condition: 'row_count == 20'\n"
                 "    display: scalar\n"
                 "\n  - name: 'Volume — teachers count'\n"
-                "    sql: \"SELECT COUNT(*) AS row_count FROM teachers\"\n"
+                '    sql: "SELECT COUNT(*) AS row_count FROM teachers"\n'
                 "    severity: critical\n"
                 "    pass_condition: 'row_count == 10'\n"
                 "    display: scalar\n"
@@ -1036,17 +1038,17 @@ async def get_or_create_dbt_badge_attendance_tasks(
                 "    pass_condition: 'row_count == 0'\n"
                 "    display: table\n"
                 "\n  - name: 'No orphan badge_ids'\n"
-                "    sql: \"SELECT DISTINCT s.badge_id FROM int_badge_sessions s WHERE s.badge_id NOT IN (SELECT badge_id FROM students UNION SELECT badge_id FROM teachers)\"\n"
+                '    sql: "SELECT DISTINCT s.badge_id FROM int_badge_sessions s WHERE s.badge_id NOT IN (SELECT badge_id FROM students UNION SELECT badge_id FROM teachers)"\n'
                 "    severity: critical\n"
                 "    pass_condition: 'row_count == 0'\n"
                 "    display: table\n"
                 "\n  - name: 'Session hours non-negative'\n"
-                "    sql: \"SELECT COUNT(*) AS negative_count FROM int_badge_sessions WHERE session_hours < 0\"\n"
+                '    sql: "SELECT COUNT(*) AS negative_count FROM int_badge_sessions WHERE session_hours < 0"\n'
                 "    severity: critical\n"
                 "    pass_condition: 'negative_count == 0'\n"
                 "    display: scalar\n"
                 "\n  - name: 'Mart has all 30 people'\n"
-                "    sql: \"SELECT COUNT(*) AS person_count FROM mart_attendance_summary\"\n"
+                '    sql: "SELECT COUNT(*) AS person_count FROM mart_attendance_summary"\n'
                 "    severity: critical\n"
                 "    pass_condition: 'person_count == 30'\n"
                 "    display: scalar\n"
@@ -1061,52 +1063,75 @@ async def get_or_create_dbt_badge_attendance_tasks(
     ]
 
     report_configs = [
-        ("08_report_attendance_overview", "Attendance Overview — Present, Absent & Flags",
-         "mart_attendance_summary", "1=1", "#1A237E", "corporate_navy"),
-        ("09_report_daily_trends", "Daily Attendance Trends — Hours & Sessions",
-         "fct_attendance_daily", "full_date >= CURRENT_DATE - INTERVAL '3 days'", "#1565C0", "corporate_blue"),
-        ("10_report_department_absence", "Department Absence Report",
-         "int_absent_badges", "event_date >= CURRENT_DATE - INTERVAL '3 days'", "#C62828", "alert_red"),
+        (
+            "08_report_attendance_overview",
+            "Attendance Overview — Present, Absent & Flags",
+            "mart_attendance_summary",
+            "1=1",
+            "#1A237E",
+            "corporate_navy",
+        ),
+        (
+            "09_report_daily_trends",
+            "Daily Attendance Trends — Hours & Sessions",
+            "fct_attendance_daily",
+            "full_date >= CURRENT_DATE - INTERVAL '3 days'",
+            "#1565C0",
+            "corporate_blue",
+        ),
+        (
+            "10_report_department_absence",
+            "Department Absence Report",
+            "int_absent_badges",
+            "event_date >= CURRENT_DATE - INTERVAL '3 days'",
+            "#C62828",
+            "alert_red",
+        ),
     ]
 
     import json as _json
+
     for name, title, table, date_filter, header_color, theme in report_configs:
-        payload = _json.dumps({
-            "data": {
-                "report_title": title,
-                "output_table": "badge_attendance_reports",
-                "output_parent_laui": reports_folder_laui,
-                "report_style": {
-                    "theme": theme,
-                    "header_bg_color": header_color,
-                    "header_text_color": "#FFFFFF",
-                    "row_bg_color_even": "#f9f9f9",
-                    "row_bg_color_odd": "#ffffff",
-                    "row_hover_color": "#E3F2FD",
-                    "border_color": "#BBDEFB",
-                    "font_family": "Segoe UI, Arial, sans-serif",
-                },
-                "database": {
-                    "host": "postgres-demo",
-                    "port": 5432,
-                    "database": "postgres_demo_db",
-                    "user": "postgres",
-                    "password": "postgres",
-                },
-                "query": {
-                    "table": table,
-                    "date_filter": date_filter,
-                    "limit": None,
-                },
+        payload = _json.dumps(
+            {
+                "data": {
+                    "report_title": title,
+                    "output_table": "badge_attendance_reports",
+                    "output_parent_laui": reports_folder_laui,
+                    "report_style": {
+                        "theme": theme,
+                        "header_bg_color": header_color,
+                        "header_text_color": "#FFFFFF",
+                        "row_bg_color_even": "#f9f9f9",
+                        "row_bg_color_odd": "#ffffff",
+                        "row_hover_color": "#E3F2FD",
+                        "border_color": "#BBDEFB",
+                        "font_family": "Segoe UI, Arial, sans-serif",
+                    },
+                    "database": {
+                        "host": "postgres-demo",
+                        "port": 5432,
+                        "database": "postgres_demo_db",
+                        "user": "postgres",
+                        "password": "postgres",
+                    },
+                    "query": {
+                        "table": table,
+                        "date_filter": date_filter,
+                        "limit": None,
+                    },
+                }
             }
-        })
-        task_configs.append({
-            "name": name,
-            "operator_laui": report_operator_laui,
-            "connection_laui": pg_connection_laui,
-            "payload": payload,
-            "depends_on": "07_mart_attendance_summary",
-        })
+        )
+        task_configs.append(
+            {
+                "name": name,
+                "operator_laui": report_operator_laui,
+                "connection_laui": pg_connection_laui,
+                "payload": payload,
+                "depends_on": "07_mart_attendance_summary",
+            }
+        )
 
     created = {}
     for cfg in task_configs:
@@ -1291,23 +1316,27 @@ async def setup():
 
     # Create workflow subfolders
     print("\n--- Workflow Subfolders ---")
-    pg_demo_workflow = await create_item({
-        "item_type": "folder.workflow",
-        "name": "postgresql_demo",
-        "parent_laui": folders["workflow"],
-        "project_laui": project_laui,
-        "account_laui": account_laui,
-    })
+    pg_demo_workflow = await create_item(
+        {
+            "item_type": "folder.workflow",
+            "name": "postgresql_demo",
+            "parent_laui": folders["workflow"],
+            "project_laui": project_laui,
+            "account_laui": account_laui,
+        }
+    )
     pg_demo_folder_laui = pg_demo_workflow.get("item_laui")
     print(f"[setup] Created postgresql_demo workflow folder: {pg_demo_folder_laui}")
 
-    dbt_workflow = await create_item({
-        "item_type": "folder.workflow",
-        "name": "dbt_badge_attendance",
-        "parent_laui": folders["workflow"],
-        "project_laui": project_laui,
-        "account_laui": account_laui,
-    })
+    dbt_workflow = await create_item(
+        {
+            "item_type": "folder.workflow",
+            "name": "dbt_badge_attendance",
+            "parent_laui": folders["workflow"],
+            "project_laui": project_laui,
+            "account_laui": account_laui,
+        }
+    )
     dbt_workflow_folder_laui = dbt_workflow.get("item_laui")
     print(f"[setup] Created dbt_badge_attendance workflow folder: {dbt_workflow_folder_laui}")
 
