@@ -70,6 +70,7 @@ RUN uv tool install awslabs.redshift-mcp-server \
     && uv tool install awslabs.cloudwatch-mcp-server \
     && uv tool install awslabs.billing-cost-management-mcp-server \
     && uv tool install awslabs.aws-documentation-mcp-server \
+    && chown -R celeryuser:celeryuser /opt/uv-cache \
     && chmod -R a+rX /opt/uv-tools /opt/uv-cache
 
 # Copy virtual environment from builder
