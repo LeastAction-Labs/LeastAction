@@ -155,12 +155,11 @@ For complex operators, split code across multiple files. **Required constraint: 
 
 ### The Four Required Functions
 
-```
-┌─────────────┐     ┌─────────┐     ┌──────────────────┐     ┌────────┐
-│ initialize  │ --> │   run   │ --> │ check_completion  │ --> │ finish │
-│             │     │         │     │  (polled until   │     │        │
-│ Setup client│     │ Start   │     │   done)          │     │ Cleanup│
-└─────────────┘     └─────────┘     └──────────────────┘     └────────┘
+```mermaid
+flowchart LR
+    A["initialize<br/><small>setup client</small>"] --> B["run<br/><small>start work</small>"]
+    B --> C["check_completion<br/><small>polled until done</small>"]
+    C --> D["finish<br/><small>cleanup</small>"]
 ```
 
 ## The Four Methods

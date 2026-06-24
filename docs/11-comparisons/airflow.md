@@ -56,12 +56,10 @@ Airflow offers DAG-level defaults — retry count, timeout, on_failure_callback.
 
 LeastAction's config system is a hierarchy:
 
-```
-Workflow config
-    ↓ (overridable where allowed)
-Task config
-    ↓ (overridable where allowed)
-Inline task config
+```mermaid
+flowchart TD
+    W[Workflow config] -->|overridable where allowed| T[Task config]
+    T -->|overridable where allowed| I[Inline task config]
 ```
 
 Each level can define parameters, action defaults, retry policies, timeouts, priority, and UI behavior. A workflow owner can lock certain parameters (`not_overridable`) so individual tasks cannot override environment settings, while explicitly permitting others (`overridable`) to be customised per task.

@@ -10,10 +10,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 
 import { Box, Typography } from '@mui/material';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type ExtraProps } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { FONT_FAMILIES, FONT_SIZES } from '@/constants';
+
+import MermaidDiagram from './MermaidDiagram';
 
 interface TocEntry {
   id: string;
@@ -310,6 +312,37 @@ export default function MarkdownRenderer({
     h1: makeHeading(1),
     h2: makeHeading(2),
     h3: makeHeading(3),
+    // A ```mermaid block renders as a diagram (the same source GitHub renders
+    // natively). All other code blocks keep their default styling.
+    code: ({
+      className,
+      children,
+      ...rest
+    }: React.HTMLAttributes<HTMLElement> & { children?: React.ReactNode }) => {
+      if (/\blanguage-mermaid\b/.test(className ?? '')) {
+        const code =
+          typeof children === 'string'
+            ? children
+            : Array.isArray(children)
+              ? children.join('')
+              : '';
+        return <MermaidDiagram chart={code.replace(/\n$/, '')} />;
+      }
+      return (
+        <code className={className} {...rest}>
+          {children}
+        </code>
+      );
+    },
+    // Unwrap the <pre> around a mermaid block so it doesn't inherit the styled
+    // code-block background; everything else renders as a normal <pre>.
+    pre: ({ node, children, ...rest }: React.HTMLAttributes<HTMLPreElement> & ExtraProps) => {
+      const first = node?.children?.[0];
+      const childClass = first && first.type === 'element' ? first.properties?.className : undefined;
+      const isMermaid = Array.isArray(childClass) && childClass.includes('language-mermaid');
+      if (isMermaid) return <>{children}</>;
+      return <pre {...rest}>{children}</pre>;
+    },
     a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {
       const isInternal = href?.startsWith('/path?') || href?.startsWith('/marketplace?');
       if (isInternal) {

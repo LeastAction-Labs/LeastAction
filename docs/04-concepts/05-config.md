@@ -52,9 +52,10 @@ Note: Task-specific configuration that can override workflow config where permit
 
 ## **Configuration Hierarchy**
 
-Workflow Config (workflow.config)
-    ↓ (overrideable where allowed)
-Task Config (task config)
+```mermaid
+flowchart TD
+    W["Workflow Config<br/><small>workflow.config</small>"] -->|overridable where allowed| T["Task Config"]
+```
 
 > **Note**: `system.yml` is an infrastructure config (operator-connection mappings, worker settings, scheduler). It is not part of the user-facing parameter config hierarchy. System parameter config is coming soon.
 >

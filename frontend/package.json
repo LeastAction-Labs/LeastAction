@@ -33,6 +33,7 @@
     "cronstrue": "^3.2.0",
     "dayjs": "^1.11.19",
     "lodash": "^4.17.23",
+    "mermaid": "^11.15.0",
     "react": "^19.0.0",
     "react-cookie": "^8.0.1",
     "react-dom": "^19.0.0",

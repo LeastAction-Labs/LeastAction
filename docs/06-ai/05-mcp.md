@@ -12,15 +12,18 @@ LeastAction exposes an MCP (Model Context Protocol) server over streamable HTTP 
 
 `.mcp.json` is a **local file on each developer's laptop** — not a shared file on the server. Every developer on your team has their own copy with their own personal bearer token pointing at the shared backend. The server authenticates each connection independently and scopes all tool calls to that user's catalog permissions.
 
-```
-Developer A laptop              Developer B laptop
-.mcp.json  ← token A            .mcp.json  ← token B
-      │                                │
-      └──── HTTP ──→  https://something.com/mcp/  ←── HTTP ────┘
-                              │
-                     MCPAuthMiddleware
-                     validates token → resolves user identity
-                     all tools scoped to that user's permissions
+```mermaid
+flowchart TD
+    subgraph A[Developer A laptop]
+      A1[".mcp.json — token A"]
+    end
+    subgraph B[Developer B laptop]
+      B1[".mcp.json — token B"]
+    end
+    A1 -->|HTTPS| M["/mcp/ endpoint"]
+    B1 -->|HTTPS| M
+    M --> MW["MCPAuthMiddleware<br/>validates token → resolves user identity"]
+    MW --> P["All tool calls scoped to<br/>that user's catalog permissions"]
 ```
 
 **`.mcp.json` must never be committed to git** — it contains a personal token. Add it to `.gitignore`:
