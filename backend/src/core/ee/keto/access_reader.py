@@ -448,6 +448,7 @@ class AccessReader:
             )
             for link in true_children_links:
                 user_item_lauis.append(str(link.child_laui))
+            user_item_lauis.append(rt.object)
 
         res = GetAccessRelationsResponse(
             access_relations=[],

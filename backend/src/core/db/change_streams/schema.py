@@ -3,6 +3,7 @@
 # LeastAction Sustainable Use License (see LICENSE.md) or, for files
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
+from enum import Enum
 from typing import Any, Literal
 
 from pydantic import AliasChoices, AliasPath, BaseModel, Field
@@ -49,11 +50,25 @@ class AccessCreate(BaseModel):
     access: AccessState
 
 
+class PayloadType(str, Enum):
+    LINK = "link"
+    ITEM = "item"
+    GROUP = "group"
+    USER = "user"
+
+
+class Action(str, Enum):
+    INSERT = "insert"
+    UPDATE = "update"
+    DELETE = "delete"
+    DROP = "drop"
+
+
 class ItemPayload(BaseModel):
     item_laui: str | None = None
     access_patch: AccessPatch | None = None
-    action: Literal["insert", "update", "delete", "drop"]
-    payload_type: Literal["link", "item", "group"] = "item"
+    action: Action
+    payload_type: PayloadType = PayloadType.ITEM
     session_id: str | None = None
 
 
@@ -61,16 +76,22 @@ class LinkPayload(BaseModel):
     item_laui: str
     parent_laui: str
     true_parent: bool
-    action: Literal["insert", "delete"]
-    payload_type: Literal["link", "item", "group"] = "link"
+    action: Action
+    payload_type: PayloadType = PayloadType.LINK
 
 
 class GroupPayload(BaseModel):
     group_laui: str | None = None
     access_patch: AccessPatch | None = None
-    action: Literal["insert", "update", "delete", "drop"]
-    payload_type: Literal["link", "item", "group"] = "group"
+    action: Action
+    payload_type: PayloadType = PayloadType.GROUP
     session_id: str | None = None
+
+
+class UserPayload(BaseModel):
+    user_laui: str
+    action: Action
+    payload_type: PayloadType = PayloadType.USER
 
 
 class Link(BaseModel):
