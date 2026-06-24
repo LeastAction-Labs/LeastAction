@@ -90,6 +90,7 @@ RUN mkdir -p /logs && chown celeryuser:celeryuser /logs
 
 # Switch to non-root user
 USER celeryuser
+&& chown -R celeryuser:celeryuser /opt/uv-cache \
 
 # Default command
 CMD ["bash"]
