@@ -56,8 +56,8 @@ Payloads support Jinja-style variable replacement: `{{variable_name}}`. Variable
 
 | Variable | Value |
 |----------|-------|
-| `{{ds}}` | Execution date as `YYYY-MM-DD` (wall-clock time at run) |
-| `{{ts}}` | Execution timestamp as ISO string |
+| `{{ds}}` | Logical date as `YYYY-MM-DD` (derived from `logical_date`, not wall-clock) |
+| `{{ts}}` | Logical date as ISO timestamp (derived from `logical_date`) |
 
 **Config parameters** — any `parameters` key defined in an attached config:
 

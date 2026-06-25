@@ -4,7 +4,7 @@ Actions run at lifecycle hooks (pre / running / post / UI). Two families: **noti
 
 ## Notify
 
-Attach a notification action at any hook. `LeastActionSlackNotify` ships built-in (configure a Slack webhook in a connection); email is `LeastActionSMTPEmail`; any other target (SNS, Teams, PagerDuty, HTTP) is a small custom action. Message strings template from task context (`{{task_name}}`, `{{logical_date}}`, `{{state}}`, `{{partition}}`, …). Common uses: failure alerts (`run_on_states: ["failed"]`), approval-needed pings, SLA breaches, pipeline-complete digests.
+Attach a notification action at any hook. `LeastActionWebhookNotify` ships built-in (configure a Slack webhook in a connection); email is `LeastActionSMTPEmail`; any other target (SNS, Teams, PagerDuty, HTTP) is a small custom action. Message strings template from task context (`{{task_name}}`, `{{logical_date}}`, `{{state}}`, `{{partition}}`, …). Common uses: failure alerts (`run_on_states: ["failed"]`), approval-needed pings, SLA breaches, pipeline-complete digests.
 
 → Worked example: the **`leastaction-pipelines-notify`** usecase.
 
@@ -12,7 +12,7 @@ Attach a notification action at any hook. `LeastActionSlackNotify` ships built-i
 
 Built-in control actions compose at a hook to observe state, decide, and act:
 
-`LeastActionRun` · `LeastActionRerun` · `LeastActionRerunSubtree` · `LeastActionCancel` · `LeastActionSkip` · `LeastActionSkipSubtree`
+`LeastActionRunTask` · `LeastActionRerun` · `LeastActionRerunSubtree` · `LeastActionCancelTask` · `LeastActionSkip` · `LeastActionSkipSubtree`
 
 Patterns: SLA watchdog (cancel stuck tasks), auto-retry with attempt cap, start-child-on-success (event-driven sub-pipelines), data-quality enforce (skip the subtree on bad output), partition triage from the UI, staged escalation.
 

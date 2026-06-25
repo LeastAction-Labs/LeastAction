@@ -37,39 +37,39 @@ Tasks execute payload code by using the operator's logic and the connection's co
 ```
 ▼ 📁 Account (type=folder.account, is_root=true)
    📋 Metadata: Organization-level settings, users
-   
+
   ▼ 📁 Project (type=folder.project)
      📋 Metadata: Project-level permissions, settings, Cron status
-    
+
     ▶ 🔌 Connections/ (type=connection.*)
       • lambda-prod.AWSIAMRole
-    
+
     ▶ ⚙️ Configs/ (type=config.*)
       • lambdaDefaults.config (default workflow settings)
-    
+
     ▶ 🔧 Operators/ (type=operator.*)
       • AWSLambdaInvokeFunction.AWSIAMRole
-    
+
     ▶ 🎬 Actions/ (type=action.*)
       • AWSCheckS3FileExists
       • LeastActionCancelTask
       • LeastActionCheckIfParentsAreDone
-    
+
     ▶ 📝 Payloads/ (type=payload.*)
       • payload.python (transform_script.py)
-    
+
     ▶ 📊 Monitoring/ (type=monitor.*)
-    
+
     ▼ 📂 Workflow/ (type=folder.workflow)
        🔗 Link: configs=[lambdaDefaults.config]
                taskActions: [LeastActionCancelTask]
-      
+
       ▼ 📄 Task 1: extract_sales_data (type=task)
          🔧 Operator: AWSLambdaInvokeFunction (using: operator_laui)
          🔌 Connection: lambda-prod (using: connection_laui)
          ⚙️ Configs:
           • Inherited from: workflow.config (using: config_laui)
-          • Defined in Task Form : { parameters:[""] } 
+          • Defined in Task Form : { parameters:[""] }
          📝 Payload: transform_script.py (config parameters applied)
          🎬 Actions: (lifecycle hooks)
              preAction:
@@ -147,7 +147,7 @@ So for example:
 6. **Queue in Redis**: Task enters `queued_in_redis` state when system resources are available
 7. **Celery Execution**: Task picked up by Celery worker and enters `running` state
 8. **Complete**: Task transitions to `success`, `error`, or `timeout` state
-9. **Manual Cancellation**: User can cancel via the task control actions (e.g. LeastActionCancel) or the UI cancel button at any point, moving task to `cancelled` state
+9. **Manual Cancellation**: User can cancel via the task control actions (e.g. LeastActionCancelTask) or the UI cancel button at any point, moving task to `cancelled` state
 
 ### Backdated Schedule
 
@@ -214,17 +214,17 @@ Tasks progress through well-defined states during their lifecycle:
 ### State Flow
 
 ```
-scheduled   
-↓  
-queued_for_connection (system_lastupdated_date set)  
-↓  
-queued_in_redis (system_lastupdated_date updated)  
-↓  
-running (last_run_date = current_time)  
-↓  
-├─→ success (system_last_updated_date set)  
-├─→ error (system_last_updated_date set) → retry logic  
-├─→ timeout (system_last_updated_date set) → retry logic  
+scheduled
+↓
+queued_for_connection (system_lastupdated_date set)
+↓
+queued_in_redis (system_lastupdated_date updated)
+↓
+running (last_run_date = current_time)
+↓
+├─→ success (system_last_updated_date set)
+├─→ error (system_last_updated_date set) → retry logic
+├─→ timeout (system_last_updated_date set) → retry logic
 └─→ cancelled (via API, system_last_updated_date set)
 ```
 
@@ -482,7 +482,7 @@ Task action can be used to dynamically generate tasks from config, and a AI can 
       ],
       "postAction": [
         {
-          "action": "LeastActionSlackWebhook",
+          "action": "LeastActionWebhookNotify",
           "connection": "slack-alerts",
           "variables": {
             "message": "Task {{task_id}} completed"
@@ -492,7 +492,7 @@ Task action can be used to dynamically generate tasks from config, and a AI can 
     },
     "taskControlActions": [
       {
-        "action": "LeastActionCancel",
+        "action": "LeastActionCancelTask",
         "variables": {
           "taskStatus": ["running", "scheduled"]
         }
@@ -553,10 +553,10 @@ Task control actions are lifecycle control actions that can be added to workflow
 
 **Available Task Control Actions:**
 
-- **LeastActionRun** - Start task execution
+- **LeastActionRunTask** - Start task execution
 - **LeastActionRerun** - Re-execute a task
 - **LeastActionRerunSubtree** - Re-execute task and all children
-- **LeastActionCancel** - Stop a running task
+- **LeastActionCancelTask** - Stop a running task
 - **LeastActionSkip** - Mark task as skipped
 - **LeastActionSkipSubtree** - Skip task and all children
 - **LeastActionSkipPostDoneS3** - Skip and write completion marker
@@ -733,7 +733,7 @@ Task control actions manage task execution metadata and state. These are typical
   "actions": {
     "taskControlActions": [
       {
-        "action": "LeastActionCancel",
+        "action": "LeastActionCancelTask",
         "variables": {
           "taskStatus": ["running", "scheduled"]
         }
@@ -781,7 +781,7 @@ Task control actions manage task execution metadata and state. These are typical
 {
   "taskControlActions": [
     {
-      "action": "LeastActionCancel",
+      "action": "LeastActionCancelTask",
       "variables": {
         "taskStatus": ["running", "scheduled", "queued_for_connection", "queued_in_redis"]
       }
@@ -866,7 +866,7 @@ Task control actions manage task execution metadata and state. These are typical
   "actions": {
     "runningAction": [
       {
-        "action": "LeastActionSlackWebhook",
+        "action": "LeastActionWebhookNotify",
         "sla": 1800,
         "connection": "slack-alerts",
         "variables": {
@@ -914,7 +914,7 @@ Task control actions can be added to a workflow in two ways:
   "defaults": {
     "taskControlActions": [
       {
-        "action": "LeastActionCancel",
+        "action": "LeastActionCancelTask",
         "variables": {
           "taskStatus": ["running", "scheduled"]
         }
@@ -938,13 +938,9 @@ All tasks in this workflow inherit these control actions, making them available 
 
 | Action | Description | Common Status Filters | Connection Required |
 |--------|-------------|----------------------|---------------------|
-| **LeastActionRun** | Start task execution | scheduled, waiting | No |
-| **LeastActionRerun** | Re-execute a task | error, failed, canceled, timeout | No |
-| **LeastActionRerunSubtree** | Re-execute task and all children | error, failed | No |
-| **LeastActionCancel** | Stop a running task | running, scheduled, queued_for_connection | No |
-| **LeastActionSkip** | Mark task as skipped | scheduled, waiting | No |
-| **LeastActionSkipSubtree** | Skip task and all children | scheduled, waiting | No |
-| **LeastActionSkipPostDoneS3** | Skip and write S3 completion marker | scheduled, waiting | Yes (S3) |
+| **LeastActionRunTask** | Start task execution | scheduled, waiting | No |
+| **LeastActionCancelTask** | Stop a running task | running, scheduled, queued_for_connection | No |
+
 
 ### Advanced Task Control Patterns
 
@@ -1007,13 +1003,13 @@ This pattern provides:
 {
   "taskControlActions": [
     {
-      "action": "LeastActionRun",
+      "action": "LeastActionRunTask",
       "variables": {
         "taskStatus": ["scheduled"]
       }
     },
     {
-      "action": "LeastActionCancel",
+      "action": "LeastActionCancelTask",
       "variables": {
         "taskStatus": ["running", "scheduled", "queued_for_connection", "queued_in_redis"]
       }
@@ -1223,7 +1219,7 @@ sales_etl_pipeline/
     ],
     "runningAction": [
       {
-        "action": "LeastActionSlackWebhook",
+        "action": "LeastActionWebhookNotify",
         "sla": 3600,
         "connection": "slack-alerts",
         "variables": {
@@ -1265,7 +1261,7 @@ sales_etl_pipeline/
     ],
     "postAction": [
       {
-        "action": "LeastActionSlackWebhook",
+        "action": "LeastActionWebhookNotify",
         "connection": "slack-alerts",
         "variables": {
           "message": "Sales ETL completed successfully for {{ds}}"

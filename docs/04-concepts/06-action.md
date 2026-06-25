@@ -40,13 +40,8 @@ Task Control Actions manage task execution metadata and state. These are typical
 
 **Available Control Actions:**
 
-* **LeastActionRun** \- Start task execution
-* **LeastActionRerun** \- Re-execute a task
-* **LeastActionRerunSubtree** \- Re-execute task and all children
-* **LeastActionCancel** \- Stop a running task
-* **LeastActionSkip** \- Mark task as skipped
-* **LeastActionSkipSubtree** \- Skip task and all children
-* **LeastActionSkipPostDoneS3** \- Skip and write completion marker
+* **LeastActionRunTask** \- Start task execution
+* **LeastActionCancelTask** \- Stop a running task
 
 **Characteristics:**
 
@@ -70,12 +65,9 @@ Task Lifecycle Actions are automatically invoked at specific points during a tas
 
 **Common Lifecycle Actions:**
 
-* **LeastActionLinkParents** (CreateAction) \- Connect parent dependencies
-* **LeastActionAutoLinkParents** (CreateAction) \- Parse SQL to auto-detect dependencies
 * **LeastActionCheckIfParentsAreDone** (PreAction) \- Validate parent completion
-* **LeastActionGitSync** (PreAction) \- Sync code from Git
-* **LeastActionSlackWebhook** (RunningAction/RunningIntervalAction/PostAction) \- Send notifications
-* **LeastActionFindTasksReadyToRun** \- Identify tasks ready for execution (can be invoked by cron or as PostAction)
+* **LeastActionGitToTask** (PreAction) \- Sync code from Git
+* **LeastActionWebhookNotify** (RunningAction/RunningIntervalAction/PostAction) \- Send notifications
 
 **Characteristics:**
 
@@ -151,7 +143,7 @@ Via Config lets users set defaults and these will be used in any task created in
       ],
       "RunningAction": [
         {
-          "action": "LeastActionSlackWebhook",
+          "action": "LeastActionWebhookNotify",
           "sla": 10,
           "connection": "SlackProd",
           "variables": {
@@ -188,7 +180,7 @@ Via Config lets users set defaults and these will be used in any task created in
     },
     "taskControlActions": [
       {
-        "action": "LeastActionCancel",
+        "action": "LeastActionCancelTask",
         "variables": {
           "taskStatus": ["running", "scheduled"]
         }
@@ -265,7 +257,7 @@ Via Config lets users set defaults and these will be used in any task created in
   ],
   "RunningAction": [
     {
-      "action": "LeastActionSlackWebhook",
+      "action": "LeastActionWebhookNotify",
       "sla": 10,
       "connection": "SlackProd",
       "variables": {
@@ -446,7 +438,7 @@ Monitor task execution time and send alerts:
 {
   "RunningAction": [
     {
-      "action": "LeastActionSlackWebhook",
+      "action": "LeastActionWebhookNotify",
       "sla": 60,
       "connection": "SlackProd",
       "variables": {
@@ -488,7 +480,7 @@ Configure task control actions with status filters for UI:
 {
   "taskControlActions": [
     {
-      "action": "LeastActionCancel",
+      "action": "LeastActionCancelTask",
       "variables": {
         "taskStatus": ["running", "scheduled"]
       }
@@ -545,10 +537,10 @@ Configure task control actions with status filters for UI:
 
 When saving actions via AI:
 
-Actions/LeastAction-labs/LeastAction/\[ActionName\]/  
-\- actionname.py  
-\- actionname.prompt  
-\- actionname.bash (if needed)  
+Actions/LeastAction-labs/LeastAction/\[ActionName\]/
+\- actionname.py
+\- actionname.prompt
+\- actionname.bash (if needed)
 \- actionname.sample.json (sample variables and connections)
 
 ### **Sample AI Prompts**
@@ -557,7 +549,7 @@ Actions/LeastAction-labs/LeastAction/\[ActionName\]/
 
 Generate a Task Control Action to rerun tasks.
 
-API: PUT http://localhost:8000/tasks/update/{task_id}  
+API: PUT http://localhost:8000/tasks/update/{task_id}
 Body: {"last_run_status": "scheduled"}
 
 Action format:
@@ -583,13 +575,13 @@ Logic:
 
 Generate a Task Control Action to cancel running tasks.
 
-API: PUT http://localhost:8000/tasks/update/{task_id}  
+API: PUT http://localhost:8000/tasks/update/{task_id}
 Body: {"status_user_action": "cancel"}
 
 Action format:
 ```json
 {
-  "action": "LeastActionCancel",
+  "action": "LeastActionCancelTask",
   "variables": {
     "task_status": ["running", "scheduled"],
     "task_ids": ["list of task_ids"]
@@ -613,7 +605,7 @@ Connection: SlackWebhook (provides webhook URL)
 Action format:
 ```json
 {
-  "action": "LeastActionSlackWebhook",
+  "action": "LeastActionWebhookNotify",
   "sla": 60,
   "connection": "SlackProd",
   "variables": {
@@ -634,15 +626,8 @@ Logic:
 
 ### **Task Control Actions**
 
-* **LeastActionRun** \- Uses API: sendToExecution, UpdateTask
-* **LeastActionRerun** \- Uses API: sendToExecution, UpdateTask
-* **LeastActionRerunSubtree** \- Uses API: RecursiveListChildren, UpdateTask
-* **LeastActionCancel** \- Uses API: UpdateTask
-* **LeastActionSkip** \- Uses API: UpdateTask
-* **LeastActionSkipSubtree** \- Uses API: RecursiveListChildren, UpdateTask
-* **LeastActionSkipPostDoneS3** \- Uses API: UpdateTask \+ S3 write (requires S3 connection)
-* **LeastActionRunWithoutSensorsCompletion** \- Adds done file
-* **LeastActionRunWithoutParentsCompletion** \- Adds done file
+* **LeastActionRunTask** \- Uses API: sendToExecution, UpdateTask
+* **LeastActionCancelTask** \- Uses API: UpdateTask
 
 ### **Task Lifecycle Actions**
 
@@ -693,7 +678,7 @@ Many actions require connection resources to be configured. Here are common conn
 | Connection Type | Used By | Purpose |
 | ----- | ----- | ----- |
 | Git (GitHub/GitLab) | LeastActionGitSync, LeastActionGitSyncPayload | Repository sync |
-| Slack | LeastActionSlackWebhook | Notifications |
+| Slack | LeastActionWebhookNotify | Notifications |
 | AWS S3 | LeastActionPostDoneS3, LeastActionCheckForS3, LeastActionSkipPostDoneS3 | File operations |
 | AWS SNS | LeastActionPostDoneSNS | Notifications |
 | AWS EC2 | LeastActionAWSEC2UpdateUtilization | Monitoring |
