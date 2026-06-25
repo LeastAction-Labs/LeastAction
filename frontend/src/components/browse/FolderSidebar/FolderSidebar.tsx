@@ -319,7 +319,7 @@ export default function FolderSidebar() {
                 fontSize: FONT_SIZES.SM,
                 px: 0.75,
                 py: 0.25,
-                borderRadius: '4px',
+                borderRadius: 'var(--radius-sm)',
                 transition: `all ${TRANSITIONS.FAST} ${TRANSITIONS.EASE}`,
                 '&:hover': {
                   color: 'var(--text-primary)',

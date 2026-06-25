@@ -61,7 +61,7 @@ const styles = {
   selectedItemBox: {
     bgcolor: 'var(--bg-secondary)',
     border: '1px solid var(--border)',
-    borderRadius: '4px',
+    borderRadius: 'var(--radius-sm)',
     p: 2,
     mb: 2,
   },

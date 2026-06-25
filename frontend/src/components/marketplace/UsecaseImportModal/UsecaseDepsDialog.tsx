@@ -288,7 +288,7 @@ export default function UsecaseDepsDialog({
               fontWeight: 600,
               bgcolor: chipColor,
               color: '#fff',
-              borderRadius: '4px',
+              borderRadius: 'var(--radius-sm)',
             }}
           />
           <Typography sx={{ fontSize: '11px', color: 'var(--text-primary)', flex: 1 }}>

@@ -83,7 +83,7 @@ const styles = {
     },
     '&::-webkit-scrollbar-thumb': {
       bgcolor: 'rgba(255, 255, 255, 0.15)',
-      borderRadius: '4px',
+      borderRadius: 'var(--radius-sm)',
       '&:hover': {
         bgcolor: 'rgba(255, 255, 255, 0.25)',
       },

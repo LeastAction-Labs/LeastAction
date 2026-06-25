@@ -1510,7 +1510,7 @@ export default function RunTaskModal() {
                     mt: 2,
                     p: 2,
                     border: '1px solid var(--border)',
-                    borderRadius: '8px',
+                    borderRadius: 'var(--radius-md)',
                     bgcolor: 'var(--bg-secondary)',
                   }}
                 >
@@ -1767,7 +1767,7 @@ export default function RunTaskModal() {
                   sx={{
                     p: 2,
                     border: '1px solid var(--border)',
-                    borderRadius: '8px',
+                    borderRadius: 'var(--radius-md)',
                     bgcolor: 'var(--bg-secondary)',
                   }}
                 >
@@ -1870,7 +1870,7 @@ export default function RunTaskModal() {
                         p: 1.5,
                         mb: 1.5,
                         bgcolor: 'var(--bg-tertiary)',
-                        borderRadius: '6px',
+                        borderRadius: 'var(--radius-md)',
                         borderLeft: '3px solid var(--accent)',
                       }}
                     >
@@ -1966,7 +1966,7 @@ export default function RunTaskModal() {
                           key={index}
                           sx={{
                             bgcolor: 'var(--bg-tertiary)',
-                            borderRadius: '6px',
+                            borderRadius: 'var(--radius-md)',
                             border: '1px solid var(--border)',
                             overflow: 'hidden',
                           }}
@@ -2136,7 +2136,7 @@ export default function RunTaskModal() {
                     mt: 2,
                     p: 2,
                     border: '1px solid var(--border)',
-                    borderRadius: '8px',
+                    borderRadius: 'var(--radius-md)',
                     bgcolor: 'var(--bg-secondary)',
                   }}
                 >
@@ -2196,7 +2196,7 @@ export default function RunTaskModal() {
                                 bgcolor: 'var(--bg-primary)',
                                 px: 0.75,
                                 py: 0.25,
-                                borderRadius: '4px',
+                                borderRadius: 'var(--radius-sm)',
                               }}
                             >
                               {opt.value}

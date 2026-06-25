@@ -1003,7 +1003,7 @@ const PhysicsAvatarIcon: React.FC<PhysicsAvatarIconProps> = ({ size = 50, classN
                 padding: '8px 12px',
                 backgroundColor: 'var(--bg-tertiary)',
                 color: 'var(--text-primary)',
-                borderRadius: '6px',
+                borderRadius: 'var(--radius-md)',
                 fontSize: '14px',
                 whiteSpace: 'nowrap',
                 zIndex: 1000,
@@ -1064,7 +1064,7 @@ const PhysicsAvatarIcon: React.FC<PhysicsAvatarIconProps> = ({ size = 50, classN
           <div
             style={{
               backgroundColor: 'var(--bg-primary)',
-              borderRadius: '12px',
+              borderRadius: 'var(--radius-lg)',
               padding: '24px',
               maxWidth: '800px',
               maxHeight: '80vh',
@@ -1120,7 +1120,7 @@ const PhysicsAvatarIcon: React.FC<PhysicsAvatarIconProps> = ({ size = 50, classN
                       selectedIconName === icon.name
                         ? '3px solid var(--accent)'
                         : '2px solid var(--border)',
-                    borderRadius: '8px',
+                    borderRadius: 'var(--radius-md)',
                     cursor: 'pointer',
                     transition: 'all 0.2s',
                     backgroundColor:

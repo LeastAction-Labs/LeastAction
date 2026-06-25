@@ -265,7 +265,7 @@ export const ModalForm = ({ formValues, setFormValues }: ModalFormProps) => {
                         bgcolor: 'var(--bg-primary)',
                         px: 0.75,
                         py: 0.25,
-                        borderRadius: '4px',
+                        borderRadius: 'var(--radius-sm)',
                       }}
                     >
                       {option}
@@ -291,7 +291,7 @@ export const ModalForm = ({ formValues, setFormValues }: ModalFormProps) => {
                   border: '1px solid var(--border)',
                   color: 'var(--text-primary)',
                   '& .MuiAutocomplete-listbox': { p: 0.5 },
-                  '& .MuiAutocomplete-option': { borderRadius: '4px', mb: 0.25 },
+                  '& .MuiAutocomplete-option': { borderRadius: 'var(--radius-sm)', mb: 0.25 },
                   '& .MuiAutocomplete-noOptions': {
                     color: 'var(--text-secondary)',
                     fontSize: '12px',

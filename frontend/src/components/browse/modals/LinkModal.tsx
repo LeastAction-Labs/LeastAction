@@ -53,7 +53,7 @@ const styles = {
   selectedItemBox: {
     bgcolor: 'var(--bg-secondary)',
     border: '1px solid var(--border)',
-    borderRadius: '4px',
+    borderRadius: 'var(--radius-sm)',
     p: 2,
     mb: 2,
   },
@@ -127,7 +127,7 @@ const styles = {
   },
   suggestionsContainer: {
     border: '1px solid var(--border)',
-    borderRadius: '4px',
+    borderRadius: 'var(--radius-sm)',
     maxHeight: '150px',
     overflowY: 'auto',
     mt: 1,

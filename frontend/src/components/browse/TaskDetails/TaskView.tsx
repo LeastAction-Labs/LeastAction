@@ -1250,7 +1250,7 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                   gap: 0.75,
                   px: 1.125,
                   py: 0.375,
-                  borderRadius: '6px',
+                  borderRadius: 'var(--radius-md)',
                   bgcolor: stateColor ? `${stateColor}18` : 'var(--bg-secondary)',
                   border: '1px solid',
                   borderColor: stateColor || 'var(--border)',
@@ -1304,7 +1304,7 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                       gap: 0.5,
                       px: 1,
                       py: 0.375,
-                      borderRadius: '6px',
+                      borderRadius: 'var(--radius-md)',
                       border: '1px solid',
                       borderColor:
                         schedulerStatus === 'RUNNING'

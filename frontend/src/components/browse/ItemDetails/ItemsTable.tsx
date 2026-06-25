@@ -2251,7 +2251,7 @@ export default function ItemsTable({
                                     height: 18,
                                     px: 0.5,
                                     mr: 0.75,
-                                    borderRadius: '4px',
+                                    borderRadius: 'var(--radius-sm)',
                                     bgcolor: groupStyle?.bar ?? 'var(--text-secondary)',
                                     color: COLORS.ON_ACCENT_DARK,
                                     fontSize: FONT_SIZES.XXS,
@@ -2322,7 +2322,7 @@ export default function ItemsTable({
                                   gap: 0.5,
                                   px: 1,
                                   py: 0.25,
-                                  borderRadius: '999px',
+                                  borderRadius: 'var(--radius-pill)',
                                   bgcolor: pillStyle.bg,
                                   border: `1px solid ${pillStyle.border}`,
                                 }}

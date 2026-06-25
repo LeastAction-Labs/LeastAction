@@ -10,8 +10,11 @@
 // ============================================================================
 export const FONT_FAMILIES = {
   PRIMARY:
-    "'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'",
-  MONOSPACE: "Consolas, Monaco, 'Courier New', monospace",
+    "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+  // Brand / wordmark font — matches marketplace (var(--font-brand))
+  BRAND: "'Space Grotesk', 'Inter', system-ui, sans-serif",
+  // Monospace — matches marketplace (var(--font-mono))
+  MONOSPACE: "'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace",
   INHERIT: 'inherit',
 } as const;
 
