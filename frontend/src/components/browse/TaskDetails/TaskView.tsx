@@ -2188,7 +2188,7 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                   {taskData.last_run_output ? (
                     <Box
                       sx={{
-                        height: 150,
+                        height: 312,
                         borderBottom: 1,
                         borderColor: 'var(--border)',
                       }}
@@ -2207,7 +2207,7 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                   ) : (
                     <Box
                       sx={{
-                        height: 48,
+                        height: 312,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',

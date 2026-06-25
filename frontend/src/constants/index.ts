@@ -9,8 +9,7 @@
 // FONT FAMILIES
 // ============================================================================
 export const FONT_FAMILIES = {
-  PRIMARY:
-    "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+  PRIMARY: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
   // Brand / wordmark font — matches marketplace (var(--font-brand))
   BRAND: "'Space Grotesk', 'Inter', system-ui, sans-serif",
   // Monospace — matches marketplace (var(--font-mono))

@@ -50,11 +50,11 @@ import { useNotification } from '@/contexts/NotificationContext';
 import { useUserCache, useUsers } from '@/contexts/UserCacheContext';
 import { searchCatalogItems } from '@/services';
 import {
-  type UserRecord,
-  getMcpToolGroups,
   type McpToolGroups,
+  type UserRecord,
   getLicenseByLaui,
   getLicenses,
+  getMcpToolGroups,
   listUsers,
   updateLicense,
   updateUserMcpTools,

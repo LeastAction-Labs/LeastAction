@@ -44,7 +44,7 @@ const muiTheme = createTheme({
   },
   typography: {
     fontFamily: FONT_FAMILIES.PRIMARY,
-    fontSize: 13, // shared base with marketplace (zoom 1.1 handles overall scale)
+    fontSize: 13,
   },
   components: {
     MuiTab: {
