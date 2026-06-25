@@ -80,8 +80,7 @@ function logBox(_title: string, _content: string, _isError = false) {
   //console.log(`${color}${bold}╚${border}╝${reset}\n`);
 }
 
-const nonEmptyString = (v: unknown): v is string =>
-  typeof v === 'string' && v.trim() !== '';
+const nonEmptyString = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
 
 // Derive a human-readable message from an error response body. Backend errors
 // come in several shapes and don't reliably carry a top-level `message`:
@@ -165,7 +164,8 @@ export async function httpJson<TResponse>(
       unauthorizedCallback();
     }
     const message = extractErrorMessage(data, res);
-    const errData = data && typeof data === 'object' ? (data as Record<string, unknown>) : undefined;
+    const errData =
+      data && typeof data === 'object' ? (data as Record<string, unknown>) : undefined;
     if (!input.includes('check')) {
       notify.error({ ...errData, message, sessionId: sessionId ?? undefined });
     }
@@ -236,7 +236,8 @@ export async function httpJsonWithSession<TResponse>(
       unauthorizedCallback();
     }
     const message = extractErrorMessage(data, res);
-    const errData = data && typeof data === 'object' ? (data as Record<string, unknown>) : undefined;
+    const errData =
+      data && typeof data === 'object' ? (data as Record<string, unknown>) : undefined;
     notify.error({ ...errData, message, sessionId: sessionId ?? undefined });
     throw new Error(message);
   }
