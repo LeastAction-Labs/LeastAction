@@ -4,6 +4,8 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 import hashlib
+from locale import dcgettext
+from typing import Any
 
 from bson import ObjectId
 from fastapi import Request
@@ -27,7 +29,7 @@ from src.core.admin.api_request import (
 
 from .api_request import CreateUserResponse, SearchUsersRequest, SearchUsersResponse
 from .repo import UserRepository
-from .schema import CreateUser, User
+from .schema import CreateUser, UpdateUser, User
 
 
 class UserService:
@@ -112,7 +114,9 @@ class UserService:
             raise ConflictError("User cannot delete himself")
         await self.user_repo.delete_user(laui)
 
-    async def update_user(self, laui: PydanticObjectId, payload: UpdateUserPayload) -> None:
+    async def update_user(
+        self, laui: PydanticObjectId, payload: UpdateUserPayload
+    ) -> None | dict[str, Any]:
 
         if laui == ObjectId(get_root_user_laui()):
             if not is_root_user():
@@ -121,7 +125,20 @@ class UserService:
         if laui == ObjectId(get_system_user_laui()):
             raise ConflictError("Cannot update system user")
 
-        await self.user_repo.update_user(laui, payload.model_dump(exclude_unset=True))
+        password = None
+
+        update_user = UpdateUser(**payload.model_dump(exclude_unset=True))
+
+        if payload.change_password:
+            password = generate_password()
+            update_user.password = hashlib.sha256(password.encode()).hexdigest()
+            update_user.must_change_password = True
+
+        await self.user_repo.update_user(
+            laui, update_data=update_user.model_dump(exclude_unset=True)
+        )
+
+        return {"password": password} if payload.change_password else None
 
     async def update_users(self, lauis: list[PydanticObjectId], payload: UpdateUserPayload) -> None:
         lauis = [

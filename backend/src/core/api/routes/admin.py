@@ -150,8 +150,13 @@ async def admin_update_user(
                     status_code=400,
                     detail={"message": "Bad Request", "detail": f"Unknown tool names: {unknown}"},
                 )
-        await user_service.update_user(laui=PydanticObjectId(user_id), payload=payload)
-        return {"message": "User config updated"}
+        update_user_data = await user_service.update_user(
+            laui=PydanticObjectId(user_id), payload=payload
+        )
+        response = {"message": "User config updated"}
+        if update_user_data:
+            response.update(update_user_data)
+        return response
     except LAException as e:
         log_error(
             "api_traceback",

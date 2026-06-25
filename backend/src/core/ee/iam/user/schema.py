@@ -20,7 +20,7 @@ class UserType(str, Enum):
 class UserBase(BaseModel):
     username: str = Field(default=None, max_length=30)
     email: EmailStr
-    password: str | None = None
+    password: str | None = Field(default=None, min_length=6)
     must_change_password: bool = False
     is_active: bool = True
     license_laui: PydanticObjectId | None = None
@@ -37,6 +37,17 @@ class CreateUser(UserBase):
 
 class CreateUserInDB(CreateUser):
     created_at: datetime
+
+
+class UpdateUser(BaseModel):
+    password: str | None = None
+    must_change_password: bool | None = None
+    allowed_mcp_tools: list[str] | None = None  # None = restore full access
+    chat_agent_laui: str | None = None
+    chat_connection_laui: str | None = None
+    chat_agent_name: str | None = None
+    is_active: bool | None = None
+    license_laui: PydanticObjectId | None = None
 
 
 class User(CreateUserInDB):
