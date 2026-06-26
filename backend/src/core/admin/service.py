@@ -6,13 +6,12 @@
 from pydantic_mongo import PydanticObjectId
 
 from src.common.exceptions import LicenseError, NotFoundError
+from src.core.admin.api_request import AdminCreateUserRequest, AdminLicenseUpdate, UpdateUserPayload
 from src.core.db.transaction import transactional
 from src.core.ee.iam.user.schema import CreateUser
 from src.core.ee.iam.user.service import UserService
 from src.core.ee.license.schema import UpdateLicense, UserListPatch
 from src.core.ee.license.service import LicenseService
-
-from .api_request import AdminCreateUserRequest, AdminLicenseUpdate, UpdateUserPayload
 
 
 class AdminService:

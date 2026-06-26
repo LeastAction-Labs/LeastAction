@@ -25,7 +25,7 @@ def check_admin() -> str:
     return get_root_user_laui() or ""
 
 
-from .license import license_router
+from src.core.api.routes.license import license_router
 
 admin_router.include_router(license_router, prefix="/license")
 

@@ -3,7 +3,7 @@
 # LeastAction Sustainable Use License (see LICENSE.md) or, for files
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
-from .schema import Permission, Relation
+from src.core.ee.keto.schema import Permission, Relation
 
 permission_relation_map = {
     Permission.VIEW: Relation.VIEWERS,

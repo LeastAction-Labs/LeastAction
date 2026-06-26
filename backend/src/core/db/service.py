@@ -5,7 +5,7 @@
 # Use of this file outside those terms is not permitted.
 from fastapi import Request
 
-from .types import MongoClient, MongoDatabase
+from src.core.db.types import MongoClient, MongoDatabase
 
 
 class MongoDBClient:

@@ -3,5 +3,5 @@
 # LeastAction Sustainable Use License (see LICENSE.md) or, for files
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
-from .service import LogsService as LogsService
-from .service import get_logs_service as get_logs_service
+from src.core.logs_details.service import LogsService as LogsService
+from src.core.logs_details.service import get_logs_service as get_logs_service

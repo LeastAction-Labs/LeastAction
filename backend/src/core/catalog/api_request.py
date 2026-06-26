@@ -21,10 +21,9 @@ from src.core.catalog.item.repo import ItemProjection
 from src.core.catalog.item_directory import ItemDirectoryItemNode
 from src.core.catalog.item_revision.schema import ItemRevision, ItemRevisionProjection
 from src.core.catalog.link.repo import Link
+from src.core.catalog.pagination_constants import pagination_constants
 from src.core.ee.keto.schema import Permission
 from src.core.task.schema import TaskUpdateData
-
-from .pagination_constants import pagination_constants
 
 
 class BaseCreateItemRequest(BaseModel):

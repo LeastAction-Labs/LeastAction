@@ -4,7 +4,6 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 import hashlib
-from locale import dcgettext
 from typing import Any
 
 from bson import ObjectId
@@ -26,10 +25,13 @@ from src.core.admin.api_request import (
     PaginationResponse,
     UpdateUserPayload,
 )
-
-from .api_request import CreateUserResponse, SearchUsersRequest, SearchUsersResponse
-from .repo import UserRepository
-from .schema import CreateUser, UpdateUser, User
+from src.core.ee.iam.user.api_request import (
+    CreateUserResponse,
+    SearchUsersRequest,
+    SearchUsersResponse,
+)
+from src.core.ee.iam.user.repo import UserRepository
+from src.core.ee.iam.user.schema import CreateUser, UpdateUser, User
 
 
 class UserService:

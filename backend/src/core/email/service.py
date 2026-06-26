@@ -10,8 +10,7 @@ from fastapi import Request
 
 from src.common.secrets import get_secret
 from src.common.utils import load_system_config
-
-from .schema import Email
+from src.core.email.schema import Email
 
 
 class EmailService:

@@ -7,13 +7,12 @@ from typing import Literal, Union
 
 from pydantic import BaseModel, model_validator
 
-from src.core.ee.iam.user.schema import User
-
-from .credentials.credentials import (
+from src.core.ee.iam.auth.credentials.credentials import (
     AuthorizationCodeCredentials,
     RefreshTokenCredentials,
     UsernamePasswordCredentials,
 )
+from src.core.ee.iam.user.schema import User
 
 # In future, this will be a Union of all possible request types,
 # will contain credentials for other providers in the future(Google, etc)
