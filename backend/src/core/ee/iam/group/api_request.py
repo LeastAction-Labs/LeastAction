@@ -10,6 +10,15 @@ from pydantic_mongo import PydanticObjectId
 
 from src.core.api.common import PaginationRequest, PaginationResponse
 from src.core.ee.iam.group.schema import GroupProjection
+from src.core.ee.keto.schema import Relation
+
+
+class GetGroupsRequest(PaginationRequest):
+    relation: Relation = Relation.OWNERS
+
+
+class GetGroupsResponse(PaginationResponse):
+    groups: list[GroupProjection]
 
 
 class GetGroupResponse(BaseModel):

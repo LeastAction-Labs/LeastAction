@@ -8,10 +8,12 @@
 import { useEffect, useState } from 'react';
 
 import AddIcon from '@mui/icons-material/Add';
-import { Box, Button, Tab, Tabs, Tooltip, Typography } from '@mui/material';
+import { Box, Button, FormControl, MenuItem, Select, type SelectChangeEvent, Tab, Tabs, Tooltip, Typography } from '@mui/material';
+
+import { useAuth } from '@/contexts/AuthContext';
 
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants';
-import type { Relation } from '../../../services/group.service';
+import type { GroupItem, Relation } from '../../../services/group.service';
 import {
   createGroup,
   getGroup,
@@ -22,7 +24,6 @@ import {
 import type { GroupDetailsData } from './GroupDetails';
 import GroupDetails from './GroupDetails';
 import GroupModal from './GroupModal';
-import type { Group } from './GroupsTable';
 import GroupsTable from './GroupsTable';
 
 const styles = {
@@ -77,6 +78,9 @@ const styles = {
     borderColor: 'var(--border)',
     bgcolor: 'var(--bg-secondary)',
     px: 3,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   tabs: {
     minHeight: 32,
@@ -96,6 +100,26 @@ const styles = {
       height: '2px',
     },
   },
+  perPageContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 1,
+  },
+  perPageLabel: {
+    color: 'var(--text-secondary)',
+    fontSize: FONT_SIZES.XS,
+  },
+  perPageSelect: {
+    height: 28,
+    fontSize: FONT_SIZES.XS,
+    color: 'var(--text-primary)',
+    borderColor: 'var(--border)',
+    '& .MuiSelect-select': {
+      py: 0.5,
+      paddingLeft: 1,
+      paddingRight: '24px !important',
+    },
+  },
   content: {
     flex: 1,
     overflow: 'hidden',
@@ -112,11 +136,22 @@ type TabValue = 0 | 1 | 2;
 
 export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
   const [activeTab, setActiveTab] = useState<TabValue>(0);
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [groups, setGroups] = useState<GroupItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
   const [selectedGroupLaui, setSelectedGroupLaui] = useState<string | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(5);
+  const [hasNext, setHasNext] = useState(false);
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
+  const [pageTokens, setPageTokens] = useState<(string | null)[]>([null]); // Stack for token-based pagination
+
+  const { authState } = useAuth();
+  const { user } = authState;
+  const isRootUser = user?.user_type === 'root';
 
   // Map tab index to relation
   const getRelationForTab = (tab: TabValue): Relation => {
@@ -130,37 +165,62 @@ export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
     }
   };
 
-  // Fetch groups based on active tab
-  useEffect(() => {
-    const fetchGroups = async () => {
-      try {
-        setLoading(true);
-        const relation = getRelationForTab(activeTab);
+  // Fetch groups based on active tab and pagination
+  const fetchGroups = async (page: number = 1, pageToken: string | null = null) => {
+    try {
+      setLoading(true);
+      const relation = getRelationForTab(activeTab);
 
-        const response = await getGroups(relation);
+      // Build request params based on user type
+      const params: any = {
+        relation,
+        per_page: perPage,
+      };
 
-        // Transform the response to Group format
-        // The backend returns { groups: { id, name }[], next_page_token: string }
-        const transformedGroups: Group[] = response.groups.map((group) => ({
-          laui: group.id,
-          name: group.name,
-          members: [], // Will be populated when viewing details
-        }));
-
-        setGroups(transformedGroups);
-      } catch (error) {
-        console.error('Failed to fetch groups:', error);
-        setGroups([]);
-      } finally {
-        setLoading(false);
+      if (isRootUser) {
+        // Root users: page-number based pagination
+        params.page = page;
+      } else {
+        // Non-root users: token-based pagination
+        if (pageToken) {
+          params.page_token = pageToken;
+        }
       }
-    };
 
-    void fetchGroups();
-  }, [activeTab]);
+      const response = await getGroups(params);
+
+      setGroups(response.groups);
+      setHasNext(response.has_next);
+      setNextPageToken(response.next_page_token || null);
+    } catch (error) {
+      console.error('Failed to fetch groups:', error);
+      setGroups([]);
+      setHasNext(false);
+      setNextPageToken(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Reset pagination when tab or perPage changes
+  useEffect(() => {
+    setCurrentPage(1);
+    setPageTokens([null]);
+    setNextPageToken(null);
+    setHasNext(false);
+    void fetchGroups(1, null);
+  }, [activeTab, perPage]);
+
+  useEffect(()=>{
+    console.log(selectedGroupLaui)
+  },[selectedGroupLaui])
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: TabValue) => {
     setActiveTab(newValue);
+  };
+
+  const handlePerPageChange = (event: SelectChangeEvent<number>) => {
+    setPerPage(Number(event.target.value));
   };
 
   const handleOpenModal = () => {
@@ -193,15 +253,11 @@ export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
       // Close modal
       handleCloseModal();
 
-      // Refresh the groups list for the current tab
-      const relation = getRelationForTab(activeTab);
-      const response = await getGroups(relation);
-      const transformedGroups: Group[] = response.groups.map((group) => ({
-        laui: group.id,
-        name: group.name,
-        members: [],
-      }));
-      setGroups(transformedGroups);
+      // Refresh the groups list - reset to first page
+      setCurrentPage(1);
+      setPageTokens([null]);
+      setNextPageToken(null);
+      await fetchGroups(1, null);
     } catch (error: any) {
       console.error('Failed to create group:', error);
       throw error; // Re-throw so modal can handle the error
@@ -215,6 +271,31 @@ export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
       onCreateGroup();
     } else {
       handleOpenModal();
+    }
+  };
+
+  // Pagination handler
+  const handlePageChange = async (newPage: number) => {
+    if (isRootUser) {
+      // Root users: simple page number navigation
+      setCurrentPage(newPage);
+      await fetchGroups(newPage, null);
+    } else {
+      // Non-root users: token-based navigation
+      if (newPage > currentPage) {
+        // Going forward
+        if (nextPageToken) {
+          const newTokens = [...pageTokens, nextPageToken];
+          setPageTokens(newTokens);
+          setCurrentPage(newPage);
+          await fetchGroups(newPage, nextPageToken);
+        }
+      } else if (newPage < currentPage) {
+        // Going backward
+        const tokenForPreviousPage = pageTokens[newPage - 1] || null;
+        setCurrentPage(newPage);
+        await fetchGroups(newPage, tokenForPreviousPage);
+      }
     }
   };
 
@@ -276,68 +357,67 @@ export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
       </Box>
 
       <Box sx={styles.tabsContainer}>
-        <Tabs value={activeTab} onChange={handleTabChange} sx={styles.tabs}>
-          <Tab
-            label={
-              <Tooltip
-                title="Groups where you are the owner and have full control"
-                placement="top"
-                arrow
-              >
-                <Box
-                  component="span"
-                  sx={{
-                    display: 'flex',
-                    width: '100%',
-                    justifyContent: 'center',
-                  }}
+        {!isRootUser ? (
+          <Tabs value={activeTab} onChange={handleTabChange} sx={styles.tabs}>
+            <Tab
+              label={
+                <Tooltip
+                  title="Groups where you are the owner and have full control"
+                  placement="top"
+                  arrow
                 >
-                  Owner
-                </Box>
-              </Tooltip>
-            }
-          />
-          <Tab
-            label={
-              <Tooltip
-                title="Groups where you have administrative privileges to manage settings"
-                placement="top"
-                arrow
-              >
-                <Box
-                  component="span"
-                  sx={{
-                    display: 'flex',
-                    width: '100%',
-                    justifyContent: 'center',
-                  }}
+                  <Box component="span" sx={{ display: 'flex', width: '100%', justifyContent: 'center' }}>
+                    Owner
+                  </Box>
+                </Tooltip>
+              }
+            />
+            <Tab
+              label={
+                <Tooltip
+                  title="Groups where you have administrative privileges to manage settings"
+                  placement="top"
+                  arrow
                 >
-                  Admin
-                </Box>
-              </Tooltip>
-            }
-          />
-          <Tab
-            label={
-              <Tooltip
-                title="Groups where you are a standard participating member"
-                placement="top"
-                arrow
-              >
-                <Box
-                  component="span"
-                  sx={{
-                    display: 'flex',
-                    width: '100%',
-                    justifyContent: 'center',
-                  }}
+                  <Box component="span" sx={{ display: 'flex', width: '100%', justifyContent: 'center' }}>
+                    Admin
+                  </Box>
+                </Tooltip>
+              }
+            />
+            <Tab
+              label={
+                <Tooltip
+                  title="Groups where you are a standard participating member"
+                  placement="top"
+                  arrow
                 >
-                  Member
-                </Box>
-              </Tooltip>
-            }
-          />
-        </Tabs>
+                  <Box component="span" sx={{ display: 'flex', width: '100%', justifyContent: 'center' }}>
+                    Member
+                  </Box>
+                </Tooltip>
+              }
+            />
+          </Tabs>
+        ) : (
+          <Box /> // Empty placeholder to keep layout consistent when tabs are hidden for root user
+        )}
+
+        <Box sx={styles.perPageContainer}>
+          <Typography sx={styles.perPageLabel}>Rows per page:</Typography>
+          <FormControl variant="outlined" size="small">
+            <Select
+              value={perPage}
+              onChange={handlePerPageChange}
+              sx={styles.perPageSelect}
+            >
+              <MenuItem value={5}>5</MenuItem>
+              <MenuItem value={10}>10</MenuItem>
+              <MenuItem value={25}>25</MenuItem>
+              <MenuItem value={50}>50</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
       </Box>
 
       <Box sx={styles.content}>
@@ -349,6 +429,10 @@ export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
           onSelectGroup={setSelectedGroupLaui}
           get_group={get_group}
           update_group={update_group}
+          currentPage={currentPage}
+          hasNext={hasNext}
+          hasPrevious={currentPage > 1}
+          onPageChange={handlePageChange}
         />
       </Box>
 

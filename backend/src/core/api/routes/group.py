@@ -4,14 +4,15 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 import traceback
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic_mongo import PydanticObjectId
 
 from src.common.context_vars.user_context import get_user_laui
 from src.common.exceptions import LAException
 from src.common.logger.logger import log_error, log_info
-from src.core.ee.iam.group.api_request import SearchGroupsRequest
+from src.core.ee.iam.group.api_request import GetGroupsRequest, SearchGroupsRequest
 from src.core.ee.iam.group.schema import CreateGroup
 from src.core.ee.iam.group.service import GroupService, get_group_service
 from src.core.ee.keto.schema import Relation
@@ -55,7 +56,7 @@ async def create_group(
 
 @group_router.get("/get")
 async def get_groups(
-    relation: Relation,
+    request: Annotated[GetGroupsRequest, Query()],
     group_service: GroupService = Depends(get_group_service),
 ):
     try:
@@ -63,9 +64,9 @@ async def get_groups(
             "api",
             "group_router",
             "get_groups",
-            f"user={get_user_laui()} payload={{relation={relation}}}",
+            f"user={get_user_laui()} payload={request.model_dump()}",
         )
-        return await group_service.get_groups(relation=relation)
+        return await group_service.get_groups(request)
     except LAException as e:
         log_error(
             "api_traceback",
