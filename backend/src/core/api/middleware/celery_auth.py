@@ -26,7 +26,7 @@ async def access_middleware(
     if not any(request.url.path.startswith(route) for route in celery_only_routes):
         return await call_next(request)
 
-    celery_auth_token = request.cookies.get("celery_token")
+    celery_auth_token = request.cookies.get("celery_auth_token")
 
     if not celery_auth_token:
         return JSONResponse(

@@ -9,9 +9,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic_mongo import PydanticObjectId
 
-from onboarding_setup.assets.marketing_and_sales_reports.sales.overall.latest.top_products import (
-    item_type,
-)
 from src.common.context_vars.user_context import get_user_laui
 from src.common.exceptions import LAException
 from src.common.logger.logger import log_error, log_info
@@ -167,7 +164,7 @@ async def run_multiple_tasks(
 async def validate_task_access(
     task_laui: PydanticObjectId, access_reader: AccessReader = Depends(get_access_reader)
 ):
-    await access_reader.check_group_edit_access(str(task_laui), get_user_laui())
+    await access_reader.check_item_edit_access(str(task_laui), get_user_laui())
 
 
 @task_router.post("/update/{task_laui}")

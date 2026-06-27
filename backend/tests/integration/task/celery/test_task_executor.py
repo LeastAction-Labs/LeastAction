@@ -83,7 +83,11 @@ class TestAPIClient(APIClient):
             raise ValueError(f"No item found with laui: {item_laui}")
 
     async def update_item(
-        self, auth_token: str, task_laui: str, update_data: TaskUpdateData
+        self,
+        auth_token: str,
+        system_auth_token: str,
+        task_laui: str,
+        update_data: TaskUpdateData,
     ) -> str:
         """Update item using TestClient synchronously in async context"""
 
@@ -93,7 +97,9 @@ class TestAPIClient(APIClient):
                 update_json_str = update_data.model_dump_json(exclude_none=True)
                 update_fields = json.loads(update_json_str)
 
-                headers = {"Cookie": f"frontend_token={auth_token}"}
+                headers = {
+                    "Cookie": f"frontend_token={auth_token}; celery_auth_token={system_auth_token}"
+                }
                 response = self.test_client.post(
                     f"/api/v1/task/update/{task_laui}", json=update_fields, headers=headers
                 )
@@ -116,9 +122,17 @@ class TestAPIClient(APIClient):
         response = CreateItemResponse(**response_data)
         return response.item_laui
 
-    async def finish_task(self, auth_token: str, task_laui: str, session_id: str | None = None):
+    async def finish_task(
+        self,
+        auth_token: str,
+        system_auth_token: str,
+        task_laui: str,
+        session_id: str | None = None,
+    ):
         def _sync_finish():
-            headers = {"Cookie": f"frontend_token={auth_token}"}
+            headers = {
+                "Cookie": f"frontend_token={auth_token}; celery_auth_token={system_auth_token}"
+            }
             if session_id:
                 headers["X-Session-ID"] = session_id
 
@@ -383,7 +397,7 @@ async def test_task_executor_natural_finish(
     )
 
     # Execute task
-    await task_execution_service.execute_task(task_request)
+    await task_execution_service.execute_task(task_request, access_token)
 
     # Wait for update to complete
     await asyncio.sleep(2)
@@ -520,7 +534,9 @@ async def test_task_executor_cancellation(
         )
 
     # Run task execution and cancellation concurrently
-    await asyncio.gather(task_execution_service.execute_task(task_request), cancel_task())
+    await asyncio.gather(
+        task_execution_service.execute_task(task_request, access_token), cancel_task()
+    )
 
     # Wait for update to complete
     await asyncio.sleep(2)
@@ -622,7 +638,7 @@ async def test_task_executor_error(
     )
 
     # Execute task (should complete with error state)
-    await task_execution_service.execute_task(task_request)
+    await task_execution_service.execute_task(task_request, access_token)
 
     # Wait for update to complete
     await asyncio.sleep(2)
