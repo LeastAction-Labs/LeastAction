@@ -100,27 +100,24 @@ export async function createGroup(groupData: GroupData): Promise<any> {
 export async function getGroups(params: GetGroupsParams): Promise<GroupsResponse> {
   const queryParams = new URLSearchParams();
   queryParams.append('relation', params.relation);
-  
+
   if (params.per_page !== undefined) {
     queryParams.append('per_page', params.per_page.toString());
   }
-  
+
   // For root users - page number based pagination
   if (params.page !== undefined) {
     queryParams.append('page', params.page.toString());
   }
-  
+
   // For non-root users - token based pagination
   if (params.page_token !== undefined) {
     queryParams.append('page_token', params.page_token);
   }
-  
-  return await httpJson<GroupsResponse>(
-    `${API_ENDPOINTS.group.get}?${queryParams.toString()}`,
-    {
-      method: 'GET',
-    },
-  );
+
+  return await httpJson<GroupsResponse>(`${API_ENDPOINTS.group.get}?${queryParams.toString()}`, {
+    method: 'GET',
+  });
 }
 
 export async function getGroup(groupLaui: string): Promise<GroupDetailsData> {

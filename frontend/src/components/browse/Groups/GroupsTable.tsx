@@ -128,7 +128,7 @@ export default function GroupsTable({
               <TableRow
                 key={group.laui}
                 sx={styles.tableRow}
-                onClick={() => { console.log(group); onSelectGroup(group.laui)}}
+                onClick={() => onSelectGroup(group.laui)}
               >
                 <TableCell>
                   <Typography

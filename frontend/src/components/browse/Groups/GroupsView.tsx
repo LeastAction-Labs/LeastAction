@@ -8,7 +8,18 @@
 import { useEffect, useState } from 'react';
 
 import AddIcon from '@mui/icons-material/Add';
-import { Box, Button, FormControl, MenuItem, Select, type SelectChangeEvent, Tab, Tabs, Tooltip, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  FormControl,
+  MenuItem,
+  Select,
+  type SelectChangeEvent,
+  Tab,
+  Tabs,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -211,10 +222,6 @@ export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
     void fetchGroups(1, null);
   }, [activeTab, perPage]);
 
-  useEffect(()=>{
-    console.log(selectedGroupLaui)
-  },[selectedGroupLaui])
-
   const handleTabChange = (_event: React.SyntheticEvent, newValue: TabValue) => {
     setActiveTab(newValue);
   };
@@ -366,7 +373,10 @@ export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
                   placement="top"
                   arrow
                 >
-                  <Box component="span" sx={{ display: 'flex', width: '100%', justifyContent: 'center' }}>
+                  <Box
+                    component="span"
+                    sx={{ display: 'flex', width: '100%', justifyContent: 'center' }}
+                  >
                     Owner
                   </Box>
                 </Tooltip>
@@ -379,7 +389,10 @@ export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
                   placement="top"
                   arrow
                 >
-                  <Box component="span" sx={{ display: 'flex', width: '100%', justifyContent: 'center' }}>
+                  <Box
+                    component="span"
+                    sx={{ display: 'flex', width: '100%', justifyContent: 'center' }}
+                  >
                     Admin
                   </Box>
                 </Tooltip>
@@ -392,7 +405,10 @@ export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
                   placement="top"
                   arrow
                 >
-                  <Box component="span" sx={{ display: 'flex', width: '100%', justifyContent: 'center' }}>
+                  <Box
+                    component="span"
+                    sx={{ display: 'flex', width: '100%', justifyContent: 'center' }}
+                  >
                     Member
                   </Box>
                 </Tooltip>
@@ -406,11 +422,7 @@ export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
         <Box sx={styles.perPageContainer}>
           <Typography sx={styles.perPageLabel}>Rows per page:</Typography>
           <FormControl variant="outlined" size="small">
-            <Select
-              value={perPage}
-              onChange={handlePerPageChange}
-              sx={styles.perPageSelect}
-            >
+            <Select value={perPage} onChange={handlePerPageChange} sx={styles.perPageSelect}>
               <MenuItem value={5}>5</MenuItem>
               <MenuItem value={10}>10</MenuItem>
               <MenuItem value={25}>25</MenuItem>
