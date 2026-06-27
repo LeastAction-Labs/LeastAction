@@ -157,7 +157,6 @@ export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(5);
   const [hasNext, setHasNext] = useState(false);
-  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [pageTokens, setPageTokens] = useState<(string | null)[]>([null]); // Stack for token-based pagination
 
   const { authState } = useAuth();
@@ -202,12 +201,13 @@ export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
 
       setGroups(response.groups);
       setHasNext(response.has_next);
-      setNextPageToken(response.next_page_token || null);
+      if (page === pageTokens.length && response.next_page_token) {
+        setPageTokens((prev) => [...prev, response.next_page_token || null]);
+      }
     } catch (error) {
       console.error('Failed to fetch groups:', error);
       setGroups([]);
       setHasNext(false);
-      setNextPageToken(null);
     } finally {
       setLoading(false);
     }
@@ -217,7 +217,6 @@ export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
   useEffect(() => {
     setCurrentPage(1);
     setPageTokens([null]);
-    setNextPageToken(null);
     setHasNext(false);
     void fetchGroups(1, null);
   }, [activeTab, perPage]);
@@ -283,28 +282,13 @@ export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
 
   // Pagination handler
   const handlePageChange = async (newPage: number) => {
-    if (isRootUser) {
-      // Root users: simple page number navigation
-      setCurrentPage(newPage);
-      await fetchGroups(newPage, null);
-    } else {
-      // Non-root users: token-based navigation
-      if (newPage > currentPage) {
-        // Going forward
-        if (nextPageToken) {
-          const newTokens = [...pageTokens, nextPageToken];
-          setPageTokens(newTokens);
-          setCurrentPage(newPage);
-          await fetchGroups(newPage, nextPageToken);
-        }
-      } else if (newPage < currentPage) {
-        // Going backward
-        const tokenForPreviousPage = pageTokens[newPage - 1] || null;
-        setCurrentPage(newPage);
-        await fetchGroups(newPage, tokenForPreviousPage);
-      }
-    }
+    if (isRootUser) await fetchGroups(newPage, null);
+    else await fetchGroups(newPage, pageTokens[newPage - 1]);
   };
+
+  useEffect(() => {
+    void handlePageChange(currentPage);
+  }, [currentPage]);
 
   // Function to fetch group details by LAUI
   const get_group = async (laui: string): Promise<GroupDetailsData> => {
@@ -444,7 +428,7 @@ export default function GroupsView({ onCreateGroup }: GroupsViewProps) {
           currentPage={currentPage}
           hasNext={hasNext}
           hasPrevious={currentPage > 1}
-          onPageChange={handlePageChange}
+          onPageChange={setCurrentPage}
         />
       </Box>
 
