@@ -116,7 +116,7 @@ async def get_user_laui():
 
 async def get_auth_header():
     access_token = await get_system_access_token()
-    return f"frontend_token={access_token}"
+    return f"frontend_token={access_token}; celery_auth_token={access_token}"
 
 
 def execute_request(client: TestClient, request: TestRequest):

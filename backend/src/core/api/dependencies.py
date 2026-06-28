@@ -55,7 +55,4 @@ async def validate_access_for_create_run(
                 status_code=403, detail={"message": f"Unauthorized for item {item_laui}"}
             )
 
-    if not all(item_access):
-        raise HTTPException(status_code=403, detail={"message": "Unauthorized"})
-
     return request
