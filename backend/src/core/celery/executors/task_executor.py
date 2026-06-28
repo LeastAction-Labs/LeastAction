@@ -6,11 +6,12 @@
 import asyncio
 import json
 import sys
-
-# from src.common.session_context import get_session_id
 import traceback
 from datetime import UTC, datetime
 from pathlib import Path
+
+# from src.common.session_context import get_session_id
+from this import s
 from typing import Any
 
 from fastapi.encoders import jsonable_encoder
@@ -36,10 +37,11 @@ class TaskExecutionService:
         self.operator_dir = operators_dir
         self.operator_dir.mkdir(parents=True, exist_ok=True)
 
-    async def _update_heartbeat(self, la_task_object: TaskRequest) -> None:
+    async def _update_heartbeat(self, la_task_object: TaskRequest, system_auth_token: str) -> None:
         try:
             await self.api_client.update_item(
                 la_task_object.user_access_token,
+                system_auth_token,
                 str(la_task_object.laui),
                 update_data=TaskUpdateData(
                     latest_heartbeat=datetime.now(UTC), state=TaskState.RUNNING
@@ -87,6 +89,7 @@ class TaskExecutionService:
         running_actions: list[ActionItem],
         elapsed: float,
         la_task_object: TaskRequest,
+        system_access_token: str,
         sla_actions_executed: set,
     ) -> None:
         try:
@@ -115,7 +118,10 @@ class TaskExecutionService:
             try:
                 actions_item = Actions(running_actions=actions_to_execute)
                 await self.action_manager.running_actions(
-                    actions_item, la_task_object.user_access_token, la_task_object.model_dump()
+                    actions_item,
+                    la_task_object.user_access_token,
+                    system_access_token,
+                    la_task_object.model_dump(),
                 )
                 sla_actions_executed.update(action.laui for action in actions_to_execute)
                 log_info(
@@ -141,7 +147,9 @@ class TaskExecutionService:
                 f"Unexpected error: {str(e)}",
             )
 
-    async def _execute_post_actions(self, la_task_object: TaskRequest) -> None:
+    async def _execute_post_actions(
+        self, la_task_object: TaskRequest, system_access_token: str
+    ) -> None:
         try:
             if not la_task_object.actions or not la_task_object.actions.post_actions:
                 return
@@ -149,7 +157,10 @@ class TaskExecutionService:
             try:
                 actions_item = Actions(post_actions=la_task_object.actions.post_actions)
                 await self.action_manager.post_actions(
-                    actions_item, la_task_object.user_access_token, la_task_object.model_dump()
+                    actions_item,
+                    la_task_object.user_access_token,
+                    system_access_token,
+                    la_task_object.model_dump(),
                 )
                 log_info(
                     "celery",
@@ -367,7 +378,7 @@ class TaskExecutionService:
             run_processed = False
 
             while elapsed < timeout_seconds:
-                await self._update_heartbeat(la_task_object)
+                await self._update_heartbeat(la_task_object, system_auth_token)
 
                 if await self._check_cancellation(la_task_object):
                     log_info(
@@ -389,7 +400,11 @@ class TaskExecutionService:
                 # Check and execute SLA actions
                 if running_actions:
                     await self._execute_running_actions(
-                        running_actions, elapsed, la_task_object, sla_actions_executed
+                        running_actions,
+                        elapsed,
+                        la_task_object,
+                        system_auth_token,
+                        sla_actions_executed,
                     )
 
                 # Process run() result once when it completes
@@ -613,7 +628,7 @@ class TaskExecutionService:
                 )
 
             try:
-                await self._execute_post_actions(la_task_object)
+                await self._execute_post_actions(la_task_object, system_auth_token)
             except Exception as e:
                 log_error(
                     "celery",

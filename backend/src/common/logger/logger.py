@@ -273,10 +273,7 @@ class LoggerManager:
         level: LogLevel = LogLevel.INFO,
     ) -> None:
         try:
-            print(
-                f"[LoggerManager] log(): category={category}, operation={operation}, step={step}, message={message}"
-            )
-            # self._log(category, operation, step, message, level)
+            self._log(category, operation, step, message, level)
         except Exception as exc:
             print(f"[LoggerManager] Unhandled error during log(): {exc}", file=sys.stderr)
 
