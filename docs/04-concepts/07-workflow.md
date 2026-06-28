@@ -191,7 +191,7 @@ Backdated schedules allow running tasks for historical dates, useful for backfil
 2. **Generate Task Instances**: System generates task instances for each schedule interval between start and end dates
 3. **Validate Dependencies**:
    1. Check if upstream tasks for each date have completed (using `LeastActionCheckIfParentsAreDone()` action)
-   2. When `LeastActionCheckIfParentsAreDone` is added, the tasks are internally linked for dependency management using `LeastActionLinkParents` action, which is a default action for all workflows.
+   2. When `LeastActionCheckIfParentsAreDone` is added, the tasks are internally linked for dependency management using `LeastActionCheckIfParentsAreDone` action, which is a default action for all workflows.
 4. **Apply Config**: Workflow, Task or Task form.
 5. **Schedule Instances**: Each instance moves through states: `scheduled` → `queued_for_connection` → `queued_in_redis`
 6. **Priority Ordering**: Tasks execute based on priority levels (lower number = higher priority) and based on sort order in connection
@@ -339,7 +339,7 @@ Where connection `lambda-prod` has:
 
 ```json
 {
-  "type": "connection.AWSIAMRole"
+  "item_type": "connection.AWSIAMRole"
 }
 ```
 
@@ -475,7 +475,7 @@ Task action can be used to dynamically generate tasks from config, and a AI can 
       "timeout": 3600,
       "preAction": [
         {
-          "action": "LeastActionGitSync",
+          "action": "LeastActionGitToTask",
           "connection": "github-main",
           "variables": {}
         }
@@ -498,25 +498,25 @@ Task action can be used to dynamically generate tasks from config, and a AI can 
         }
       },
       {
-        "action": "LeastActionRerun",
+        "action": "LeastActionRunTask",
         "variables": {
           "taskStatus": ["error", "failed", "canceled"]
         }
       },
       {
-        "action": "LeastActionRerunSubtree",
+        "action": "LeastActionRunTask",
         "variables": {
           "taskStatus": ["error", "failed"]
         }
       },
       {
-        "action": "LeastActionSkip",
+        "action": "LeastActionScheduleTasks",
         "variables": {
           "taskStatus": ["scheduled", "waiting"]
         }
       },
       {
-        "action": "LeastActionSkipSubtree",
+        "action": "LeastActionScheduleTasks",
         "variables": {
           "taskStatus": ["scheduled", "waiting"]
         }
@@ -554,12 +554,12 @@ Task control actions are lifecycle control actions that can be added to workflow
 **Available Task Control Actions:**
 
 - **LeastActionRunTask** - Start task execution
-- **LeastActionRerun** - Re-execute a task
-- **LeastActionRerunSubtree** - Re-execute task and all children
+- **LeastActionRunTask** - Re-execute a task
+- **LeastActionScheduleTasks** - Schedule or reschedule tasks
 - **LeastActionCancelTask** - Stop a running task
-- **LeastActionSkip** - Mark task as skipped
-- **LeastActionSkipSubtree** - Skip task and all children
-- **LeastActionSkipPostDoneS3** - Skip and write completion marker
+- **LeastActionWebhookNotify** - Send notifications
+- **LeastActionSMTPEmail** - Send email notifications
+- **LeastActionTaskToTableAsset** - Register task output as catalog asset
 
 **Characteristics:**
 
@@ -576,7 +576,7 @@ Task control actions are lifecycle control actions that can be added to workflow
 {
   "taskControlActions": [
     {
-      "action": "LeastActionSkipPostDoneS3",
+      "action": "LeastActionWebhookNotify",
       "connection": "s3-prod",
       "variables": {
         "taskStatus": ["scheduled", "waiting"],
@@ -679,7 +679,7 @@ Workflow default config:
     "task": {
       "preAction": [
         {
-          "action": "LeastActionGitSync",
+          "action": "LeastActionGitToTask",
           "connection": "github-main",
           "variables": {}
         }
@@ -709,7 +709,7 @@ Task adds one more preAction:
 {
   "preAction": [
     {
-      "action": "LeastActionGitSync",
+      "action": "LeastActionGitToTask",
       "connection": "github-main",
       "variables": {}
     },
@@ -739,25 +739,25 @@ Task control actions manage task execution metadata and state. These are typical
         }
       },
       {
-        "action": "LeastActionRerun",
+        "action": "LeastActionRunTask",
         "variables": {
           "taskStatus": ["error", "failed", "canceled"]
         }
       },
       {
-        "action": "LeastActionRerunSubtree",
+        "action": "LeastActionRunTask",
         "variables": {
           "taskStatus": ["error", "failed"]
         }
       },
       {
-        "action": "LeastActionSkip",
+        "action": "LeastActionScheduleTasks",
         "variables": {
           "taskStatus": ["scheduled", "waiting"]
         }
       },
       {
-        "action": "LeastActionSkipSubtree",
+        "action": "LeastActionScheduleTasks",
         "variables": {
           "taskStatus": ["scheduled", "waiting"]
         }
@@ -787,13 +787,13 @@ Task control actions manage task execution metadata and state. These are typical
       }
     },
     {
-      "action": "LeastActionRerun",
+      "action": "LeastActionRunTask",
       "variables": {
         "taskStatus": ["error", "failed", "canceled", "timeout"]
       }
     },
     {
-      "action": "LeastActionSkipPostDoneS3",
+      "action": "LeastActionWebhookNotify",
       "connection": "s3-prod",
       "variables": {
         "taskStatus": ["scheduled", "waiting"],
@@ -920,7 +920,7 @@ Task control actions can be added to a workflow in two ways:
         }
       },
       {
-        "action": "LeastActionRerun",
+        "action": "LeastActionRunTask",
         "variables": {
           "taskStatus": ["error", "failed"]
         }
@@ -950,13 +950,13 @@ All tasks in this workflow inherit these control actions, making them available 
 {
   "taskControlActions": [
     {
-      "action": "LeastActionRerun",
+      "action": "LeastActionRunTask",
       "variables": {
         "taskStatus": ["error", "timeout"]
       }
     },
     {
-      "action": "LeastActionRerunSubtree",
+      "action": "LeastActionRunTask",
       "variables": {
         "taskStatus": ["error", "failed"]
       }
@@ -975,13 +975,13 @@ This pattern provides two rerun options:
 {
   "taskControlActions": [
     {
-      "action": "LeastActionSkip",
+      "action": "LeastActionScheduleTasks",
       "variables": {
         "taskStatus": ["scheduled", "waiting"]
       }
     },
     {
-      "action": "LeastActionSkipPostDoneS3",
+      "action": "LeastActionWebhookNotify",
       "connection": "s3-prod",
       "variables": {
         "taskStatus": ["scheduled", "waiting"],
@@ -1015,25 +1015,25 @@ This pattern provides:
       }
     },
     {
-      "action": "LeastActionRerun",
+      "action": "LeastActionRunTask",
       "variables": {
         "taskStatus": ["error", "failed", "canceled", "timeout"]
       }
     },
     {
-      "action": "LeastActionRerunSubtree",
+      "action": "LeastActionRunTask",
       "variables": {
         "taskStatus": ["error", "failed"]
       }
     },
     {
-      "action": "LeastActionSkip",
+      "action": "LeastActionScheduleTasks",
       "variables": {
         "taskStatus": ["scheduled", "waiting"]
       }
     },
     {
-      "action": "LeastActionSkipSubtree",
+      "action": "LeastActionScheduleTasks",
       "variables": {
         "taskStatus": ["scheduled", "waiting"]
       }
@@ -1053,7 +1053,7 @@ Task control actions can be invoked programmatically via API or within other tas
 ```bash
 POST /actions/control/execute
 {
-  "action": "LeastActionRerun",
+  "action": "LeastActionRunTask",
   "variables": {
     "task_ids": [123, 456, 789],
     "task_status": ["error"]
@@ -1067,7 +1067,7 @@ POST /actions/control/execute
 {
   "postAction": [
     {
-      "action": "LeastActionRerunFailedChildren",
+      "action": "LeastActionRunTask",
       "variables": {
         "taskStatus": ["error", "failed"]
       }
@@ -1101,7 +1101,7 @@ sales_etl_pipeline/
       "timeout": 3600,
       "preAction": [
         {
-          "action": "LeastActionGitSync",
+          "action": "LeastActionGitToTask",
           "connection": "github-main",
           "variables": {}
         }
@@ -1338,7 +1338,7 @@ sales_etl_pipeline/
 ```json
 {
   "name": "Lambda Production",
-  "type": "connection.AWSIAMRole",
+  "item_type": "connection.AWSIAMRole",
   "max_parallelism": 10,
   "enabled": true,
   "content": {

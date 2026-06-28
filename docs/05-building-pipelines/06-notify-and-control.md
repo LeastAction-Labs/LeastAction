@@ -12,7 +12,7 @@ Attach a notification action at any hook. `LeastActionWebhookNotify` ships built
 
 Built-in control actions compose at a hook to observe state, decide, and act:
 
-`LeastActionRunTask` · `LeastActionRerun` · `LeastActionRerunSubtree` · `LeastActionCancelTask` · `LeastActionSkip` · `LeastActionSkipSubtree`
+`LeastActionRunTask` · `LeastActionCancelTask` · `LeastActionScheduleTasks` · `LeastActionWebhookNotify` · `LeastActionSMTPEmail`
 
 Patterns: SLA watchdog (cancel stuck tasks), auto-retry with attempt cap, start-child-on-success (event-driven sub-pipelines), data-quality enforce (skip the subtree on bad output), partition triage from the UI, staged escalation.
 

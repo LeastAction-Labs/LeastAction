@@ -335,7 +335,7 @@ Task-level actions **APPEND** to workflow defaults — they do not replace them.
     "task": {
       "preAction": [
         {
-          "action": "LeastActionGitSync",
+          "action": "LeastActionGitToTask",
           "connection": "github-main",
           "variables": {}
         }
@@ -350,7 +350,7 @@ Task-level actions **APPEND** to workflow defaults — they do not replace them.
 {
   "preAction": [
     {
-      "action": "LeastActionGitSync",
+      "action": "LeastActionGitToTask",
       "connection": "github-main",
       "variables": {}
     },
