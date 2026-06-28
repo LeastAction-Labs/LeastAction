@@ -45,7 +45,7 @@ def base_folders_setup(client: TestClient, database_cleanup):
 @pytest.fixture()
 def mcp_ctx(client: TestClient):
     cookie = client.headers.get("Cookie", "")
-    token = cookie.replace("frontend_token=", "")
+    token = cookie.split("frontend_token=")[1].split(";")[0]
     print(token)
     claims = get_session_service().verify_jwt_token(token)
     user_laui = claims.sub
