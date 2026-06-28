@@ -9,6 +9,7 @@ import re
 from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
+from optparse import Option
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -42,8 +43,7 @@ class TaskUpdateRequest(TaskUpdateData):
 
 class MultipleTaskRequest(BaseModel):
     task_lauis: list[PydanticObjectId]
-    tasks: list[Item]
-    model_config = ConfigDict(extra="allow")
+    tasks: list[Item] = Field(default_factory=list)
 
 
 class MultipleTaskResponse(BaseModel):

@@ -192,7 +192,7 @@ class ItemOrchestrator:
         for task in request.tasks:
             task.last_run_session_id = get_session_id()
 
-        task_results = await self.task_manager.execute_tasks(tasks)
+        task_results = await self.task_manager.execute_tasks(request.tasks)
         return MultipleTaskResponse(task_results=task_results["task_results"])
 
     async def execute_action(self, request: BaseCreateItemRequest) -> dict[str, Any]:

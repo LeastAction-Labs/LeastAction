@@ -12,13 +12,14 @@ from pydantic_mongo import PydanticObjectId
 from src.common.context_vars.user_context import get_user_laui
 from src.common.exceptions import LAException
 from src.common.logger.logger import log_error, log_info
-from src.common.types import AccessPatchType
+from src.common.types import LAUI, AccessPatchType
 from src.core.api.dependencies import validate_access_for_create_run
 from src.core.catalog.api_request import (
     BaseCreateItemRequest,
     MultipleTaskRequest,
     TaskUpdateRequest,
 )
+from src.core.catalog.item.schema import ItemProjection
 from src.core.catalog.orchestrator import ItemOrchestrator, get_item_orchestrator
 from src.core.catalog.service import CatalogService, get_catalog_manager
 from src.core.ee.keto.access_reader import AccessReader, get_access_reader
@@ -76,7 +77,7 @@ async def _verify_access_and_attach_tasks(
 
     filtered_task_lauis = []
 
-    for task_laui, has_task_access in zip(request.taks_lauis, task_lauis_access):
+    for task_laui, has_task_access in zip(request.task_lauis, task_lauis_access):
         if has_task_access:
             filtered_task_lauis.append(task_laui)
 
@@ -88,7 +89,7 @@ async def _verify_access_and_attach_tasks(
 
     lauis_to_check_for_access = set()
 
-    task_lauis_map = {}
+    task_lauis_map: dict[LAUI, tuple[list[str | PydanticObjectId], ItemProjection]] = {}
 
     for task in tasks:
         lauis = [task.operator_laui, task.connection_laui, task.parent_laui]
@@ -104,7 +105,7 @@ async def _verify_access_and_attach_tasks(
             ]:
                 for action in action_list:
                     lauis.append(action.laui)
-        task_lauis_map[task] = lauis
+        task_lauis_map[task.laui] = (lauis, task)
         lauis_to_check_for_access.update(lauis)
 
     item_lauis_access = await access_reader.batch_check_permissions(
@@ -117,7 +118,7 @@ async def _verify_access_and_attach_tasks(
 
     filtered_tasks = []
 
-    for task, lauis in task_lauis_map.items():
+    for task_laui, (lauis, task) in task_lauis_map.items():
         if all([[item_laui_access_map[laui] for laui in lauis]]):
             filtered_tasks.append(task)
 

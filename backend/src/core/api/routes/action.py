@@ -24,12 +24,14 @@ async def execute_action(
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
 ):
     try:
+        print("CCC")
         log_info(
             "api",
             "action_router",
             "execute_action",
             f"user={get_user_laui()} payload={request.model_dump()}",
         )
+        print("CCC")
         return await item_orchestrator.execute_action(request)
     except LAException as e:
         log_error(
