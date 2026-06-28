@@ -14,7 +14,13 @@ from pydantic import ValidationError
 from src.common.config import Config
 from src.common.context_vars.session_context import set_session_id
 from src.common.logger.logger import initialize_logger, log_info
-from src.core.db.change_streams.schema import AccessPatch, GroupPayload, ItemPayload, LinkPayload
+from src.core.db.change_streams.schema import (
+    AccessPatch,
+    GroupPayload,
+    ItemPayload,
+    LinkPayload,
+    UserPayload,
+)
 from src.core.ee.keto.schema import (
     Action,
     Namespace,
@@ -152,12 +158,28 @@ async def process_group_payload(group_payload: GroupPayload):
     )
 
 
+async def process_user_payload(user_payload: UserPayload):
+    if user_payload.action == "delete":
+        await keto_client.delete_relation(
+            relation_tuple=RelationTuple(
+                namespace=Namespace.ITEM, subject_id=user_payload.user_laui
+            )
+        )
+        await keto_client.delete_relation(
+            relation_tuple=RelationTuple(
+                namespace=Namespace.GROUP, subject_id=user_payload.user_laui
+            )
+        )
+
+
 async def process_payload(payload: dict[str, any], payload_type: str):
     log_info("KETO", "access_writer", "processing", f"Payload breakdown: {json.dumps(payload)}")
     if payload_type == "item":
         await process_item_payload(ItemPayload(**payload))
     elif payload_type == "link":
         await process_link_payload(LinkPayload(**payload))
+    elif payload_type == "user":
+        await process_user_payload(UserPayload(**payload))
     else:
         await process_group_payload(GroupPayload(**payload))
 
@@ -175,7 +197,7 @@ async def process_job(msg_id, data):
         )
 
         payload_type = payload.get("payload_type")
-        if payload_type not in ["link", "item", "group"]:
+        if payload_type not in ["link", "item", "group", "user"]:
             raise KeyError(f"Unsupported payload type: {payload_type}")
 
         await process_payload(payload, payload_type)

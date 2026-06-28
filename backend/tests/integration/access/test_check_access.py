@@ -3,7 +3,9 @@
 # LeastAction Sustainable Use License (see LICENSE.md) or, for files
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
+import asyncio
 import time
+from os import pardir
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,7 +17,9 @@ from src.core.ee.iam.session.service import SessionService
 from src.core.ee.iam.user.repo import UserRepository
 from src.core.ee.iam.user.schema import CreateUser, UserType
 from src.core.ee.iam.user.service import UserService
+from src.core.ee.license.repo import LicenseRepository
 from src.core.ee.license.schema import LicenseClaims, LicenseTier, LicenseUploadRequest
+from src.core.ee.license.service import LicenseService
 from tests.integration.schema import TestRequest
 from tests.integration.utils import create_base_folders, execute_request, get_session_service
 
@@ -216,7 +220,11 @@ async def setup_catalog(client: TestClient, test_database: MongoDatabase):
 # create root user , test users and assign license to test users and return a dict mapping username -> laui and token
 @pytest.fixture(autouse=True)
 async def setup_users(client: TestClient, test_database: MongoDatabase):
-    user_service = UserService(user_repo=UserRepository(test_database))
+    license_repo = LicenseRepository(test_database)
+    license_service = LicenseService(license_repo)
+    user_service = UserService(
+        user_repo=UserRepository(test_database), license_service=license_service
+    )
     session_service = get_session_service()
 
     # create root user
@@ -292,14 +300,13 @@ async def setup_users(client: TestClient, test_database: MongoDatabase):
         ),
     )
     assert response.status_code == 200
-    yield users
+    yield users, license_laui
 
 
 @pytest.fixture(autouse=True)
 async def setup_access(
     setup_catalog, setup_users, client: TestClient, test_database: MongoDatabase
 ):
-    # give access of
     pass
 
 
@@ -307,8 +314,9 @@ async def test_item_user_permission(
     client: TestClient,
     test_database: MongoDatabase,
     setup_catalog: dict[str, any],
-    setup_users: dict[str, any],
+    setup_users: tuple[dict[str, any], str],
 ):
+    users, license_laui = setup_users
     response = execute_request(
         client=client,
         request=TestRequest(
@@ -319,13 +327,13 @@ async def test_item_user_permission(
                 "parent_laui": setup_catalog["account_folder"]["laui"],
                 "item_type": "folder.project",
                 "account_laui": setup_catalog["account_folder"]["laui"],
-                "access_patch": {"add": {"owners": {f"U{setup_users['test_user1']['laui']}": ""}}},
+                "access_patch": {"add": {"owners": {f"U{users['test_user1']['laui']}": ""}}},
             },
         ),
     )
     assert response.status_code == 200
 
-    for user_name, user in setup_users.items():
+    for user_name, user in users.items():
         for item_name, item in setup_catalog.items():
             start_time = time.perf_counter()
             response = execute_request(
@@ -353,6 +361,51 @@ async def test_item_user_permission(
                 assert permission == "own"
             else:
                 assert permission == "none"
+
+    test_user_laui = users["test_user1"]["laui"]
+
+    response = execute_request(
+        client=client,
+        request=TestRequest(
+            url="/api/v1/access/get/access_relations",
+            method="get",
+        ),
+    )
+    assert response.status_code == 200
+
+    user_lauis = []
+    for relation in response.json()["access_relations"]:
+        user_lauis.append(relation["subject_laui"])
+    assert test_user_laui in user_lauis
+
+    response = execute_request(
+        client=client,
+        request=TestRequest(
+            url=f"/api/v1/admin/user/delete/{test_user_laui}",
+            method="delete",
+        ),
+    )
+    assert response.status_code == 200
+
+    await asyncio.sleep(1)
+
+    response = execute_request(
+        client=client,
+        request=TestRequest(
+            url="/api/v1/access/get/access_relations",
+            method="get",
+        ),
+    )
+    assert response.status_code == 200
+
+    user_lauis = []
+    for relation in response.json()["access_relations"]:
+        user_lauis.append(relation["subject_laui"])
+    assert test_user_laui not in user_lauis
+
+    license = await LicenseRepository(test_database).get_license(PydanticObjectId(license_laui))
+
+    assert PydanticObjectId(test_user_laui) not in license.user_list
 
 
 """
@@ -523,8 +576,11 @@ async def test_check_access(client:TestClient,
 
 
 async def _get_user_access_token(test_database: MongoDatabase, email: str) -> str:
-    user_repo = UserRepository(db=test_database)
-    user_service = UserService(user_repo=user_repo)
+    license_repo = LicenseRepository(test_database)
+    license_service = LicenseService(license_repo)
+    user_service = UserService(
+        user_repo=UserRepository(test_database), license_service=license_service
+    )
     session_service = get_session_service()
     existing_user = await user_service.get_user_by_email(email)
     return session_service.generate_access_token(user=existing_user, expires_in_hours=87600)

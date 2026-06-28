@@ -23,6 +23,9 @@ from src.core.ee.iam.session.service import SessionService
 from src.core.ee.iam.user.repo import UserRepository
 from src.core.ee.iam.user.schema import CreateUser, UserType
 from src.core.ee.iam.user.service import UserService
+from src.core.ee.license.repo import LicenseRepository
+from src.core.ee.license.schema import License
+from src.core.ee.license.service import LicenseService
 
 ACCESS_TOKEN = None
 BACKEND_URL = os.getenv("BACKEND_URL")
@@ -75,8 +78,10 @@ async def create_system_user(db_client) -> tuple[str, str]:
     """Get or create system user and return (laui, access_token)."""
     print("[setup] Ensuring system user exists...")
 
+    license_repo = LicenseRepository(db=db_client.get_db())
+    license_service = LicenseService(license_repo)
     user_repo = UserRepository(db=db_client.get_db())
-    user_service = UserService(user_repo=user_repo)
+    user_service = UserService(user_repo=user_repo, license_service=license_service)
 
     private_key = SessionService.load_private_key()
     public_key = SessionService.load_public_key()
@@ -156,8 +161,10 @@ async def create_root_user(db_client) -> str:
 
     print(f"[setup] Ensuring root user exists ({root_email})...")
 
+    license_repo = LicenseRepository(db=db_client.get_db())
+    license_service = LicenseService(license_repo)
     user_repo = UserRepository(db=db_client.get_db())
-    user_service = UserService(user_repo=user_repo)
+    user_service = UserService(user_repo=user_repo, license_service=license_service)
 
     try:
         existing = await user_service.get_user_by_email(root_email)
