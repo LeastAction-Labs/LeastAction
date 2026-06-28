@@ -15,18 +15,18 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+
 from src.common.config import Config
-
-
 from src.common.env import ENV, get_env
 from src.common.logger.logger import initialize_logger
 from src.common.secrets import get_secret
+from src.common.utils import transform_validation_errors
 from src.core.admin.service import AdminService
 from src.core.ai.service import AIService
 from src.core.api.middleware.admin import admin_middleware
-from src.common.utils import transform_validation_errors
 from src.core.api.middleware.auth import auth_middleware
 from src.core.api.middleware.catalog import catalog_middleware
+from src.core.api.middleware.celery_auth import celery_auth_middleware
 from src.core.api.middleware.license import license_middleware
 from src.core.api.middleware.session import SessionMiddleware
 from src.core.api.middleware.transaction import transaction_context_middleware
@@ -229,6 +229,7 @@ app.middleware("http")(catalog_middleware)
 app.middleware("http")(admin_middleware)
 app.middleware("http")(license_middleware)
 app.middleware("http")(auth_middleware)
+app.middleware("http")(celery_auth_middleware)
 app.middleware("http")(transaction_context_middleware)
 app.add_middleware(SessionMiddleware)
 app.add_middleware(

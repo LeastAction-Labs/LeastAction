@@ -13,7 +13,7 @@ from src.core.ee.iam.session.service import get_session_service
 from src.core.ee.iam.user.repo import get_user_repository
 
 
-async def access_middleware(
+async def celery_auth_middleware(
     request: Request, call_next: Callable[[Request], Awaitable[Response]]
 ) -> Response:
 

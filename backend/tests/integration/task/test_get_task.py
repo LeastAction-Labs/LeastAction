@@ -200,7 +200,7 @@ async def test_get_task_with_nonexistent_laui_fail(client: TestClient):
         ),
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 403
 
 
 async def test_get_task_with_config_field_pass(
