@@ -105,14 +105,16 @@ const buildTreeFromPaths = (): CatalogNode => {
       }
     });
 
-    // Sort children: folders first, then files, alphabetically within each group
+    // Sort children: folders first, then by laui (which keeps the numeric NN-
+    // ordering prefix) so the sidebar follows the journey even though display
+    // names hide the number. Matches the root-children sort below.
     children.sort((a, b) => {
       const aIsFolder = a.item.item_type === 'doc.folder';
       const bIsFolder = b.item.item_type === 'doc.folder';
 
       if (aIsFolder && !bIsFolder) return -1;
       if (!aIsFolder && bIsFolder) return 1;
-      return a.item.name.localeCompare(b.item.name);
+      return a.item.laui.localeCompare(b.item.laui);
     });
 
     return {

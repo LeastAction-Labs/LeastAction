@@ -15,16 +15,15 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+
 from src.common.config import Config
-
-
 from src.common.env import ENV, get_env
 from src.common.logger.logger import initialize_logger
 from src.common.secrets import get_secret
+from src.common.utils import transform_validation_errors
 from src.core.admin.service import AdminService
 from src.core.ai.service import AIService
 from src.core.api.middleware.admin import admin_middleware
-from src.common.utils import transform_validation_errors
 from src.core.api.middleware.auth import auth_middleware
 from src.core.api.middleware.catalog import catalog_middleware
 from src.core.api.middleware.license import license_middleware
@@ -93,9 +92,11 @@ async def lifespan(app: FastAPI):
     app.state.auth_code_dict = AuthCodeDict()
     app.state.user_repo = UserRepository(active_db)
     await app.state.user_repo.create_indexes()
-    app.state.user_service = UserService(user_repo=app.state.user_repo)
     app.state.license_repo = LicenseRepository(active_db)
     app.state.license_service = LicenseService(app.state.license_repo)
+    app.state.user_service = UserService(
+        user_repo=app.state.user_repo, license_service=app.state.license_service
+    )
     app.state.admin_service = AdminService(
         license_service=app.state.license_service, user_service=app.state.user_service
     )
@@ -484,14 +485,16 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content={
             "message": "Invalid request parameters provided.",
-            "detail": jsonable_encoder(exc.errors()),
+            "detail": jsonable_encoder(transform_validation_errors(exc.errors())),
         },
     )
 
 
 @app.exception_handler(HTTPException)
 async def validation_exception_handler(request: Request, exc: HTTPException):
-    return JSONResponse(status_code=exc.status_code, content=exc.detail)
+    return JSONResponse(
+        status_code=exc.status_code, content=transform_validation_errors(exc.detail)
+    )
 
 
 if __name__ == "__main__":

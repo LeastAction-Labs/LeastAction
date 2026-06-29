@@ -22,6 +22,7 @@ from src.core.db.change_streams.schema import (
     ItemPayload,
     Link,
     LinkPayload,
+    UserPayload,
 )
 from src.core.db.service import MongoDatabase, create_mongo_client
 
@@ -136,6 +137,14 @@ def links_processing(change_stream: ChangeStream):
     )
 
 
+def users_processing(change_stream: ChangeStream):
+    if change_stream.operationType == "delete":
+        return UserPayload(
+            user_laui=str(change_stream.document_laui),
+            action=change_stream.operationType,
+        )
+
+
 async def watch(active_db: MongoDatabase):
     log_info(
         "KETO",
@@ -201,6 +210,17 @@ async def watch(active_db: MongoDatabase):
                                 "success",
                                 f"link payload: {str(payload.model_dump())} sent to Redis stream: {stream_key}",
                             )
+
+                if cs_event.collection == "users":
+                    payload = users_processing(cs_event)
+                    if payload:
+                        await r.xadd(stream_key, {"payload": payload.model_dump_json()})
+                        log_info(
+                            "KETO",
+                            "change_streams",
+                            "success",
+                            f"user payload: {str(payload.model_dump())} sent to Redis stream: {stream_key}",
+                        )
             except Exception as e:
                 log_info("KETO", "change_streams", "error", f"{str(e)}")
             finally:
