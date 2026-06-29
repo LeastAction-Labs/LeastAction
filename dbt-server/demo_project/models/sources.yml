@@ -1,0 +1,7 @@
+version: 2
+
+sources:
+  - name: sales
+    schema: public
+    tables:
+      - name: fact_sales_daily
