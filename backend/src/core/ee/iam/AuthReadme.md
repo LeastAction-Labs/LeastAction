@@ -913,7 +913,7 @@ allow_headers=["Authorization", "Content-Type"]
 | Method | Endpoint | Purpose | Auth Required | Request Body | Response |
 |--------|----------|---------|---------------|--------------|----------|
 | POST | `/create` | Create group | Yes (Bearer) | `CreateGroup(name, description, access_patch)` | `group_laui` (string) |
-| GET | `/get` | List user's groups | Yes (Bearer) | Query: `relation` (OWNERS\|EDITORS\|VIEWERS) | `GroupsResponse(groups, next_page_token)` |
+| GET | `/get` | List user's groups | Yes (Bearer) | Query: `relation` (OWNERS\|EDITORS\|VIEWERS) | `GetGroupsResponse(groups, next_page_token)` |
 | GET | `/get/{laui}` | Get group details | Yes (Bearer) | Path: `group_laui` | `Group` object |
 | DELETE | `/delete` | Delete group | Yes (Bearer) | Query: `group_laui` | 200 OK |
 

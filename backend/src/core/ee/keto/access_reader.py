@@ -4,6 +4,7 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 import asyncio
+from typing import Optional
 
 from bson import ObjectId
 from fastapi import Request
@@ -517,25 +518,19 @@ class AccessReader:
         )
 
     async def get_user_groups(
-        self, user_laui: str, relation: Relation | None = None
+        self,
+        user_laui: str,
+        relation: Optional[Relation] = None,
+        page_token: Optional[str] = None,
+        page_size: Optional[int] = None,
     ) -> GroupsRawResponse:
-
-        if is_root_user():
-            if relation == Relation.OWNERS:
-                resp = await self.keto_client.get_relations(
-                    relation_tuple=RelationTupleParams(namespace=Namespace.GROUP)
-                )
-                return GroupsRawResponse(
-                    groups=[rt.object for rt in resp.relation_tuples],
-                    next_page_token=resp.next_page_token,
-                )
-            return GroupsRawResponse(groups=[], next_page_token="")
-
         resp = await self.keto_client.get_relations(
             relation_tuple=RelationTupleParams(
                 namespace=Namespace.GROUP,
                 relation=relation,
                 subject_id=user_laui,
+                page_token=page_token,
+                page_size=page_size,
             )
         )
         return GroupsRawResponse(
