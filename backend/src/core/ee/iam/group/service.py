@@ -17,7 +17,7 @@ from src.core.ee.iam.group.api_request import (
     SearchGroupsResponse,
 )
 from src.core.ee.iam.group.repo import GroupRepository
-from src.core.ee.iam.group.schema import CreateGroup, UpdateGroup
+from src.core.ee.iam.group.schema import CreateGroup, UpdateGroup, GroupProjection
 from src.core.ee.iam.user.service import UserService
 from src.core.ee.keto.access_reader import AccessReader
 from src.core.ee.keto.schema import GroupResponse, GroupsResponse, Relation
