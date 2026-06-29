@@ -39,14 +39,16 @@ async def test_create_item_with_no_data_fail(client: TestClient):
     )
 
     assert response.status_code == 422
+
     parsed_response = response.json()
-    print(parsed_response)
-    assert parsed_response == {
-        "message": "Invalid request parameters provided.",
-        "detail": [
-            {"type": "missing", "loc": ["body", "item_type"], "input": {}, "msg": "Field required"}
-        ],
-    }
+
+    assert parsed_response["message"] == "Invalid request parameters provided."
+
+    detail = parsed_response["detail"]
+
+    assert len(detail) == 1
+    assert detail[0]["field"] == "body.item_type"
+    assert detail[0]["error_type"] == "missing"
 
 
 async def test_create_item_with_only_item_type_fail(client: TestClient):
@@ -64,12 +66,10 @@ async def test_create_item_with_only_item_type_fail(client: TestClient):
 
     detail = parsed_response["detail"]
 
-    # Check for missing name and codeblock errors
-    error_locs = [err.get("loc", []) for err in detail if isinstance(err, dict)]
-    assert any("name" in loc for loc in error_locs), "Should have error for missing 'name'"
-    assert any("codeblock" in loc for loc in error_locs), (
-        "Should have error for missing 'codeblock'"
-    )
+    fields = {err.get("field") for err in detail if isinstance(err, dict)}
+
+    assert "name" in fields
+    assert "codeblock" in fields
 
 
 async def test_create_item_missing_is_root_and_parent_laui_fail(

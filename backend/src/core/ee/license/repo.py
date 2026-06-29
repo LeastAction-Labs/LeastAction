@@ -14,8 +14,13 @@ from src.common.exceptions import NotFoundError
 from src.common.logger.logger import log_error
 from src.core.db.transaction import session_context
 from src.core.db.types import MongoDatabase
-
-from .schema import CreateLicense, CreateLicenseInDB, License, LicenseProjection, UpdateLicense
+from src.core.ee.license.schema import (
+    CreateLicense,
+    CreateLicenseInDB,
+    License,
+    LicenseProjection,
+    UpdateLicense,
+)
 
 
 class LicenseRepository:

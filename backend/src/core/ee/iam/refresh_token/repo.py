@@ -8,8 +8,11 @@ from datetime import UTC, datetime
 from src.common.exceptions import NotFoundError
 from src.core.db.transaction import session_context
 from src.core.db.types import MongoDatabase
-
-from .schema import CreateRefreshToken, CreateRefreshTokenInDB, RefreshToken
+from src.core.ee.iam.refresh_token.schema import (
+    CreateRefreshToken,
+    CreateRefreshTokenInDB,
+    RefreshToken,
+)
 
 
 class RefreshTokenRepository:

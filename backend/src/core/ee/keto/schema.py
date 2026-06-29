@@ -9,7 +9,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 from pydantic_mongo import PydanticObjectId
 
-from .types import KetoString
+from src.core.ee.keto.types import KetoString
 
 
 class Relation(str, Enum):

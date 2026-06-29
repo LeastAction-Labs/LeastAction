@@ -17,9 +17,7 @@ from src.core.catalog.utils.item_types.service import ItemTypesManager
 from src.core.task.action.schema import Actions
 from src.core.task.config.config_manager import ConfigManager
 from src.core.task.connection.connection_manager import ConnectionManager
-from src.core.task.schema import TaskCreationValidationModel, TaskValidationModel
-
-from .schema import TaskState
+from src.core.task.schema import TaskCreationValidationModel, TaskState, TaskValidationModel
 
 
 class TaskValidationManager:

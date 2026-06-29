@@ -30,13 +30,7 @@ class UpdateUserPayload(BaseModel):
     chat_agent_name: str | None = None
     is_active: bool | None = None
     license_laui: PydanticObjectId | None = None
-    password: str | None = None
-
-    @model_validator(mode="after")
-    def process_password(self):
-        if self.password:
-            self.password = hashlib.sha256(self.password.encode()).hexdigest()
-        return self
+    change_password: bool = False
 
 
 class AdminCreateUserRequest(BaseModel):

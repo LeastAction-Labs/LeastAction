@@ -14,6 +14,8 @@ from src.core.catalog.api_request import CreateItemResponse
 from src.core.db.types import MongoDatabase, MongoDocument
 from src.core.ee.iam.session.service import SessionService
 from src.core.ee.iam.user.schema import UserType
+from src.core.ee.license.repo import LicenseRepository
+from src.core.ee.license.service import LicenseService
 from tests.integration.schema import TestRequest
 
 dotenv.load_dotenv()
@@ -61,8 +63,10 @@ async def get_system_access_token() -> str:
         return system_user["system_access_token"]
 
     # Create system user if it doesn't exist
-    user_repo = UserRepository(db=test_db)
-    user_service = UserService(user_repo=user_repo)
+
+    license_repo = LicenseRepository(test_db)
+    license_service = LicenseService(license_repo)
+    user_service = UserService(user_repo=UserRepository(test_db), license_service=license_service)
     session_service = get_session_service()
 
     if not system_user:
@@ -198,8 +202,11 @@ async def get_item_orchestrator(test_database: MongoDatabase):
 
     # Initialize session and user services for token generation
     session_service = get_session_service()
-    user_repo = UserRepository(test_database)
-    user_service = UserService(user_repo=user_repo)
+    license_repo = LicenseRepository(test_database)
+    license_service = LicenseService(license_repo)
+    user_service = UserService(
+        user_repo=UserRepository(test_database), license_service=license_service
+    )
 
     celery_orchestrator = CeleryOrchestrator(
         session_service=session_service, user_service=user_service
@@ -235,7 +242,7 @@ async def get_item_orchestrator(test_database: MongoDatabase):
         )
 
 
-from .schema import BaseFolders
+from tests.integration.schema import BaseFolders
 
 
 def create_base_folders(client: TestClient) -> BaseFolders:

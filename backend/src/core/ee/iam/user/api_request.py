@@ -9,8 +9,7 @@ from pydantic import BaseModel
 from pydantic_mongo import PydanticObjectId
 
 from src.core.api.common import PaginationRequest, PaginationResponse
-
-from .schema import UserProjection
+from src.core.ee.iam.user.schema import UserProjection
 
 
 class SearchUsersRequest(PaginationRequest):

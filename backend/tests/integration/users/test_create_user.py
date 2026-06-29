@@ -12,7 +12,9 @@ from src.core.ee.iam.session.service import SessionService
 from src.core.ee.iam.user.repo import UserRepository
 from src.core.ee.iam.user.schema import CreateUser, UserType
 from src.core.ee.iam.user.service import UserService
+from src.core.ee.license.repo import LicenseRepository
 from src.core.ee.license.schema import LicenseClaims, LicenseTier, LicenseUploadRequest
+from src.core.ee.license.service import LicenseService
 from tests.integration.schema import TestRequest
 from tests.integration.utils import execute_request
 
@@ -32,7 +34,11 @@ async def test_create_user(client: TestClient, test_database: MongoDatabase):
     )
     assert response.status_code == 200
 
-    user_service = UserService(user_repo=UserRepository(test_database))
+    license_repo = LicenseRepository(test_database)
+    license_service = LicenseService(license_repo)
+    user_service = UserService(
+        user_repo=UserRepository(test_database), license_service=license_service
+    )
 
     # create root user
     root_user_email = "root_user@gmail.com"

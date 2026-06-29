@@ -10,8 +10,11 @@ from fastapi import Request
 from src.common.exceptions import NotFoundError
 from src.core.db import MongoDatabase
 from src.core.db.transaction import session_context
-
-from .schema import CreateLinkedAccount, CreateLinkedAccountInDB, LinkedAccount
+from src.core.ee.iam.linked_account.schema import (
+    CreateLinkedAccount,
+    CreateLinkedAccountInDB,
+    LinkedAccount,
+)
 
 
 class LinkedAccountRepository:

@@ -92,9 +92,11 @@ async def lifespan(app: FastAPI):
     app.state.auth_code_dict = AuthCodeDict()
     app.state.user_repo = UserRepository(active_db)
     await app.state.user_repo.create_indexes()
-    app.state.user_service = UserService(user_repo=app.state.user_repo)
     app.state.license_repo = LicenseRepository(active_db)
     app.state.license_service = LicenseService(app.state.license_repo)
+    app.state.user_service = UserService(
+        user_repo=app.state.user_repo, license_service=app.state.license_service
+    )
     app.state.admin_service = AdminService(
         license_service=app.state.license_service, user_service=app.state.user_service
     )
@@ -483,14 +485,16 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content={
             "message": "Invalid request parameters provided.",
-            "detail": jsonable_encoder(exc.errors()),
+            "detail": jsonable_encoder(transform_validation_errors(exc.errors())),
         },
     )
 
 
 @app.exception_handler(HTTPException)
 async def validation_exception_handler(request: Request, exc: HTTPException):
-    return JSONResponse(status_code=exc.status_code, content=exc.detail)
+    return JSONResponse(
+        status_code=exc.status_code, content=transform_validation_errors(exc.detail)
+    )
 
 
 if __name__ == "__main__":
