@@ -20,6 +20,7 @@ from src.common.logger.logger import log_error
 from src.common.mutex import lock_multiple_docs
 from src.common.types import LAUI
 from src.common.utils import transform_access
+from src.core.catalog.item.indexes import get_indexes
 from src.core.catalog.item.schema import (
     CreateItem,
     CreateItemInDB,
@@ -30,8 +31,6 @@ from src.core.catalog.item.schema import (
 from src.core.db.transaction import session_context
 from src.core.db.types import MongoDatabase
 from src.core.task.schema import Task
-
-from .indexes import get_indexes
 
 
 class ItemRepository:

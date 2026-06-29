@@ -10,8 +10,7 @@ from pydantic import ValidationError
 
 from src.common.exceptions import InvalidArgumentError, NotFoundError, UnprocessableEntityError
 from src.common.logger.logger import log_error
-
-from .catalog_schema import CatalogConfig
+from src.core.catalog.config.catalog_schema import CatalogConfig
 
 
 def load_catalog_config() -> CatalogConfig:

@@ -7,8 +7,7 @@
 from pydantic import BaseModel, model_validator
 
 from src.common.exceptions import UnprocessableEntityError
-
-from .schema import AccessRelation, Permission
+from src.core.ee.keto.schema import AccessRelation, Permission
 
 
 class GetAccessRelationsRequest(BaseModel):

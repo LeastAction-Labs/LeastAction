@@ -20,7 +20,7 @@ LAUI = Annotated[
 
 iLAUI = PydanticObjectId
 
-from .models import Access, AccessPatch
+from src.common.models import Access, AccessPatch
 
 
 def coerce_set_access(access_patch: dict | None):

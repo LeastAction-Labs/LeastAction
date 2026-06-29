@@ -485,14 +485,16 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content={
             "message": "Invalid request parameters provided.",
-            "detail": jsonable_encoder(exc.errors()),
+            "detail": jsonable_encoder(transform_validation_errors(exc.errors())),
         },
     )
 
 
 @app.exception_handler(HTTPException)
 async def validation_exception_handler(request: Request, exc: HTTPException):
-    return JSONResponse(status_code=exc.status_code, content=exc.detail)
+    return JSONResponse(
+        status_code=exc.status_code, content=transform_validation_errors(exc.detail)
+    )
 
 
 if __name__ == "__main__":

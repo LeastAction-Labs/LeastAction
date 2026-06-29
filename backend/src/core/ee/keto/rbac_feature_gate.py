@@ -9,7 +9,7 @@ import importlib
 from typing import Protocol , Optional
 from src.core.ee.license.service import LicenseService
 from fastapi import Request
-from .schema import (
+from src.core.ee.keto.schema import (
     Permission, Relation,
     SharedItemsResponse,
     RelationTupleWithPermission,
@@ -132,7 +132,7 @@ def get_rbac_service(request:Request) -> RBACInterface:
     return request.app.state.rbac_service
 
 
-from .schema import (
+from src.core.ee.keto.schema import (
     Permission , Relation ,
     SharedItemsResponse , RelationTupleWithPermission ,
     GroupsResponse

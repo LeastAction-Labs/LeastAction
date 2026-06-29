@@ -6,9 +6,8 @@
 from fastapi import Request
 
 from src.common.exceptions import NotFoundError
-
-from .repo import LinkedAccountRepository
-from .schema import CreateLinkedAccount
+from src.core.ee.iam.linked_account.repo import LinkedAccountRepository
+from src.core.ee.iam.linked_account.schema import CreateLinkedAccount
 
 
 class LinkedAccountService:

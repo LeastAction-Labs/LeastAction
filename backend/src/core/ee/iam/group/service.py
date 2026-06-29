@@ -8,18 +8,17 @@ from pydantic_mongo import PydanticObjectId
 
 from src.common.context_vars.user_context import get_user_laui
 from src.common.exceptions import NotFoundError
-from src.core.ee.iam.user.service import UserService
-from src.core.ee.keto.access_reader import AccessReader
-from src.core.ee.keto.schema import GroupResponse, GroupsResponse, Relation
-
-from .api_request import (
+from src.core.ee.iam.group.api_request import (
     GetGroupResponse,
     PaginationResponse,
     SearchGroupsRequest,
     SearchGroupsResponse,
 )
-from .repo import GroupRepository
-from .schema import CreateGroup, UpdateGroup
+from src.core.ee.iam.group.repo import GroupRepository
+from src.core.ee.iam.group.schema import CreateGroup, UpdateGroup
+from src.core.ee.iam.user.service import UserService
+from src.core.ee.keto.access_reader import AccessReader
+from src.core.ee.keto.schema import GroupResponse, GroupsResponse, Relation
 
 
 class GroupService:

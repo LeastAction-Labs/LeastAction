@@ -136,8 +136,11 @@ export async function setUserStatus(userId: string, is_active: boolean): Promise
   });
 }
 
-export async function updateUser(userId: string, payload: any): Promise<void> {
-  await httpJson<{ message: string }>(API_ENDPOINTS.userUpdate(userId), {
+export async function updateUser(
+  userId: string,
+  payload: any,
+): Promise<{ message: string; password?: string }> {
+  return await httpJson<{ message: string; password?: string }>(API_ENDPOINTS.userUpdate(userId), {
     method: 'POST',
     body: payload,
   });

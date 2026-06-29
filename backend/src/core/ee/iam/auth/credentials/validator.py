@@ -9,11 +9,14 @@ from pydantic_mongo import PydanticObjectId
 
 from src.common.exceptions import AuthenticationError, NotFoundError
 from src.core.ee.iam.auth.auth_code_dict import AuthCodeDict
+from src.core.ee.iam.auth.credentials.credentials import (
+    AuthorizationCodeCredentials,
+    BaseCredentials,
+    RefreshTokenCredentials,
+)
 from src.core.ee.iam.refresh_token.service import RefreshTokenService
 from src.core.ee.iam.user.schema import User
 from src.core.ee.iam.user.service import UserService
-
-from .credentials import AuthorizationCodeCredentials, BaseCredentials, RefreshTokenCredentials
 
 
 class ValidatorFunc(Protocol):
@@ -53,7 +56,7 @@ class CredentialsValidator:
             except NotFoundError:
                 raise AuthenticationError()
 
-        """ 
+        """
         validation_result  = validate_external_creds(creds)
         try:
             linked_account  = await self.linked_account_service.get_linked_account_by_sub_and_provider(
@@ -73,8 +76,8 @@ class CredentialsValidator:
                     user_laui = PydanticObjectId(user_laui)
                 )
             )
-            user = await self.user_service.find_user( laui = PydanticObjectId(user_laui) ) 
-            return user     
+            user = await self.user_service.find_user( laui = PydanticObjectId(user_laui) )
+            return user
         """
 
     async def _validate_refresh_token(self, creds: RefreshTokenCredentials) -> User:

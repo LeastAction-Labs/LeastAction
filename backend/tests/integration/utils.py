@@ -242,7 +242,7 @@ async def get_item_orchestrator(test_database: MongoDatabase):
         )
 
 
-from .schema import BaseFolders
+from tests.integration.schema import BaseFolders
 
 
 def create_base_folders(client: TestClient) -> BaseFolders:
