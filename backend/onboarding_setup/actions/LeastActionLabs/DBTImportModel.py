@@ -429,7 +429,7 @@ action_variables = {
     "project_laui": "",
     "account_laui": "",
     "partition": "",
-    "connection_name": "dbt_server_connection"
+    "connection_name": "DbtServer"
 }
 
 connection = {

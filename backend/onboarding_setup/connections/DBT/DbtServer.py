@@ -11,7 +11,7 @@ connection = {
 
 prompt = "Connect to the bundled dbt-demo server for running dbt models via the DBTRunModel operator."
 
-install_docs = """# dbt_server — Connection Setup
+install_docs = """# DbtServer — Connection Setup
 
 Points to the `dbt-demo` container that ships with the LeastAction docker-compose
 stack. The dbt-server provides /health, /run-model, /run-seed, and /list-models
@@ -23,10 +23,10 @@ HTTP endpoints that the DBTRunModel and DBTRunSelectModel operators call.
 | dbt_server_url | http://dbt-demo:8001 | Internal docker hostname + port |
 """
 
-guide_docs = """# dbt_server — Connection Guide
+guide_docs = """# DbtServer — Connection Guide
 
 Used by `DBTRunModel` and `DBTRunSelectModel` operators, referenced as
-`dbt_server` via `connection_name`. Provides the dbt-server HTTP URL.
+`DbtServer` via `connection_name`. Provides the dbt-server HTTP URL.
 """
 
 description = "dbt-server connection for running dbt models via the bundled dbt-demo container."
