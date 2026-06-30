@@ -37,7 +37,7 @@ prompt = (
     "Tasks 01 through 05 form a strict linear chain. Tasks 05b, 06 and 07 are parallel siblings, "
     "all waiting on Task 05. After all tasks complete, push 4 additional HTML reports to the catalog: "
     "ABC Device Performance, ABC Genre Engagement, ABC Country Engagement, ABC Drop-off Analysis. "
-    "Connection name: keto. "
+    "Connection name: postgresql. "
     "Task 00 uses PostgresqlLoadTSVFromURL. Tasks 01-05 and 05b use PostgresqlExecuteSQL. "
     "Task 06 uses PostgresqlValidatorSQL. Task 07 uses PostgresqlGenerateHtmlTableReport."
 )
@@ -51,15 +51,15 @@ This usecase runs against the `postgres` service already defined in this repo's
 `docker-compose.yml` — no separate container needed. If running this usecase elsewhere,
 provision a PostgreSQL 13+ instance with the same credentials shown below.
 
-### 2. Connection item — name it `keto`
+### 2. Connection item — name it `postgresql`
 
 | Field | Value |
 |-------|-------|
-| host | postgres |
+| host | postgres-demo |
 | port | 5432 |
-| database | keto |
-| user | keto |
-| password | secret |
+| database | postgres_demo_db |
+| user | postgres |
+| password | postgres |
 
 Set `item_type` to `connection.postgresql` (not the generic `connection` type) —
 the MCP `inspect_data` tool requires this exact type to query/verify data.
@@ -159,7 +159,7 @@ Task 00: 00_imdb_load.json            (root)
 
 ### Step 1 — Create the connection
 
-Create a connection item named `keto` with the fields above.
+Create a connection item named `postgresql` with the fields above.
 
 ### Step 2 — Upload all eight payload files
 
@@ -171,7 +171,7 @@ Upload each payload file to your project's payload library before creating tasks
 |-------|-------|
 | Name | 00_imdb_load.json |
 | Operator | PostgresqlLoadTSVFromURL |
-| Connection | keto |
+| Connection | postgresql |
 | Payload | 00_imdb_load.json |
 | Frequency | 0 6 * * * |
 | Timeout | 600 |
@@ -188,7 +188,7 @@ Each task waits for its upstream task via `LeastActionCheckIfParentsAreDone`:
 | 04 | 04_processed_facts.sql | 03_processed_dims.sql |
 | 05 | 05_reporting_aggregates.sql | 04_processed_facts.sql |
 
-All use operator `PostgresqlExecuteSQL`, connection `keto`, frequency `0 6 * * *`.
+All use operator `PostgresqlExecuteSQL`, connection `postgresql`, frequency `0 6 * * *`.
 
 ### Step 5 — Update output_parent_laui in payloads 06 and 07
 
@@ -229,7 +229,7 @@ payloads = {
   "name": "00_imdb_load.json",
   "frequency": "0 6 * * *",
   "operator_name": "PostgresqlLoadTSVFromURL",
-  "connection_name": "keto",
+  "connection_name": "postgresql",
   "partition": "{{partition}}",
   "config_name": [],
   "start_date": "2026-01-01",
@@ -284,7 +284,7 @@ payloads = {
   "name": "01_landing_synthetic.sql",
   "frequency": "0 6 * * *",
   "operator_name": "PostgresqlExecuteSQL",
-  "connection_name": "keto",
+  "connection_name": "postgresql",
   "partition": "{{partition}}",
   "config_name": [],
   "start_date": "2026-01-01",
@@ -450,7 +450,7 @@ JOIN LATERAL (
   "name": "02_raw_dedup.sql",
   "frequency": "0 6 * * *",
   "operator_name": "PostgresqlExecuteSQL",
-  "connection_name": "keto",
+  "connection_name": "postgresql",
   "partition": "{{partition}}",
   "config_name": [],
   "start_date": "2026-01-01",
@@ -508,7 +508,7 @@ GROUP BY customer_id, title_id, event_date;
   "name": "03_processed_dims.sql",
   "frequency": "0 6 * * *",
   "operator_name": "PostgresqlExecuteSQL",
-  "connection_name": "keto",
+  "connection_name": "postgresql",
   "partition": "{{partition}}",
   "config_name": [],
   "start_date": "2026-01-01",
@@ -606,7 +606,7 @@ FROM generate_series(
   "name": "04_processed_facts.sql",
   "frequency": "0 6 * * *",
   "operator_name": "PostgresqlExecuteSQL",
-  "connection_name": "keto",
+  "connection_name": "postgresql",
   "partition": "{{partition}}",
   "config_name": [],
   "start_date": "2026-01-01",
@@ -671,7 +671,7 @@ JOIN processed.dim_title t ON vs.title_id = t.title_id;
   "name": "05_reporting_aggregates.sql",
   "frequency": "0 6 * * *",
   "operator_name": "PostgresqlExecuteSQL",
-  "connection_name": "keto",
+  "connection_name": "postgresql",
   "partition": "{{partition}}",
   "config_name": [],
   "start_date": "2026-01-01",
@@ -778,7 +778,7 @@ FROM reporting.fact_streaming_daily;
   "name": "05b_reporting_extended.sql",
   "frequency": "0 6 * * *",
   "operator_name": "PostgresqlExecuteSQL",
-  "connection_name": "keto",
+  "connection_name": "postgresql",
   "partition": "{{partition}}",
   "config_name": [],
   "start_date": "2026-01-01",
@@ -901,7 +901,7 @@ GROUP BY e.event_date, c.subscription_type;
   "name": "06_validation.yaml",
   "frequency": "0 6 * * *",
   "operator_name": "PostgresqlValidatorSQL",
-  "connection_name": "keto",
+  "connection_name": "postgresql",
   "partition": "{{partition}}",
   "config_name": [],
   "start_date": "2026-01-01",
@@ -981,7 +981,7 @@ queries:
   "name": "07_streaming_dashboard.json",
   "frequency": "0 6 * * *",
   "operator_name": "PostgresqlGenerateHtmlTableReport",
-  "connection_name": "keto",
+  "connection_name": "postgresql",
   "partition": "{{partition}}",
   "config_name": [],
   "start_date": "2026-01-01",
@@ -1110,14 +1110,14 @@ HTML dashboard — zero manual SQL steps.
   (look this up once via `search_catalog(item_type="action")` if it ever changes —
   do not re-search every run, it's stable across the lifetime of an instance)
 
-## Connection (name: `keto`, item_type: `connection.postgresql`)
+## Connection (name: `postgresql`, item_type: `connection.postgresql`)
 ```json
 {
-  "host": "postgres",
+  "host": "postgres-demo",
   "port": 5432,
-  "database": "keto",
-  "user": "keto",
-  "password": "secret"
+  "database": "postgres_demo_db",
+  "user": "postgres",
+  "password": "postgres"
 }
 ```
 Must be created with `item_type: "connection.postgresql"`, not the generic `"connection"` type —
@@ -1170,7 +1170,7 @@ Task 05b builds 5 extended reporting tables for device, genre, country, funnel, 
 ## Required behavior — step-by-step orchestration
 
 ### Step 0 — Verify prerequisites and resolve output_parent_laui
-1. Confirm `keto` connection exists with all five required fields.
+1. Confirm `postgresql` connection exists with all five required fields.
 2. The eight payload files are embedded in this usecase's `payloads` dict (accessible from the usecase catalog item). Do NOT pre-upload them separately — when calling `create_task` for each task, read the corresponding payload content string directly from the usecase `payloads` dict and pass it inline as the task payload content.
 3. Confirm `PostgresqlLoadTSVFromURL` operator is deployed on this instance.
 4. **Auto-resolve the report destination (output_parent_laui):**
@@ -1186,7 +1186,7 @@ Task 05b builds 5 extended reporting tables for device, genre, country, funnel, 
 ### Step 1 — Create and run Task 00 (root)
 1. Create task with `name` set to the **exact literal string** `00_imdb_load.json`
    (including the `.json` extension — do NOT strip it) with operator `PostgresqlLoadTSVFromURL`,
-   connection `keto`, frequency `0 6 * * *`, timeout 600, no pre-actions.
+   connection `postgresql`, frequency `0 6 * * *`, timeout 600, no pre-actions.
 2. After creation, confirm the task's stored `name` field equals `00_imdb_load.json` exactly
    before proceeding — this name is what every downstream pre-action will look for as a parent.
 3. Start Task 00. Poll until terminal status (success or failed).
@@ -1197,7 +1197,7 @@ Task 05b builds 5 extended reporting tables for device, genre, country, funnel, 
 For each task in order (01 → 02 → 03 → 04 → 05):
 1. Create the task with `name` set to the **exact literal payload filename including extension**
    (`01_landing_synthetic.sql`, `02_raw_dedup.sql`, etc. — never strip the extension), operator
-   `PostgresqlExecuteSQL`, connection `keto`, frequency `0 6 * * *`, and a
+   `PostgresqlExecuteSQL`, connection `postgresql`, frequency `0 6 * * *`, and a
    `LeastActionCheckIfParentsAreDone` pre-action (laui `6a2ce2e2a6105ed2d89c780b`) whose
    `task_name` is the preceding task's exact name (see DAG structure above).
 2. Confirm the created task's `name` field matches the literal filename exactly — a mismatched
@@ -1219,15 +1219,15 @@ For each task in order (01 → 02 → 03 → 04 → 05):
    NEVER pass the placeholder `{{output_parent_laui}}` literally — it is not a runtime template
    variable; the operator will silently find no folder and skip the catalog upload entirely.
 2. Create Task 05b with `name` set to the exact literal string `05b_reporting_extended.sql`,
-   operator `PostgresqlExecuteSQL`, connection `keto`, frequency `0 6 * * *`,
+   operator `PostgresqlExecuteSQL`, connection `postgresql`, frequency `0 6 * * *`,
    and `LeastActionCheckIfParentsAreDone` (laui `6a2ce2e2a6105ed2d89c780b`) pointing to
    `05_reporting_aggregates.sql`. This task builds 5 extended reporting tables.
 3. Create Task 06 with `name` set to the exact literal string `06_validation.yaml`, operator
-   `PostgresqlValidatorSQL`, connection `keto`, frequency `0 6 * * *`,
+   `PostgresqlValidatorSQL`, connection `postgresql`, frequency `0 6 * * *`,
    and `LeastActionCheckIfParentsAreDone` (laui `6a2ce2e2a6105ed2d89c780b`) pointing to
    `05_reporting_aggregates.sql`.
 4. Create Task 07 with `name` set to the exact literal string `07_streaming_dashboard.json`,
-   operator `PostgresqlGenerateHtmlTableReport`, connection `keto`,
+   operator `PostgresqlGenerateHtmlTableReport`, connection `postgresql`,
    frequency `0 6 * * *`, `total_retries: 1` and `retry_interval: 1` (this task has a known
    transient first-run flake — one automatic retry one minute later resolves it),
    and `LeastActionCheckIfParentsAreDone` pointing to `05_reporting_aggregates.sql`.
