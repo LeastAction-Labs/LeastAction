@@ -297,14 +297,14 @@ An **action** defines a single `run`. The executor calls it as `run(action_objec
 
 ```python
 def run(least_action_action_object, **kwargs):                 # only ONE positional
-    connection = least_action_action_object.get("connection", {})   # resolved from connection_laui at run time
+    connection = least_action_action_object.get("connection", {})  # resolved from connection_laui at run time
     issue_key = kwargs.get("issue_key")                        # each action_variable is a kwarg
     comment = kwargs.get("comment")
     ...
     return True   # actions are SYNC and return a bool (True = success, False = failure)
 ```
 
-Do **not** add extra positional params (e.g. `def run(obj, parent_laui, ...)`) — the executor passes only the action object positionally, so a required positional raises `run() missing 1 required positional argument: 'parent_laui'`. An **action** takes a **connection** (resolved from `connection_laui`) + `action_variables`, does the work **synchronously**, and returns **true/false** — the sync counterpart of the async operator/task. Codeblocks may not use `async def` or import `threading`; do sync HTTP with `requests`, and reuse platform work by calling an endpoint (e.g. POST `am/wiki/request`) instead of re-implementing it.
+Do **not** add extra positional params (e.g. `def run(obj, parent_laui, ...)`) — the executor passes only the action object positionally, so a required positional raises `run() missing 1 required positional argument: 'parent_laui'`. An **action** takes a **connection** (resolved from `connection_laui`) + `action_variables`, does the work **synchronously**, and returns **true/false** — the sync counterpart of the async operator/task. Codeblocks may not use `async def` or import `threading`; do sync HTTP with `requests`, and reuse platform work by calling an existing endpoint rather than re-implementing it.
 
 ### Required fields by item type
 
