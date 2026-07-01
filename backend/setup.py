@@ -1352,54 +1352,67 @@ async def get_or_create_sales_pipeline_tasks(
     ]
 
     import json as _json
+
     report_configs = [
-        ("04_sales_performance_report", "Sales Performance Dashboard",
-         "fact_product_agg_daily",
-         "date >= (SELECT MAX(date) FROM fact_product_agg_daily) - INTERVAL '3 days'",
-         "#1565C0", "corporate_blue"),
-        ("05_category_performance_report", "Category & Channel Performance",
-         "fact_product_agg_daily",
-         "date >= (SELECT MAX(date) FROM fact_product_agg_daily) - INTERVAL '3 days'",
-         "#2E7D32", "modern_green"),
+        (
+            "04_sales_performance_report",
+            "Sales Performance Dashboard",
+            "fact_product_agg_daily",
+            "date >= (SELECT MAX(date) FROM fact_product_agg_daily) - INTERVAL '3 days'",
+            "#1565C0",
+            "corporate_blue",
+        ),
+        (
+            "05_category_performance_report",
+            "Category & Channel Performance",
+            "fact_product_agg_daily",
+            "date >= (SELECT MAX(date) FROM fact_product_agg_daily) - INTERVAL '3 days'",
+            "#2E7D32",
+            "modern_green",
+        ),
     ]
 
     for name, title, table, date_filter, header_color, theme in report_configs:
-        payload = _json.dumps({
-            "data": {
-                "report_title": title,
-                "output_table": "sales_pipeline_reports",
-                "output_parent_laui": reports_folder_laui,
-                "report_style": {
-                    "theme": theme,
-                    "header_bg_color": header_color,
-                    "header_text_color": "#FFFFFF",
-                    "row_bg_color_even": "#f9f9f9",
-                    "row_bg_color_odd": "#ffffff",
-                    "row_hover_color": "#E3F2FD",
-                    "border_color": "#BBDEFB",
-                    "font_family": "Segoe UI, Arial, sans-serif",
-                },
-                "database": {
-                    "host": "postgres-demo",
-                    "port": 5432,
-                    "database": "postgres_demo_db",
-                    "user": "postgres",
-                    "password": "postgres",
-                },
-                "query": {
-                    "table": table,
-                    "date_filter": date_filter,
-                    "limit": None,
-                },
+        payload = _json.dumps(
+            {
+                "data": {
+                    "report_title": title,
+                    "output_table": "sales_pipeline_reports",
+                    "output_parent_laui": reports_folder_laui,
+                    "report_style": {
+                        "theme": theme,
+                        "header_bg_color": header_color,
+                        "header_text_color": "#FFFFFF",
+                        "row_bg_color_even": "#f9f9f9",
+                        "row_bg_color_odd": "#ffffff",
+                        "row_hover_color": "#E3F2FD",
+                        "border_color": "#BBDEFB",
+                        "font_family": "Segoe UI, Arial, sans-serif",
+                    },
+                    "database": {
+                        "host": "postgres-demo",
+                        "port": 5432,
+                        "database": "postgres_demo_db",
+                        "user": "postgres",
+                        "password": "postgres",
+                    },
+                    "query": {
+                        "table": table,
+                        "date_filter": date_filter,
+                        "limit": None,
+                    },
+                }
             }
-        })
-        task_configs.append({
-            "name": name,
-            "operator_laui": report_operator_laui,
-            "connection_laui": pg_connection_laui,
-            "payload": payload,
-            "depends_on": "03_final_metrics",
-        })
+        )
+        task_configs.append(
+            {
+                "name": name,
+                "operator_laui": report_operator_laui,
+                "connection_laui": pg_connection_laui,
+                "payload": payload,
+                "depends_on": "03_final_metrics",
+            }
+        )
 
     now = datetime.now(UTC)
     created = {}
@@ -1636,24 +1649,28 @@ async def setup():
 
     # --- Sales Pipeline ---
     print("\n--- Sales Pipeline Workflow Folder ---")
-    sales_workflow = await create_item({
-        "item_type": "folder.workflow",
-        "name": "dbt_sales_reporting",
-        "parent_laui": folders["workflow"],
-        "project_laui": project_laui,
-        "account_laui": account_laui,
-    })
+    sales_workflow = await create_item(
+        {
+            "item_type": "folder.workflow",
+            "name": "dbt_sales_reporting",
+            "parent_laui": folders["workflow"],
+            "project_laui": project_laui,
+            "account_laui": account_laui,
+        }
+    )
     sales_workflow_folder_laui = sales_workflow.get("item_laui")
     print(f"[setup] Created dbt_sales_reporting workflow folder: {sales_workflow_folder_laui}")
 
     print("\n--- Sales Reports Folder ---")
-    sales_reports_resp = await create_item({
-        "item_type": "folder.asset",
-        "name": "sales_pipeline_reports",
-        "parent_laui": folders["asset"],
-        "project_laui": project_laui,
-        "account_laui": account_laui,
-    })
+    sales_reports_resp = await create_item(
+        {
+            "item_type": "folder.asset",
+            "name": "sales_pipeline_reports",
+            "parent_laui": folders["asset"],
+            "project_laui": project_laui,
+            "account_laui": account_laui,
+        }
+    )
     sales_reports_folder_laui = sales_reports_resp.get("item_laui")
     print(f"[setup] Created sales_pipeline_reports folder: {sales_reports_folder_laui}")
 
