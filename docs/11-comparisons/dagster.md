@@ -69,7 +69,7 @@ Dagster provides sensors, schedules, and hooks (`success_hook`, `failure_hook`) 
 LeastAction's actions are first-class catalog items, AI-generated, shareable across workflows:
 
 - **preActions / postActions / SLA actions / interval actions** — configurable per workflow
-- **Task Control Actions** — workflow-level controls visible in the UI: `LeastActionRerunSubtree` (rerun a failed task and all downstream), `LeastActionSkipSubtree` (bypass a branch), or any custom control logic a user wants to build
+- **Task Control Actions** — workflow-level controls visible in the UI: `LeastActionRunTask` (run or rerun a task), `LeastActionCancelTask` (cancel a running task), `LeastActionScheduleTasks` (reschedule tasks), or any custom control logic a user wants to build
 - **UI actions** — run interactively on folder contents or individual items in the catalog; variables pre-filled from config defaults on the folder
 
 ### Per-connection parallelism with priority queuing

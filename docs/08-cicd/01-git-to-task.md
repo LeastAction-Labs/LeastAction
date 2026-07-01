@@ -138,8 +138,11 @@ You can also define pre/running/post actions inside the task metadata:
     ],
     "post_actions": [
       {
-        "action_name": "LeastActionFindTasksReadyToRun",
-        "action_variables": {}
+        "action_name": "LeastActionWebhookNotify",
+        "action_variables": {
+          "webhook_url": "https://hooks.slack.com/services/XXX/YYY/ZZZ",
+          "message": "Task {{name}} completed for {{ds}}"
+        }
       }
     ],
     "running_actions": []

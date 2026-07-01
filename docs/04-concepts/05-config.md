@@ -69,8 +69,8 @@ When a task is executed, LeastAction performs a three-step process:
 2. Parameters are handled specially with overridable/not_overridable logic
 
 **Step 2: System Variables Replacement** - Built-in system variables are replaced:
-1. {{ds}} - Date Stamp in YYYY-MM-DD format
-2. {{ts}} - Time Stamp in ISO format
+1. {{ds}} - Logical date in YYYY-MM-DD format
+2. {{ts}} - Logical date as ISO timestamp
 
 **Step 3: Merged Parameter Replacement** - User-defined parameters from merged config are replaced in the payload
 1. Supports nested objects
@@ -335,7 +335,7 @@ Task-level actions **APPEND** to workflow defaults — they do not replace them.
     "task": {
       "preAction": [
         {
-          "action": "LeastActionGitSync",
+          "action": "LeastActionGitToTask",
           "connection": "github-main",
           "variables": {}
         }
@@ -350,7 +350,7 @@ Task-level actions **APPEND** to workflow defaults — they do not replace them.
 {
   "preAction": [
     {
-      "action": "LeastActionGitSync",
+      "action": "LeastActionGitToTask",
       "connection": "github-main",
       "variables": {}
     },
@@ -364,7 +364,7 @@ Task-level actions **APPEND** to workflow defaults — they do not replace them.
   ],
   "runningSLAAction": [
     {
-      "action": "LeastActionSlackWebhook",
+      "action": "LeastActionWebhookNotify",
       "sla": 30,
       "connection": "slack-alerts",
       "variables": {
@@ -390,19 +390,19 @@ Variable replacement is applied to **both the task payload and action variables*
 
 ### **1. Built-in System Variables**
 
-Two built-in variables are always available. They reflect the **current wall-clock time at execution**, not the task's logical date:
+Built-in variables are always available. `ds`/`ts` variants are derived from the task's **`logical_date`** (the scheduled slot), not wall-clock time. `current_date`/`current_timestamp` reflect actual wall-clock time at execution:
 
 | Variable | Description | Example Value |
 | :---- | :---- | :---- |
-| `{{ds}}` | Execution date (YYYY-MM-DD) | `2026-03-06` |
-| `{{ds_nodash}}` | Execution date without dashes (YYYYMMDD) | `20260306` |
-| `{{ts}}` | Execution timestamp (ISO format) | `2026-03-06T14:30:00.123456` |
-| `{{ts_nodash}}` | Execution timestamp without dashes (YYYYMMDDTHHmmSS) | `20260306T143000` |
-| `{{ts_nodash_with_tz}}` | Execution timestamp without dashes with timezone offset | `20260306T143000+0000` |
+| `{{ds}}` | Logical date as YYYY-MM-DD | `2026-03-06` |
+| `{{ds_nodash}}` | Logical date without dashes (YYYYMMDD) | `20260306` |
+| `{{ts}}` | Logical date as ISO timestamp | `2026-03-06T00:00:00+00:00` |
+| `{{ts_nodash}}` | Logical date timestamp without dashes (YYYYMMDDTHHmmSS) | `20260306T000000` |
+| `{{ts_nodash_with_tz}}` | Logical date timestamp without dashes with timezone offset | `20260306T000000+0000` |
 | `{{current_date}}` | Current wall-clock date (YYYY-MM-DD) | `2026-03-06` |
 | `{{current_timestamp}}` | Current wall-clock timestamp (ISO format) | `2026-03-06T14:30:00.123456` |
 
-> **Note**: `{{ds}}` is the actual execution date, not the task's `logical_date`. Use `{{logical_date}}` when you need the scheduled slot date.
+> **Note**: `{{ds}}` and `{{ts}}` are derived from `logical_date`, not wall-clock time. Use `{{current_date}}` or `{{current_timestamp}}` when you need the actual execution time.
 
 **Usage Example:**
 ```sql
@@ -438,7 +438,7 @@ Any parameters defined in your config can be accessed by name:
 **Usage in Action Variables:**
 ```json
 {
-  "action": "LeastActionSlackWebhook",
+  "action": "LeastActionWebhookNotify",
   "variables": {
     "message": "Task {{name}} completed on {{ds}} in {{database}}"
   }
@@ -521,7 +521,7 @@ VALUES ('{{name}}', '{{logical_date}}', {{iteration}}, {{duration}})
 **Usage Example — action variable using task fields:**
 ```json
 {
-  "action": "LeastActionSlackWebhook",
+  "action": "LeastActionWebhookNotify",
   "variables": {
     "message": "Task {{name}} (retry {{retry_number}}) completed. Logical date: {{logical_date}}. Duration: {{duration}}s"
   }
@@ -538,11 +538,11 @@ All JSON configs support Jinja templating for dynamic values.
 
 ```
 # ── Built-in System Variables (highest priority) ──────────────────────────────
-{{ds}}                          # Execution date (YYYY-MM-DD)
-{{ds_nodash}}                   # Execution date without dashes (YYYYMMDD)
-{{ts}}                          # Execution timestamp (ISO format)
-{{ts_nodash}}                   # Execution timestamp without dashes (YYYYMMDDTHHmmSS)
-{{ts_nodash_with_tz}}           # Execution timestamp without dashes with timezone offset
+{{ds}}                          # Logical date (YYYY-MM-DD)
+{{ds_nodash}}                   # Logical date without dashes (YYYYMMDD)
+{{ts}}                          # Logical date as ISO timestamp
+{{ts_nodash}}                   # Logical date timestamp without dashes (YYYYMMDDTHHmmSS)
+{{ts_nodash_with_tz}}           # Logical date timestamp without dashes with timezone offset
 {{current_date}}                # Current wall-clock date (YYYY-MM-DD)
 {{current_timestamp}}           # Current wall-clock timestamp (ISO format)
 
@@ -591,7 +591,7 @@ All JSON configs support Jinja templating for dynamic values.
 # NOT available: description, actions, payload, config
 
 # ── Notes ─────────────────────────────────────────────────────────────────────
-# ds/ds_nodash/ts/ts_nodash/ts_nodash_with_tz — based on execution datetime
+# ds/ds_nodash/ts/ts_nodash/ts_nodash_with_tz — derived from logical_date
 # current_date/current_timestamp — based on actual wall-clock time at execution
 ```
 
@@ -635,7 +635,7 @@ WHERE event_date >= '{{data_interval_start}}'
 #### **Example 4: Action Variables with Task Context**
 ```json
 {
-  "action": "LeastActionSlackWebhook",
+  "action": "LeastActionWebhookNotify",
   "variables": {
     "message": "Task '{{name}}' completed at {{ts}}",
     "details": "Iteration: {{iteration}}, Logical Date: {{logical_date}}",
@@ -660,7 +660,7 @@ WHERE event_date >= '{{data_interval_start}}'
     "metadata": {
       "task_name": "{{name}}",
       "execution_number": {{iteration}},
-      "retry_attempt": {{try_number}}
+      "retry_attempt": {{retry_number}}
     }
   }
 }
@@ -833,7 +833,7 @@ source/date={{ds}} {{ts[11:16]}}/source_file.txt
     "task": {
       "runningSLAAction": [
         {
-          "action": "LeastActionSlackWebhook",
+          "action": "LeastActionWebhookNotify",
           "sla": 30,
           "connection": "slack-critical",
           "variables": {
@@ -865,7 +865,7 @@ source/date={{ds}} {{ts[11:16]}}/source_file.txt
       "timeout": 3600,
       "runningSLAAction": [
         {
-          "action": "LeastActionSlackWebhook",
+          "action": "LeastActionWebhookNotify",
           "sla": 60,
           "connection": "slack-alerts"
         }

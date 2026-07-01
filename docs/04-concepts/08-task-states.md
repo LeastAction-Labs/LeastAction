@@ -97,15 +97,16 @@
 ## Cron Interaction
 
 The cron scheduler queries for tasks ready to run using these criteria:
-- `state` is `scheduled` or `success` (for next scheduled run)
+- `state` is `created`, `scheduled`, or `success` (for next scheduled run)
 - `deleted_at` is null
-- `user_set_state` is null
-- `logical_date` <= current UTC time
-- `start_date` <= current time (if set)
-- `end_date` >= current time (if set)
-- Parent workflow is not paused (`folder_metadata.state` != paused)
+- `user_set_state` is not `cancel`
+- `next_run_date` <= current UTC time
+- `start_date` < current time
+- `end_date` is null, or `next_run_date` <= `end_date`
+- Parent workflow is not paused (`folder_metadata.state` != `PAUSE`)
 
 For retry-eligible tasks:
 - `state` is `error` or `timeout`
-- `retry_number < total_retries`
-- `last_run_date + retry_interval` <= current time
+- `total_retries` is not `0`
+- `retry_number` < `total_retries`
+- `last_run_date` + `retry_interval` <= current time
