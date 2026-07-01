@@ -1274,22 +1274,22 @@ async def get_or_create_sales_pipeline_tasks(
                 "    pass_condition: 'missing == 0'\n"
                 "    display: scalar\n"
                 "\n  - name: 'PK — sale_id unique'\n"
-                "    sql: \"SELECT sale_id, COUNT(*) AS dupes FROM fact_sales_daily GROUP BY sale_id HAVING COUNT(*) > 1 LIMIT 5\"\n"
+                '    sql: "SELECT sale_id, COUNT(*) AS dupes FROM fact_sales_daily GROUP BY sale_id HAVING COUNT(*) > 1 LIMIT 5"\n'
                 "    severity: critical\n"
                 "    pass_condition: 'row_count == 0'\n"
                 "    display: table\n"
                 "\n  - name: 'Nullability — required NOT NULL'\n"
-                "    sql: \"SELECT COUNT(*) AS null_rows FROM fact_sales_daily WHERE sale_date IS NULL OR revenue IS NULL OR units_sold IS NULL OR cost IS NULL\"\n"
+                '    sql: "SELECT COUNT(*) AS null_rows FROM fact_sales_daily WHERE sale_date IS NULL OR revenue IS NULL OR units_sold IS NULL OR cost IS NULL"\n'
                 "    severity: critical\n"
                 "    pass_condition: 'null_rows == 0'\n"
                 "    display: scalar\n"
                 "\n  - name: 'Domain — revenue non-negative'\n"
-                "    sql: \"SELECT COUNT(*) AS neg FROM fact_sales_daily WHERE revenue < 0\"\n"
+                '    sql: "SELECT COUNT(*) AS neg FROM fact_sales_daily WHERE revenue < 0"\n'
                 "    severity: warning\n"
                 "    pass_condition: 'neg == 0'\n"
                 "    display: scalar\n"
                 "\n  - name: 'Volume — row count'\n"
-                "    sql: \"SELECT COUNT(*) AS row_count FROM fact_sales_daily\"\n"
+                '    sql: "SELECT COUNT(*) AS row_count FROM fact_sales_daily"\n'
                 "    severity: critical\n"
                 "    pass_condition: 'row_count >= 100000'\n"
                 "    display: scalar\n"
@@ -1327,22 +1327,22 @@ async def get_or_create_sales_pipeline_tasks(
                 f"output_parent_laui: '{reports_folder_laui}'\n"
                 "\nqueries:\n"
                 "  - name: 'Stage1 non-empty'\n"
-                "    sql: \"SELECT COUNT(*) AS row_count FROM fact_product_agg_daily_stage1\"\n"
+                '    sql: "SELECT COUNT(*) AS row_count FROM fact_product_agg_daily_stage1"\n'
                 "    severity: critical\n"
                 "    pass_condition: 'row_count > 0'\n"
                 "    display: scalar\n"
                 "\n  - name: 'Final table non-empty'\n"
-                "    sql: \"SELECT COUNT(*) AS row_count FROM fact_product_agg_daily\"\n"
+                '    sql: "SELECT COUNT(*) AS row_count FROM fact_product_agg_daily"\n'
                 "    severity: critical\n"
                 "    pass_condition: 'row_count > 0'\n"
                 "    display: scalar\n"
                 "\n  - name: 'Metric types count'\n"
-                "    sql: \"SELECT COUNT(DISTINCT metric_key) AS metric_count FROM fact_product_agg_daily\"\n"
+                '    sql: "SELECT COUNT(DISTINCT metric_key) AS metric_count FROM fact_product_agg_daily"\n'
                 "    severity: warning\n"
                 "    pass_condition: 'metric_count >= 20'\n"
                 "    display: scalar\n"
                 "\n  - name: 'No NULL metric values'\n"
-                "    sql: \"SELECT COUNT(*) AS null_count FROM fact_product_agg_daily WHERE metric_value IS NULL\"\n"
+                '    sql: "SELECT COUNT(*) AS null_count FROM fact_product_agg_daily WHERE metric_value IS NULL"\n'
                 "    severity: critical\n"
                 "    pass_condition: 'null_count == 0'\n"
                 "    display: scalar\n"
