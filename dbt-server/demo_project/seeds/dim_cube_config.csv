@@ -1,0 +1,6 @@
+config_name,dimension_order,dimension_name,dimension_column,include_in_cube,is_required,filter_values,exclude_values,max_cardinality,description,active
+product,1,product,product_name,true,false,,,,Product dimension - always include,true
+category,2,category,category_name,true,false,,,,Category dimension,true
+region,3,region,region_name,true,false,,,,Region dimension,true
+sub_region,4,sub_region,sub_region_name,true,false,,,,Sub-region dimension - drill down from region,true
+store,5,store,store_name,false,false,,,,Store dimension - excluded by default to reduce cardinality,true
