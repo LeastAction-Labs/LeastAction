@@ -10,8 +10,9 @@ from pydantic import BaseModel
 from pydantic_mongo import PydanticObjectId
 
 from src.common.context_vars.user_context import get_user_laui
-from src.common.exceptions import LAException
+from src.common.exceptions import InvalidArgumentError, LAException
 from src.common.logger.logger import log_error, log_info
+from src.common.utils import load_system_config
 from src.core.api.utils import convert_objectid_to_str
 from src.core.ee.iam.user.api_request import SearchUsersRequest
 from src.core.ee.iam.user.service import UserService, get_user_service
@@ -80,6 +81,11 @@ async def change_password(
             "change_password",
             f"user={get_user_laui()} payload={{current_password=***, new_password=***}}",
         )
+        config = load_system_config()
+        if config.get("sso_enabled", False):
+            raise InvalidArgumentError(
+                "Password change is not allowed when SSO is enabled",
+            )
         user_laui = get_user_laui()
         if not user_laui:
             raise HTTPException(

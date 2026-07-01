@@ -51,8 +51,9 @@ class UserService:
             temp_password = generate_password()
             user.password = temp_password
             user.must_change_password = True
-        hashed_password = hashlib.sha256(user.password.encode()).hexdigest()
-        user.password = hashed_password
+        if user.password:
+            hashed_password = hashlib.sha256(user.password.encode()).hexdigest()
+            user.password = hashed_password
 
         user_laui = await self.user_repo.create_user(user)
 

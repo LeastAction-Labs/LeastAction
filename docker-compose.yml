@@ -38,6 +38,9 @@ x-backend-env: &backend-env
   KETO_READ_URL: http://keto:4466/relation-tuples
   KETO_WRITE_URL: http://keto:4467/admin/relation-tuples/
   MARKETPLACE_URL: ${MARKETPLACE_URL:-https://marketplace.leastactionlabs.com}
+  KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
+  KEYCLOAK_REDIRECT_URL: http://localhost:8082/realms/leastaction/protocol/openid-connect/auth
+  KEYCLOAK_SERVER_URL: http://keycloak:8080/
 
 services:
   # ── Infrastructure ────────────────────────────────────────────────────────
@@ -110,6 +113,11 @@ services:
       - POSTGRES_DB=keto
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keto"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   postgres-demo:
     image: postgres:15
@@ -142,7 +150,11 @@ services:
       postgres-demo:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\""]
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:8001/health'')"',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -159,7 +171,8 @@ services:
     command: migrate up -y
     restart: on-failure
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
   keto:
     image: oryd/keto:v25.4.0
@@ -181,9 +194,34 @@ services:
       start_period: 10s
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
       keto-migrate:
         condition: service_completed_successfully
+
+  # ── Identity Management ───────────────────────────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak-dev
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_LOG_LEVEL: org.keycloak.broker:DEBUG,org.keycloak.social:DEBUG
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keto
+      KC_DB_USERNAME: keto
+      KC_DB_PASSWORD: secret
+    ports:
+      - "8082:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Using Docker Compose native configurations layout here
+    configs:
+      - source: keycloak_realm_import
+        target: /opt/keycloak/data/import/realm-import.json
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   # ── Application ───────────────────────────────────────────────────────────
   # Generate the RSA keypair used to sign JWTs, once, into a persistent volume.
@@ -219,7 +257,13 @@ services:
       --port 8000
       --workers 4
     healthcheck:
-      test: ["CMD", ".venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health').status"]
+      test:
+        [
+          "CMD",
+          ".venv/bin/python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health').status",
+        ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -235,6 +279,7 @@ services:
       # otherwise the key-init service's generated keys/*.pem files are used.
       PUBLIC_KEY: ${PUBLIC_KEY:-}
       PRIVATE_KEY: ${PRIVATE_KEY:-}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-lJMM4C2cGetVkKvJoEPzlVGrGpP7esG2}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -402,6 +447,37 @@ services:
         condition: service_healthy
 
 configs:
+  # New configuration entry block for your automated Keycloak realm
+  keycloak_realm_import:
+    content: |
+      {
+        "id": "leastaction",
+        "realm": "leastaction",
+        "enabled": true,
+        "clients": [
+          {
+            "clientId": "leastaction",
+            "name": "leastaction",
+            "enabled": true,
+            "protocol": "openid-connect",
+            "publicClient": false,
+            "bearerOnly": false,
+            "standardFlowEnabled": true,
+            "implicitFlowEnabled": false,
+            "directAccessGrantsEnabled": false,
+            "serviceAccountsEnabled": false,
+            "rootUrl": "http://localhost:8080",
+            "baseUrl": "http://localhost:8080",
+            "redirectUris": [
+              "http://localhost:8080/api/v1/redirect-with-code"
+            ],
+            "webOrigins": [
+              "http://localhost:8080"
+            ],
+            "secret": "lJMM4C2cGetVkKvJoEPzlVGrGpP7esG2"
+          }
+        ]
+      }
   keto_yml:
     content: |
       serve:

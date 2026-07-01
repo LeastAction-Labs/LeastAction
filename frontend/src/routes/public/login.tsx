@@ -21,7 +21,7 @@ import {
   Checkbox,
 } from "@mui/material";
 import { Visibility, VisibilityOff, Person, Lock } from "@mui/icons-material";
-import { CORE_BACKEND_URL } from "@/config/urls";
+import { CORE_BACKEND_URL, CORE_FRONTEND_URL } from "@/config/urls";
 import axios from "axios";
 
 export const Route = createFileRoute("/public/login")({
@@ -99,6 +99,16 @@ function LoginComponent() {
     window.location.reload()
   };
 
+  const handleSSOLogin = () => {
+    const redirect_uri = `${CORE_FRONTEND_URL}/public/callback`;
+    const state = crypto.randomUUID();
+    localStorage.setItem('la_state', state);
+    localStorage.setItem('auth_request_started', 'true');
+    window.location.replace(
+      `${CORE_BACKEND_URL}/api/v1/auth?client_id=frontend&redirect_uri=${redirect_uri}&state=${state}&login_source=sso`,
+    );
+  };
+
   const handleSubmit = (event?: React.FormEvent) => {
     event?.preventDefault();
     if (!validateForm()) return;
@@ -114,26 +124,26 @@ function LoginComponent() {
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = loginUrl;
-    
+
     const userField = document.createElement('input');
     userField.type = 'hidden';
     userField.name = 'username';
     userField.value = username;
     form.appendChild(userField);
-  
+
     const passField = document.createElement('input');
     passField.type = 'hidden';
     passField.name = 'password';
     passField.value = password;
     form.appendChild(passField);
-  
+
     document.body.appendChild(form);
     form.submit();
-    
+
   };
 
   return (
-  
+
     <Container component="main" maxWidth="sm">
       <Box
         sx={{
@@ -252,6 +262,16 @@ function LoginComponent() {
               sx={{ mt: 3, mb: 2, py: 1.5, fontSize: "1.1rem" }}
             >
               Sign In
+            </Button>
+
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              onClick={() => void handleSSOLogin()}
+              sx={{ mt: 3, mb: 2, py: 1.5, fontSize: "1.1rem" }}
+            >
+              Login using SSO
             </Button>
 
             <Button

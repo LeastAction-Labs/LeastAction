@@ -43,6 +43,7 @@ def decode_data(code: str) -> dict[str, any]:
 from typing import Literal
 from urllib.parse import urlencode, urlsplit, urlunsplit
 
+import yaml
 from fastapi import Response
 
 
@@ -71,8 +72,6 @@ def check_differing_keys(new_dict: dict[str, any], old_dict: dict[str, any]) -> 
 def load_system_config():
     import os
     from pathlib import Path
-
-    import yaml
 
     # Get the project root directory (assuming utils.py is in backend/src/common/)
     current_file = Path(__file__)
@@ -105,46 +104,27 @@ def load_system_config():
     return config
 
 
-config = load_system_config()
+def update_system_config(request_data: dict):
+    current_file = Path(__file__)
+    project_root = current_file.parent.parent.parent.parent
+    config_path = project_root / "config" / "system.yml"
 
-# From system.yml urls:, or APP_PUBLIC_URL when set (see load_system_config).
-core_backend_parsed = urlsplit(config["urls"]["core_backend_url"])
-SCHEME = core_backend_parsed.scheme
-BACKEND_NETLOC = core_backend_parsed.netloc
-core_frontend_parsed = urlsplit(config["urls"]["core_frontend_url"])
-FRONTEND_NETLOC = core_frontend_parsed.netloc
-_parsed_marketplace = urlsplit(config["urls"]["marketplace_url"])
-MARKETPLACE_BACKEND_NETLOC = _parsed_marketplace.netloc
-MARKETPLACE_FRONTEND_NETLOC = _parsed_marketplace.netloc
+    if not config_path.exists():
+        raise FileNotFoundError(f"System configuration file not found at {config_path}")
 
+    with open(config_path) as f:
+        # Safe_load prevents arbitrary code execution from malicious YAML files
+        config = yaml.safe_load(f) or {}
 
-def create_url(
-    path: str,
-    query_params: dict[str, str] = None,
-    redirect_to: Literal[
-        "backend", "frontend", "client"
-    ] = "backend",  # client is the one who sent initial auth request
-):
-    if query_params is None:
-        query_params = {}
-    if redirect_to == "client":
-        client_redirect_uri = urlsplit(path)
-        query_string = urlencode(query_params)
-        url_parts = (
-            client_redirect_uri.scheme,
-            client_redirect_uri.netloc,
-            client_redirect_uri.path,
-            query_string,
-            "",
-        )
-        return urlunsplit(url_parts)
-    else:
-        query_string = urlencode(query_params)
-        netloc = BACKEND_NETLOC
-        if redirect_to == "frontend":
-            netloc = FRONTEND_NETLOC
-        url_parts = (SCHEME, netloc, path, query_string, "")
-        return urlunsplit(url_parts)
+    # 2. Update existing attributes or add new ones
+    for field, value in request_data.items():
+        if value is not None:
+            config[field] = value  # Dictionaries handle update/add natively
+
+    # 3. Write the updated data back to the file
+    with open(config_path, "w") as f:
+        # sort_keys=False preserves the order you inserted them
+        yaml.safe_dump(config, f, sort_keys=False, default_flow_style=False)
 
 
 def assign_value_to_keys(source: dict[str, any], replace_with: any) -> dict[str, any]:
