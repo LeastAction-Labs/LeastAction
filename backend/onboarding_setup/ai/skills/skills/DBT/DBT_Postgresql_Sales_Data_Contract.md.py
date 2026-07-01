@@ -118,13 +118,15 @@ queries:
 
 ## How to use
 - **As a standalone task:** Create a task with operator `PostgresqlValidatorSQL`, connection
-  `PostgresqlSalesReportingDB`, and the YAML payload above. Add `LeastActionCheckIfParentsAreDone`
+  `dbt_postgresql`, and the YAML payload above. Add `LeastActionCheckIfParentsAreDone`
   pointing to `00_fact_sales_daily`.
-- **As a gate:** Attach as a post-action on Task 00. If a critical check fails, chain
+- **As a gate:** Attach as a post-action on `00_fact_sales_daily`. If a critical check fails, chain
   `LeastActionSkipSubtree` to prevent bad data from flowing into the dbt models.
+- **In the seeded pipeline** this runs as task `00b_sales_contract` (a subset — schema, PK, nullability,
+  revenue domain, volume). The full clause set above is the target contract.
 
 ## Connection
-Uses `PostgresqlSalesReportingDB` (same as the seed and report tasks).
+Uses `dbt_postgresql` (same as the seed and report tasks).
 """
 
 description = "Data contract enforcement for fact_sales_daily — schema, PK, nullability, domain, volume, and referential integrity checks via PostgresqlValidatorSQL."

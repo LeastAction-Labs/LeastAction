@@ -10,7 +10,7 @@ _00 = '''\
   "name": "00_fact_sales_daily",
   "frequency": "ADHOC",
   "operator_name": "PostgresqlExecuteSQL",
-  "connection_name": "PostgresqlSalesReportingDB",
+  "connection_name": "dbt_postgresql",
   "partition": "{{partition}}",
   "config_name": [],
   "start_date": "2026-01-01",
@@ -119,10 +119,10 @@ FROM generate_series(0, 499999) AS g(i);
 _01 = '''\
 /*
 {
-  "name": "01_dbt_stage1",
+  "name": "01_cube_aggregation",
   "frequency": "0 2 * * *",
   "operator_name": "DBTRunModel",
-  "connection_name": "DbtServer",
+  "connection_name": "dbt_server",
   "partition": "{{partition}}",
   "config_name": [],
   "start_date": "2026-01-01",
@@ -138,10 +138,10 @@ _01 = '''\
 _02 = '''\
 /*
 {
-  "name": "02_dbt_stage2",
+  "name": "02_rolling_metrics",
   "frequency": "0 2 * * *",
   "operator_name": "DBTRunModel",
-  "connection_name": "DbtServer",
+  "connection_name": "dbt_server",
   "partition": "{{partition}}",
   "config_name": [],
   "start_date": "2026-01-01",
@@ -158,7 +158,7 @@ _02 = '''\
               "account_laui": "{{account_laui}}",
               "project_laui": "{{project_laui}}",
               "partition": "{{partition}}",
-              "task_name": "01_dbt_stage1"
+              "task_name": "01_cube_aggregation"
             }
           ]
         }
@@ -173,10 +173,10 @@ _02 = '''\
 _03 = '''\
 /*
 {
-  "name": "03_dbt_final",
+  "name": "03_final_metrics",
   "frequency": "0 2 * * *",
   "operator_name": "DBTRunModel",
-  "connection_name": "DbtServer",
+  "connection_name": "dbt_server",
   "partition": "{{partition}}",
   "config_name": [],
   "start_date": "2026-01-01",
@@ -193,7 +193,7 @@ _03 = '''\
               "account_laui": "{{account_laui}}",
               "project_laui": "{{project_laui}}",
               "partition": "{{partition}}",
-              "task_name": "02_dbt_stage2"
+              "task_name": "02_rolling_metrics"
             }
           ]
         }
@@ -208,10 +208,10 @@ _03 = '''\
 _04 = '''\
 /*
 {
-  "name": "04_sales_performance_reporting",
+  "name": "04_sales_performance_report",
   "frequency": "0 2 * * *",
   "operator_name": "PostgresqlGenerateHtmlTableReport",
-  "connection_name": "PostgresqlSalesReportingDB",
+  "connection_name": "dbt_postgresql",
   "partition": "{{partition}}",
   "config_name": [],
   "start_date": "2026-01-01",
@@ -228,7 +228,7 @@ _04 = '''\
               "account_laui": "{{account_laui}}",
               "project_laui": "{{project_laui}}",
               "partition": "{{partition}}",
-              "task_name": "03_dbt_final"
+              "task_name": "03_final_metrics"
             }
           ]
         }
@@ -327,10 +327,10 @@ _04 = '''\
 _05 = '''\
 /*
 {
-  "name": "05_category_performance_reporting",
+  "name": "05_category_performance_report",
   "frequency": "0 2 * * *",
   "operator_name": "PostgresqlGenerateHtmlTableReport",
-  "connection_name": "PostgresqlSalesReportingDB",
+  "connection_name": "dbt_postgresql",
   "partition": "{{partition}}",
   "config_name": [],
   "start_date": "2026-01-01",
@@ -347,7 +347,7 @@ _05 = '''\
               "account_laui": "{{account_laui}}",
               "project_laui": "{{project_laui}}",
               "partition": "{{partition}}",
-              "task_name": "03_dbt_final"
+              "task_name": "03_final_metrics"
             }
           ]
         }
@@ -453,11 +453,11 @@ _05 = '''\
 
 payloads = {
     "00_fact_sales_daily":             _00,
-    "01_dbt_stage1":                   _01,
-    "02_dbt_stage2":                   _02,
-    "03_dbt_final":                    _03,
-    "04_sales_performance_reporting":  _04,
-    "05_category_performance_reporting": _05,
+    "01_cube_aggregation":                   _01,
+    "02_rolling_metrics":                   _02,
+    "03_final_metrics":                    _03,
+    "04_sales_performance_report":  _04,
+    "05_category_performance_report": _05,
 }
 
 skills = {
@@ -482,20 +482,20 @@ Tasks are chained via `LeastActionCheckIfParentsAreDone` pre-actions.
 
 | Connection | Catalog type | Points to |
 |------------|-------------|-----------|
-| `PostgresqlSalesReportingDB` | `connection.postgresql` | `postgres:5432/postgres` |
-| `DbtServer` | `connection.dbt` | `http://dbt-server:8001` |
+| `dbt_postgresql` | `connection.postgresql` | `postgres:5432/postgres` |
+| `dbt_server` | `connection.dbt` | `http://dbt-server:8001` |
 
 ## Full DAG
 
 ```
-Task 00  PostgresqlExecuteSQL  + PostgresqlSalesReportingDB   (ADHOC — run once manually)
+Task 00  PostgresqlExecuteSQL  + dbt_postgresql   (ADHOC — run once manually)
 
 Daily chain (all 0 2 * * *, same partition):
-Task 01  DBTRunModel   + DbtServer  + {"model":"fact_product_agg_daily_stage1"}   (no pre-action — root)
-    └── Task 02  DBTRunModel   + DbtServer  + {"model":"fact_product_agg_daily_stage2"}
-            └── Task 03  DBTRunModel   + DbtServer  + {"model":"fact_product_agg_daily"}
-                    ├── Task 04  PostgresqlGenerateHtmlTableReport  + PostgresqlSalesReportingDB
-                    └── Task 05  PostgresqlGenerateHtmlTableReport  + PostgresqlSalesReportingDB
+Task 01  DBTRunModel   + dbt_server  + {"model":"fact_product_agg_daily_stage1"}   (no pre-action — root)
+    └── Task 02  DBTRunModel   + dbt_server  + {"model":"fact_product_agg_daily_stage2"}
+            └── Task 03  DBTRunModel   + dbt_server  + {"model":"fact_product_agg_daily"}
+                    ├── Task 04  PostgresqlGenerateHtmlTableReport  + dbt_postgresql
+                    └── Task 05  PostgresqlGenerateHtmlTableReport  + dbt_postgresql
 ```
 
 Task 00 is standalone ADHOC — it does not chain into the daily schedule.
@@ -510,7 +510,7 @@ Tasks 04 and 05 both wait on Task 03 and run in parallel.
 | `dbt-server unreachable` | Container not started | `docker compose up -d dbt-server` |
 | `model file missing` | Volume not mounted | Check `dbt-server` volumes in `docker-compose.yml` |
 | `DBTRunModel not in catalog` | setup-helper not run | `docker compose build backend && docker compose run --rm setup-helper` |
-| `DbtServer connection missing` | setup-helper not run | `docker compose run --rm setup-helper` |
+| `dbt_server connection missing` | setup-helper not run | `docker compose run --rm setup-helper` |
 | `connection refused` on postgres | Wrong host | Connection must use `postgres` (service name) inside Docker |
 | Task stuck in `scheduled` | Pre-action parent not yet succeeded | Wait for parent task to reach `success` |
 | `No rows found` in HTML report | Date filter too narrow | Widen `date_filter` in the reporting payload |
@@ -1526,20 +1526,20 @@ description = (
 prompt = (
     "Create a six-task LeastAction pipeline that connects to PostgreSQL and dbt-server "
     "to run a full sales analytics workflow. "
-    "Task 00 uses the PostgresqlExecuteSQL operator with connection PostgresqlSalesReportingDB "
+    "Task 00 uses the PostgresqlExecuteSQL operator with connection dbt_postgresql "
     "to create the fact_sales_daily table and populate it with 500,000 synthetic rows using "
     "a single INSERT ... SELECT FROM generate_series(0, 499999) — do NOT use stored "
     "procedures or CALL statements as these are rejected by the SQL validator. "
-    "Task 01 uses the DBTRunModel operator with connection DbtServer and payload "
+    "Task 01 uses the DBTRunModel operator with connection dbt_server and payload "
     "{\"model\": \"fact_product_agg_daily_stage1\"} to run the CUBE aggregation stage. "
     "Task 02 uses DBTRunModel with payload {\"model\": \"fact_product_agg_daily_stage2\"} "
     "to compute DOD, WOW, and rolling metrics. "
     "Task 03 uses DBTRunModel with payload {\"model\": \"fact_product_agg_daily\"} "
     "to compute YOY, rank, and penetration metrics. "
     "Task 04 uses the PostgresqlGenerateHtmlTableReport operator with connection "
-    "PostgresqlSalesReportingDB to generate a Sales Performance HTML dashboard "
+    "dbt_postgresql to generate a Sales Performance HTML dashboard "
     "(product × region metrics, 30-day rolling window). "
-    "Task 05 uses PostgresqlGenerateHtmlTableReport with connection PostgresqlSalesReportingDB "
+    "Task 05 uses PostgresqlGenerateHtmlTableReport with connection dbt_postgresql "
     "to generate a Category & Channel Performance HTML dashboard (7-day rolling window). "
     "Tasks 01–05 must each wait for their upstream task via LeastActionCheckIfParentsAreDone. "
     "Tasks 04 and 05 both wait on Task 03 and run in parallel."
@@ -1600,7 +1600,7 @@ their upstream task. Tasks 04 and 05 both wait on Task 03 and run in parallel.
 
 ### Prerequisites
 
-#### 1. PostgreSQL connection — `PostgresqlSalesReportingDB`
+#### 1. PostgreSQL connection — `dbt_postgresql`
 | Field | Value |
 |-------|-------|
 | `host` | `postgres` |
@@ -1609,7 +1609,7 @@ their upstream task. Tasks 04 and 05 both wait on Task 03 and run in parallel.
 | `user` | `keto` |
 | `password` | `secret` |
 
-#### 2. dbt-server connection — `DbtServer`
+#### 2. dbt-server connection — `dbt_server`
 | Field | Value |
 |-------|-------|
 | `url` | `http://dbt-server:8001` |

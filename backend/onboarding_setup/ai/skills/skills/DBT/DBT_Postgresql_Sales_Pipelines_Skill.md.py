@@ -7,30 +7,33 @@ skill = """\
 # dbt Sales Reporting Pipeline — Orchestration Skill
 
 ## Pipeline overview
-Six-task DAG: seed 500k synthetic sales rows, run 3 dbt transformation stages
-(CUBE → rolling metrics → YOY/rank), generate 2 styled HTML dashboard reports.
+Eight-task DAG: seed 500k synthetic sales rows, enforce a data contract, run 3 dbt transformation
+stages (CUBE → rolling metrics → YOY/rank), validate, then generate 2 styled HTML dashboard reports.
 
 ```
-00_fact_sales_daily (PostgresqlExecuteSQL — ADHOC seed)
-    └── 01_dbt_stage1 (DBTRunModel — CUBE aggregation, 5 base metrics)
-            └── 02_dbt_stage2 (DBTRunModel — DOD/WOW/rolling 10D/MTD/YTD)
-                    └── 03_dbt_final (DBTRunModel — YOY/rank/pct/LY/LW)
-                            ├── 04_sales_performance_reporting (PostgresqlGenerateHtmlTableReport)
-                            └── 05_category_performance_reporting (PostgresqlGenerateHtmlTableReport)
+00_fact_sales_daily (PostgresqlExecuteSQL — ADHOC seed, 500k rows)
+    ├── 00b_sales_contract (PostgresqlValidatorSQL — data-contract gate)
+    └── 01_cube_aggregation (DBTRunModel — fact_product_agg_daily_stage1, CUBE base metrics)
+            └── 02_rolling_metrics (DBTRunModel — fact_product_agg_daily_stage2, DOD/WOW/rolling 10D/MTD/YTD)
+                    └── 03_final_metrics (DBTRunModel — fact_product_agg_daily, YOY/rank/pct/LY/LW)
+                            ├── 03b_sales_validation (PostgresqlValidatorSQL — non-empty, ≥20 metrics, no NULLs)
+                            ├── 04_sales_performance_report (PostgresqlGenerateHtmlTableReport)
+                            └── 05_category_performance_report (PostgresqlGenerateHtmlTableReport)
 ```
 
 ## Connections
 
 | Name | Type | Points to |
 |------|------|-----------|
-| `PostgresqlSalesReportingDB` | `connection.postgresql` | `postgres-demo:5432/postgres_demo_db` |
-| `DbtServer` | `connection.dbt` | `http://dbt-demo:8001` |
+| `dbt_postgresql` | `connection.postgresql` | `postgres-demo:5432/postgres_demo_db` (user `postgres`) |
+| `dbt_server` | `connection.dbt` | `http://dbt-demo:8001` |
 
 ## Operators
 
 | Operator | Tasks |
 |----------|-------|
 | `PostgresqlExecuteSQL` | 00 (seed) |
+| `PostgresqlValidatorSQL` | 00b (contract gate), 03b (validation) |
 | `DBTRunModel` | 01, 02, 03 (dbt models) |
 | `PostgresqlGenerateHtmlTableReport` | 04, 05 (reports) |
 
@@ -74,8 +77,10 @@ The `PostgresqlGenerateHtmlTableReport` operator uses `metric_template` to pivot
 
 ## Report configuration
 
-Reports use **pivot mode** — `metric_template` in the payload specifies which dimension×metric combinations
-to display as rows, with dates as columns:
+The report operator pivots the key-value table two ways. **Default pivot** (no `metric_template` — what
+`04`/`05` use): payload `data.query.{table, date_filter, limit}` + `report_style` renders every metric as
+rows × dates. **Custom pivot** (`metric_template`): specify which dimension×metric combinations to display,
+with dates as columns — each template item:
 
 ```json
 {
@@ -111,7 +116,7 @@ deploy usecase dbt-sales-reporting
 | Empty HTML report | Widen `date_filter` in the report payload |
 """
 
-description = "AI orchestration skill for the dbt sales reporting pipeline — 6-task DAG producing 45+ metric types via CUBE aggregation and 2 HTML dashboards."
+description = "AI orchestration skill for the dbt sales reporting pipeline — 8-task DAG producing 45+ metric types via CUBE aggregation and 2 HTML dashboards."
 
 prompt = "Orchestrate the dbt sales reporting pipeline: seed fact_sales_daily (500k rows), run 3 dbt models (CUBE → rolling metrics → YOY/rank), generate 2 HTML reports. Uses PostgresqlExecuteSQL, DBTRunModel, and PostgresqlGenerateHtmlTableReport operators."
 
