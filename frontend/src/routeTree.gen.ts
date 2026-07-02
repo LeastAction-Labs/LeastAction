@@ -16,6 +16,7 @@ import { Route as PathImport } from './routes/path'
 import { Route as McpTokenImport } from './routes/mcp-token'
 import { Route as MarketplaceImport } from './routes/marketplace'
 import { Route as ExploreImport } from './routes/explore'
+import { Route as DemoImport } from './routes/demo'
 import { Route as DebugImport } from './routes/debug'
 import { Route as ChangePasswordImport } from './routes/change-password'
 import { Route as AdminImport } from './routes/admin'
@@ -55,6 +56,12 @@ const MarketplaceRoute = MarketplaceImport.update({
 const ExploreRoute = ExploreImport.update({
   id: '/explore',
   path: '/explore',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const DemoRoute = DemoImport.update({
+  id: '/demo',
+  path: '/demo',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -144,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DebugImport
       parentRoute: typeof rootRoute
     }
+    '/demo': {
+      id: '/demo'
+      path: '/demo'
+      fullPath: '/demo'
+      preLoaderRoute: typeof DemoImport
+      parentRoute: typeof rootRoute
+    }
     '/explore': {
       id: '/explore'
       path: '/explore'
@@ -224,6 +238,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/change-password': typeof ChangePasswordRoute
   '/debug': typeof DebugRoute
+  '/demo': typeof DemoRoute
   '/explore': typeof ExploreRoute
   '/marketplace': typeof MarketplaceRoute
   '/mcp-token': typeof McpTokenRoute
@@ -241,6 +256,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/change-password': typeof ChangePasswordRoute
   '/debug': typeof DebugRoute
+  '/demo': typeof DemoRoute
   '/explore': typeof ExploreRoute
   '/marketplace': typeof MarketplaceRoute
   '/mcp-token': typeof McpTokenRoute
@@ -259,6 +275,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/change-password': typeof ChangePasswordRoute
   '/debug': typeof DebugRoute
+  '/demo': typeof DemoRoute
   '/explore': typeof ExploreRoute
   '/marketplace': typeof MarketplaceRoute
   '/mcp-token': typeof McpTokenRoute
@@ -278,6 +295,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/change-password'
     | '/debug'
+    | '/demo'
     | '/explore'
     | '/marketplace'
     | '/mcp-token'
@@ -294,6 +312,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/change-password'
     | '/debug'
+    | '/demo'
     | '/explore'
     | '/marketplace'
     | '/mcp-token'
@@ -310,6 +329,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/change-password'
     | '/debug'
+    | '/demo'
     | '/explore'
     | '/marketplace'
     | '/mcp-token'
@@ -328,6 +348,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   ChangePasswordRoute: typeof ChangePasswordRoute
   DebugRoute: typeof DebugRoute
+  DemoRoute: typeof DemoRoute
   ExploreRoute: typeof ExploreRoute
   MarketplaceRoute: typeof MarketplaceRoute
   McpTokenRoute: typeof McpTokenRoute
@@ -345,6 +366,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   ChangePasswordRoute: ChangePasswordRoute,
   DebugRoute: DebugRoute,
+  DemoRoute: DemoRoute,
   ExploreRoute: ExploreRoute,
   MarketplaceRoute: MarketplaceRoute,
   McpTokenRoute: McpTokenRoute,
@@ -371,6 +393,7 @@ export const routeTree = rootRoute
         "/admin",
         "/change-password",
         "/debug",
+        "/demo",
         "/explore",
         "/marketplace",
         "/mcp-token",
@@ -394,6 +417,9 @@ export const routeTree = rootRoute
     },
     "/debug": {
       "filePath": "debug.tsx"
+    },
+    "/demo": {
+      "filePath": "demo.tsx"
     },
     "/explore": {
       "filePath": "explore.tsx"
