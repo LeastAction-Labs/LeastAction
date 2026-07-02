@@ -163,6 +163,7 @@ class CatalogService:
         await self._ensure_parent_supports_item_type(
             item_type=item.item_type, parent_item_type=parent_item_type
         )
+        self._ensure_folder_parent(item_type=item.item_type, parent_item_type=parent_item_type)
         link = CreateLink(
             child_laui=item_laui,
             parent_laui=item.parent_laui,
@@ -189,6 +190,38 @@ class CatalogService:
         }
 
         raise UnprocessableEntityError(message="Invalid item type for parent", detail=error)
+
+    # Blanket rule: every non-folder item must be created inside a ``folder.*``
+    # (its true parent — the one in the pk — has to be a folder). The only
+    # exceptions are the types that legitimately nest under a non-folder parent
+    # (data-catalog + task/dependency nesting in catalog.json): task under
+    # operator/connection/task/payload/config, column under table, schema under
+    # database, table under schema, connection_queue under connection, and memory
+    # under an agent_task. Everything else — skills, skill_refinements, agents,
+    # generates, usecases, operators, connections, configs, payloads, reports —
+    # must live in a folder so it is always browsable + addressable, never orphaned.
+    _MAY_NEST_UNDER_NON_FOLDER = {
+        "task",
+        "column",
+        "schema",
+        "table",
+        "connection_queue",
+        "memory",
+    }
+
+    def _ensure_folder_parent(self, item_type: str, parent_item_type: str):
+        if parent_item_type.startswith("folder."):
+            return
+        if item_type.split(".")[0] in self._MAY_NEST_UNDER_NON_FOLDER:
+            return
+        raise UnprocessableEntityError(
+            message=f"A '{item_type}' must be created inside a folder.",
+            detail=(
+                f"Parent is a '{parent_item_type}'. A '{item_type}' must be created under a "
+                "folder.* parent so it is always browsable and addressable in a folder. "
+                "Create it in a folder, then reference it (e.g. from the agent)."
+            ),
+        )
 
     @transactional
     async def update_existing_item(
