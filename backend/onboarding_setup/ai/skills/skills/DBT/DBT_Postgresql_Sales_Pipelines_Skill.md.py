@@ -1,9 +1,11 @@
 # Copyright (c) 2026 LeastAction Labs, Inc.
 # This file is part of LeastAction and is licensed under the
-# LeastAction Source License (see LICENSE.md) or, for files
+# LeastAction Sustainable Use License (see LICENSE.md) or, for files
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
-skill = """\
+skill = {
+    "description": "AI orchestration skill for the dbt sales reporting pipeline — 8-task DAG producing 45+ metric types via CUBE aggregation and 2 HTML dashboards.",
+    "content": """\
 # dbt Sales Reporting Pipeline — Orchestration Skill
 
 ## Pipeline overview
@@ -114,9 +116,8 @@ deploy usecase dbt-sales-reporting
 | `CALL statement fails` | Use `INSERT ... SELECT FROM generate_series()` — not stored procedures |
 | Task stuck in `scheduled` | Parent task hasn't reached `success` yet |
 | Empty HTML report | Widen `date_filter` in the report payload |
-"""
-
-description = "AI orchestration skill for the dbt sales reporting pipeline — 8-task DAG producing 45+ metric types via CUBE aggregation and 2 HTML dashboards."
+""",
+}
 
 prompt = "Orchestrate the dbt sales reporting pipeline: seed fact_sales_daily (500k rows), run 3 dbt models (CUBE → rolling metrics → YOY/rank), generate 2 HTML reports. Uses PostgresqlExecuteSQL, DBTRunModel, and PostgresqlGenerateHtmlTableReport operators."
 

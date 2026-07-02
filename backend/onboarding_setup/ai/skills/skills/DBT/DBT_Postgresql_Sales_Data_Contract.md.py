@@ -1,9 +1,11 @@
 # Copyright (c) 2026 LeastAction Labs, Inc.
 # This file is part of LeastAction and is licensed under the
-# LeastAction Source License (see LICENSE.md) or, for files
+# LeastAction Sustainable Use License (see LICENSE.md) or, for files
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
-skill = """\
+skill = {
+    "description": "Data contract enforcement for fact_sales_daily — schema, PK, nullability, domain, volume, and referential integrity checks via PostgresqlValidatorSQL.",
+    "content": """\
 # Data Contract — fact_sales_daily
 
 ## Contract summary
@@ -127,9 +129,8 @@ queries:
 
 ## Connection
 Uses `dbt_postgresql` (same as the seed and report tasks).
-"""
-
-description = "Data contract enforcement for fact_sales_daily — schema, PK, nullability, domain, volume, and referential integrity checks via PostgresqlValidatorSQL."
+""",
+}
 
 prompt = "Enforce the data contract on fact_sales_daily: verify schema columns and types, primary key uniqueness, NOT NULL constraints, revenue/units/cost domain ranges, row volume, and referential integrity of categories and regions."
 
