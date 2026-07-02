@@ -82,7 +82,9 @@ class ActionExecutionService:
                 message="Action run() must be synchronous", detail={"action_laui": action_laui}
             )
 
-    async def execute_action(self, la_action_object: ActionRequest) -> dict[str, Any]:
+    async def execute_action(
+        self, la_action_object: ActionRequest, system_auth_token: str
+    ) -> dict[str, Any]:
         action_files_path: list[Path] | None = None
         action_module = None
         status: str = ""
@@ -295,6 +297,7 @@ class ActionExecutionService:
                     )
                     task_laui = await self.api_client.update_item(
                         la_action_object.user_access_token,
+                        system_auth_token,
                         str(la_action_object.task.get("laui")),
                         TaskUpdateData(actions_status=actions_status),
                     )

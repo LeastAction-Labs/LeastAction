@@ -4,12 +4,14 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 import traceback
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.common.context_vars.user_context import get_user_laui
 from src.common.exceptions import LAException
 from src.common.logger.logger import log_error, log_info
+from src.core.api.dependencies import validate_access_for_create_run
 from src.core.catalog.api_request import BaseCreateItemRequest
 from src.core.catalog.orchestrator import ItemOrchestrator, get_item_orchestrator
 
@@ -18,7 +20,7 @@ action_router = APIRouter()
 
 @action_router.post("/run")
 async def execute_action(
-    request: BaseCreateItemRequest,
+    request: Annotated[BaseCreateItemRequest, Depends(validate_access_for_create_run)],
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
 ):
     try:

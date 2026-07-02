@@ -12,8 +12,21 @@ from src.common.exceptions import LAException, PartialGenerationError
 from src.common.logger.logger import log_error, log_info
 from src.core.ai.schema import AgentRequest, AIResponse, GenerateRequest
 from src.core.ai.service import get_ai_service
+from src.core.ee.keto.access_reader import AccessReader, get_access_reader
+from src.core.ee.keto.schema import Permission
 
 ai_router = APIRouter()
+
+
+async def validate_access(
+    request: GenerateRequest | AgentRequest,
+    access_reader: AccessReader = Depends(get_access_reader),
+):
+    lauis = [request.connection_laui, request.chat_laui]
+    if hasattr(request, "session_id"):
+        lauis.append(request.session_id)
+    await access_reader.batch_check_permissions(Permission.VIEW, lauis, get_user_laui())
+    return request
 
 
 @ai_router.post("/generate")

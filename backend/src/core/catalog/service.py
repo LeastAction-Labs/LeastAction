@@ -286,11 +286,6 @@ class CatalogService:
         item.permission = await self.access_reader.get_permission(
             item_laui=str(item_laui), user_laui=get_user_laui()
         )
-        if not item.permission:
-            raise AuthorizationError(
-                message="Access denied",
-                detail=f"You do not have permission to view the item with laui: {item_laui}.",
-            )
         return item
 
     async def safe_find_item(
@@ -498,18 +493,9 @@ class CatalogService:
         projections: dict[str, int],
         include_deleted: bool = False,
     ) -> list[ItemProjection]:
-        item_lauis_access = await self.access_reader.batch_check_permissions(
-            permission_to_check=Permission.VIEW, item_lauis=item_lauis, user_laui=get_user_laui()
-        )
-
-        filtered_item_lauis = []
-
-        for item_laui, has_item_access in zip(item_lauis, item_lauis_access):
-            if has_item_access:
-                filtered_item_lauis.append(item_laui)
 
         return await self.item_repo.get_multiple_items_by_laui(
-            item_lauis=filtered_item_lauis, projections=projections, include_deleted=include_deleted
+            item_lauis=item_lauis, projections=projections, include_deleted=include_deleted
         )
 
     async def search(self, request: SearchRequest):

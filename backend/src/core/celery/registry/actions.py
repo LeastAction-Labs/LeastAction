@@ -32,7 +32,7 @@ celery_cfg = get_celery_config()
     time_limit=celery_cfg.action_hard_time_limit,
     queue=celery_cfg.action_queue,
 )
-def execute_action(self, la_action_object: dict) -> AsyncResult:
+def execute_action(self, la_action_object: dict, system_auth_token: str) -> AsyncResult:
     """
     Celery entrypoint for ACTION execution.
     SYNC -> async bridge.
@@ -100,7 +100,7 @@ def execute_action(self, la_action_object: dict) -> AsyncResult:
         )
 
         result = loop.run_until_complete(
-            get_action_execution_service().execute_action(action_request)
+            get_action_execution_service().execute_action(action_request, system_auth_token)
         )
 
         log_info(

@@ -194,7 +194,7 @@ async def get_item(
             "get_item",
             f"user={get_user_laui()} payload={request.model_dump()}",
         )
-        if not request.is_root and not request.only_item_laui_passed:
+        if not request.is_root:
             await access_reader.check_item_view_access(
                 item_laui=str(request.item_laui), user_laui=get_user_laui()
             )
@@ -256,9 +256,19 @@ async def get_item_revisions(
         )
 
 
+async def _verify_access_for_delete_item(
+    request: DeleteItemRequest,
+    access_reader: AccessReader = Depends(get_access_reader),
+):
+    await access_reader.check_item_delete_access(
+        item_laui=str(request.item_laui), user_laui=get_user_laui()
+    )
+    return request
+
+
 @catalog_router.post("/delete")
 async def delete_item(
-    request: DeleteItemRequest,
+    request: Annotated[DeleteItemRequest, Depends(_verify_access_for_delete_item)],
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
     access_reader: AccessReader = Depends(get_access_reader),
 ):
@@ -410,6 +420,7 @@ async def get_supported_types(
 async def bootstrap_project(
     project_laui: str,
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
+    access_reader: AccessReader = Depends(get_access_reader),
 ):
     try:
         log_info(
@@ -417,6 +428,9 @@ async def bootstrap_project(
             "catalog_router",
             "bootstrap_project",
             f"user={get_user_laui()} payload={{project_laui={project_laui}}}",
+        )
+        await access_reader.check_item_edit_access(
+            item_laui=project_laui, user_laui=get_user_laui()
         )
         created_folders = await bootstrap_project_structure(
             project_laui=project_laui,

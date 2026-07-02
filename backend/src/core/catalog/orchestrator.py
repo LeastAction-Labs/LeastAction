@@ -192,14 +192,11 @@ class ItemOrchestrator:
         return CreateItemResponse(item_laui=task_item.laui)
 
     async def execute_multiple_tasks(self, request: MultipleTaskRequest) -> MultipleTaskResponse:
-        tasks = await self.catalog_service.find_multiple_items_by_laui(
-            item_lauis=request.task_lauis, projections={}
-        )
 
-        for task in tasks:
+        for task in request.tasks:
             task.last_run_session_id = get_session_id()
 
-        task_results = await self.task_manager.execute_tasks(tasks)
+        task_results = await self.task_manager.execute_tasks(request.tasks)
         return MultipleTaskResponse(task_results=task_results["task_results"])
 
     async def execute_action(self, request: BaseCreateItemRequest) -> dict[str, Any]:

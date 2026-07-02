@@ -4,6 +4,7 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 import traceback
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic_mongo import PydanticObjectId
@@ -11,19 +12,26 @@ from pydantic_mongo import PydanticObjectId
 from src.common.context_vars.user_context import get_user_laui
 from src.common.exceptions import LAException
 from src.common.logger.logger import log_error, log_info
+from src.common.types import LAUI, AccessPatchType
+from src.core.api.dependencies import validate_access_for_create_run
 from src.core.catalog.api_request import (
     BaseCreateItemRequest,
     MultipleTaskRequest,
     TaskUpdateRequest,
 )
+from src.core.catalog.item.schema import ItemProjection
 from src.core.catalog.orchestrator import ItemOrchestrator, get_item_orchestrator
+from src.core.catalog.service import CatalogService, get_catalog_manager
+from src.core.ee.keto.access_reader import AccessReader, get_access_reader
+from src.core.ee.keto.schema import Permission
+from src.core.task.action.schema import Actions
 
 task_router = APIRouter()
 
 
 @task_router.post("/run")
 async def create_run_task(
-    request: BaseCreateItemRequest,
+    request: Annotated[BaseCreateItemRequest, Depends(validate_access_for_create_run)],
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
 ):
     try:
@@ -56,9 +64,72 @@ async def create_run_task(
         )
 
 
+async def _verify_access_and_attach_tasks(
+    request: MultipleTaskRequest,
+    catalog_service: CatalogService = Depends(get_catalog_manager),
+    access_reader: AccessReader = Depends(get_access_reader),
+):
+    task_lauis_access = await access_reader.batch_check_permissions(
+        permission_to_check=Permission.EDIT,
+        item_lauis=request.task_lauis,
+        user_laui=get_user_laui(),
+    )
+
+    filtered_task_lauis = []
+
+    for task_laui, has_task_access in zip(request.task_lauis, task_lauis_access):
+        if has_task_access:
+            filtered_task_lauis.append(task_laui)
+
+    tasks = await catalog_service.find_multiple_items_by_laui(
+        item_lauis=filtered_task_lauis,
+        projections={},
+        include_deleted=False,
+    )
+
+    lauis_to_check_for_access = set()
+
+    task_lauis_map: dict[LAUI, tuple[list[str | PydanticObjectId], ItemProjection]] = {}
+
+    for task in tasks:
+        lauis = [task.operator_laui, task.connection_laui, task.parent_laui]
+        if getattr(task, "payload_laui", None):
+            lauis.append(task.payload_laui)
+        if getattr(task, "actions", None):
+            actions = Actions(**task.actions) if isinstance(task.actions, dict) else task.actions
+            for action_list in [
+                actions.pre_actions,
+                actions.create_actions,
+                actions.running_actions,
+                actions.post_actions,
+            ]:
+                for action in action_list:
+                    lauis.append(action.laui)
+        task_lauis_map[task.laui] = (lauis, task)
+        lauis_to_check_for_access.update(lauis)
+
+    item_lauis_access = await access_reader.batch_check_permissions(
+        permission_to_check=Permission.VIEW,
+        item_lauis=list(lauis_to_check_for_access),
+        user_laui=get_user_laui(),
+    )
+
+    item_laui_access_map = dict(zip(lauis_to_check_for_access, item_lauis_access))
+
+    filtered_tasks = []
+
+    for task_laui, (lauis, task) in task_lauis_map.items():
+        if all([[item_laui_access_map[laui] for laui in lauis]]):
+            filtered_tasks.append(task)
+
+    request.tasks = filtered_tasks
+
+    return request
+
+
 @task_router.post("/multiple_tasks")
 async def run_multiple_tasks(
-    request: MultipleTaskRequest,
+    request: Annotated[MultipleTaskRequest, Depends(_verify_access_and_attach_tasks)],
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
 ):
     try:
@@ -91,11 +162,18 @@ async def run_multiple_tasks(
         )
 
 
+async def validate_task_access(
+    task_laui: PydanticObjectId, access_reader: AccessReader = Depends(get_access_reader)
+):
+    await access_reader.check_item_edit_access(str(task_laui), get_user_laui())
+
+
 @task_router.post("/update/{task_laui}")
 async def update_task(
     task_laui: PydanticObjectId,
     request: TaskUpdateRequest,
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
+    _verify_access: None = Depends(validate_task_access),
 ):
     try:
         log_info(
@@ -131,6 +209,7 @@ async def update_task(
 async def finish_task(
     task_laui: PydanticObjectId,
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
+    _verify_access: None = Depends(validate_task_access),
 ):
     try:
         log_info(
@@ -166,6 +245,7 @@ async def finish_task(
 async def dangerously_reset_task(
     task_laui: PydanticObjectId,
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
+    _verify_access: None = Depends(validate_task_access),
 ):
     try:
         log_info(
@@ -201,6 +281,7 @@ async def dangerously_reset_task(
 async def diagnose_task(
     task_laui: PydanticObjectId,
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
+    _verify_access: None = Depends(validate_task_access),
 ):
     try:
         log_info(

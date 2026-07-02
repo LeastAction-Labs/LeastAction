@@ -818,7 +818,7 @@ async def test_run_task_with_nonexistent_operator_fail(
         ),
     )
 
-    assert response.status_code in [400, 404, 422]  # Not found or validation error
+    assert response.status_code in [400, 404, 403, 422]  # Not found or validation error
 
 
 async def test_run_task_with_nonexistent_connection_fail(
@@ -847,7 +847,7 @@ async def test_run_task_with_nonexistent_connection_fail(
         ),
     )
 
-    assert response.status_code in [400, 404, 422]  # Not found or validation error
+    assert response.status_code in [400, 404, 403, 422]  # Not found or validation error
 
 
 async def test_run_task_with_missing_account_laui_fail(
@@ -1054,7 +1054,7 @@ async def test_run_task_with_nonexistent_payload_laui_fail(
         ),
     )
 
-    assert response.status_code in [400, 404, 422]  # Not found or validation error
+    assert response.status_code in [400, 404, 403, 422]  # Not found or validation error
 
 
 async def test_run_task_with_empty_request_body_fail(client: TestClient):
@@ -1264,6 +1264,6 @@ async def test_create_action_for_task_execution_fail(
             },
         ),
     )
-    assert task_resp.status_code == 422
-    response_data = task_resp.json()["detail"]
-    assert "not found" in response_data.lower()
+    assert task_resp.status_code == 403
+    # response_data = task_resp.json()["detail"]
+    # assert "not found" in response_data.lower()

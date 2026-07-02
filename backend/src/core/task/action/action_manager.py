@@ -3,6 +3,7 @@
 # LeastAction Sustainable Use License (see LICENSE.md) or, for files
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
+from this import s
 from typing import Any
 
 from fastapi import Request
@@ -26,6 +27,7 @@ class ActionManager:
         actions_list: list[ActionItem],
         action_type: str,
         user_access_token: str,
+        system_access_token: str,
         task: dict[str, Any],
     ):
         if not actions_list:
@@ -78,7 +80,7 @@ class ActionManager:
                     action_data["action_type"] = action_type
 
                     self.action_task.apply_async(
-                        args=[action_data],
+                        args=[action_data, system_access_token],
                         ignore_result=False,
                         queue=self.action_task.queue,
                         soft_time_limit=action_item.timeout,
@@ -103,21 +105,37 @@ class ActionManager:
         return None
 
     async def running_actions(
-        self, la_actions_object: Actions, user_access_token: str, task: dict[str, Any]
+        self,
+        la_actions_object: Actions,
+        user_access_token: str,
+        system_access_token: str,
+        task: dict[str, Any],
     ) -> None:
         if not la_actions_object.running_actions:
             return
         await self._run_action_with_timeout(
-            la_actions_object.running_actions, "running_actions", user_access_token, task
+            la_actions_object.running_actions,
+            "running_actions",
+            user_access_token,
+            system_access_token,
+            task,
         )
 
     async def post_actions(
-        self, la_actions_object: Actions, user_access_token: str, task: dict[str, Any]
+        self,
+        la_actions_object: Actions,
+        user_access_token: str,
+        system_access_token: str,
+        task: dict[str, Any],
     ) -> None:
         if not la_actions_object.post_actions:
             return
         await self._run_action_with_timeout(
-            la_actions_object.post_actions, "post_actions", user_access_token, task
+            la_actions_object.post_actions,
+            "post_actions",
+            user_access_token,
+            system_access_token,
+            task,
         )
 
 

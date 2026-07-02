@@ -403,6 +403,6 @@ async def test_execute_action_with_nonexistent_connection_fail(
     print(f"Action execution response: {action_resp.json()}")
     # PreActionManager.create_actions should handle nonexistent connection
     # Check that request completes (status 200) but may log error internally
-    assert action_resp.status_code in [200, 404, 422]
+    assert action_resp.status_code in [200, 404, 403, 422]
     assert execution_time < 2.0, f"Execution took {execution_time:.3f}s, expected < 2.0s"
     # Check logs to verify error was logged about connection not found
