@@ -10,7 +10,11 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import axios from 'axios';
 
 import { CORE_BACKEND_URL, CORE_FRONTEND_URL } from '@/config/urls';
-import { type UserRecord, adminCheck } from '@/services/admin.service';
+import {
+  type SystemAttributes,
+  type UserRecord,
+  getSystemAttributes,
+} from '@/services/admin.service';
 import { setUnauthorizedCallback } from '@/services/api';
 import { getMe } from '@/services/user.service';
 
@@ -18,7 +22,7 @@ export interface AuthState {
   isAuthenticated: boolean;
   user: UserRecord | null;
   isAdmin: boolean;
-  systemUserLaui: string | null;
+  systemAttributes: SystemAttributes | null;
 }
 
 export interface AuthContextType {
@@ -35,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: false,
     user: null,
     isAdmin: false,
-    systemUserLaui: null,
+    systemAttributes: null,
   });
 
   const [loading, setLoading] = useState(true);
@@ -53,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await axios.post(`${CORE_BACKEND_URL}/api/v1/logout`, {}, { withCredentials: true });
     localStorage.removeItem('la_state');
     localStorage.removeItem('auth_request_started');
-    setAuthState({ isAuthenticated: false, user: null, isAdmin: false, systemUserLaui: null });
+    setAuthState({ isAuthenticated: false, user: null, isAdmin: false, systemAttributes: null });
   };
 
   useEffect(() => {
@@ -62,19 +66,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const user = await getMe();
         setSessionExpired(false);
         try {
-          const systemUserLaui = await adminCheck();
+          const systemAttributes = await getSystemAttributes();
           setAuthState({
             isAuthenticated: true,
             user: user,
             isAdmin: true,
-            systemUserLaui,
+            systemAttributes,
           });
         } catch {
           setAuthState({
             isAuthenticated: true,
             user: null,
             isAdmin: false,
-            systemUserLaui: null,
+            systemAttributes: null,
           });
         }
         return;

@@ -199,7 +199,7 @@ const ManageUsers = () => {
   const { authState } = useAuth();
   const currentUserLaui = authState.user?.laui;
   const { showSuccess } = useNotification();
-
+  const ssoEnabled = authState.systemAttributes?.sso_enabled;
   const [userList, setUserList] = useState<UserRecord[]>([]);
   const [userPagination, setUserPagination] = useState<UserPagination>({
     currentPage: 1,
@@ -378,18 +378,20 @@ const ManageUsers = () => {
           >
             User Management
           </Typography>
-          <Button
-            size="small"
-            variant={showCreateForm ? 'outlined' : 'contained'}
-            startIcon={showCreateForm ? <CloseIcon /> : <PersonAdd />}
-            onClick={() => {
-              setShowCreateForm(!showCreateForm);
-              setCreateResult(null);
-            }}
-            sx={{ fontSize: FONT_SIZES.XS }}
-          >
-            {showCreateForm ? 'Cancel' : 'Create User'}
-          </Button>
+          {ssoEnabled && (
+            <Button
+              size="small"
+              variant={showCreateForm ? 'outlined' : 'contained'}
+              startIcon={showCreateForm ? <CloseIcon /> : <PersonAdd />}
+              onClick={() => {
+                setShowCreateForm(!showCreateForm);
+                setCreateResult(null);
+              }}
+              sx={{ fontSize: FONT_SIZES.XS }}
+            >
+              {showCreateForm ? 'Cancel' : 'Create User'}
+            </Button>
+          )}
         </Box>
 
         {showCreateForm && (
@@ -671,7 +673,7 @@ const ManageUsers = () => {
                                   gap: 0.5,
                                 }}
                               >
-                                {isPasswordResetAble && (
+                                {isPasswordResetAble && !ssoEnabled && (
                                   <Tooltip title={'Reset Password'}>
                                     <span>
                                       <IconButton

@@ -17,13 +17,16 @@ export const Route = createFileRoute('/public/callback') ({
 
 function RouteComponent() {
 
-  const [code,setCode] = useState('')
+  const [code, setCode] = useState('')
+  const [provider, setProvider] = useState('leastaction')
   const [loading,setLoading] = useState(false)
 
   useEffect(()=>{
     const queryString = window.location.search
     const params = new URLSearchParams(queryString)
     const codeFromQuery = params.get('code')
+    const providerFromQuery = params.get('provider')
+    if(providerFromQuery) setProvider(providerFromQuery)
     if(codeFromQuery && codeFromQuery !== code ){
       setCode(codeFromQuery)
       return
@@ -43,7 +46,7 @@ function RouteComponent() {
         const response = await axios.post( `${CORE_BACKEND_URL}/api/v1/token` ,
           {
             grant_type : 'authorization_code' ,
-            credentials : {code}
+            credentials : {code,provider}
           },
           {withCredentials : true }
         )
@@ -56,7 +59,7 @@ function RouteComponent() {
           window.location.assign(`${CORE_FRONTEND_URL}/` )
         }
       }
-      catch{
+      catch {
         console.log('invalid totp')
         localStorage.removeItem('auth_request_started')
         window.location.assign(`${CORE_FRONTEND_URL}/public/login`)
