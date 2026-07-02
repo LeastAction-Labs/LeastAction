@@ -402,6 +402,22 @@ async def get_or_create_asset_folder(
     return laui
 
 
+async def get_or_create_monitoring_asset_folder(
+    asset_folder_laui: str, project_laui: str, account_laui: str
+) -> str:
+    """Create the LeastAction_monitoring subfolder under the asset folder."""
+    response = await create_item({
+        "item_type": "folder.asset",
+        "name": "LeastAction_monitoring",
+        "parent_laui": asset_folder_laui,
+        "project_laui": project_laui,
+        "account_laui": account_laui,
+    })
+    laui = response.get("item_laui")
+    print(f"[setup] Created LeastAction_monitoring asset folder with LAUI: {laui}")
+    return laui
+
+
 # ---------------------------------------------------------------------------
 # Item builders
 # ---------------------------------------------------------------------------
@@ -900,6 +916,76 @@ async def get_or_create_postgres_tasks(
     return created
 
 
+async def get_or_create_monitoring_tasks(
+    db,
+    all_items: dict,
+    workflow_folder_laui: str,
+    monitoring_asset_folder_laui: str,
+    account_laui: str,
+    project_laui: str,
+) -> dict:
+    """Create 2 LeastAction monitoring tasks scheduled 5 minutes from now."""
+    monitoring_operator_laui = all_items["operator"]["LeastActionLabs/LeastActionMonitoring"]
+    error_analysis_operator_laui = all_items["operator"]["LeastActionLabs/LeastActionErrorAnalysis"]
+    monitoring_connection_laui = all_items["connection"]["LeastActionLabs/LeastActionMonitoringConnection"]
+
+    now = datetime.now(UTC)
+    start_date = (now + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    end_date = (now + timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    task_configs = [
+        {
+            "name": "LeastAction_Monitoring_Report",
+            "operator_laui": monitoring_operator_laui,
+            "payload": {
+                "data": {
+                    "date": "{{logical_date}}",
+                    "parent_laui": monitoring_asset_folder_laui,
+                    "report_name": "LeastAction Monitoring — {{logical_date}}",
+                    "email_to": [],
+                    "email_from": "",
+                }
+            },
+        },
+        {
+            "name": "LeastAction_Error_Analysis_Report",
+            "operator_laui": error_analysis_operator_laui,
+            "payload": {
+                "data": {
+                    "date": "{{logical_date}}",
+                    "parent_laui": monitoring_asset_folder_laui,
+                    "report_name": "LeastAction Error Analysis — {{logical_date}}",
+                    "operations": [],
+                    "email_to": [],
+                    "email_from": "",
+                }
+            },
+        },
+    ]
+
+    created = {}
+    for cfg in task_configs:
+        body = {
+            "item_type": "task",
+            "name": cfg["name"],
+            "project_laui": project_laui,
+            "account_laui": account_laui,
+            "parent_laui": workflow_folder_laui,
+            "operator_laui": cfg["operator_laui"],
+            "connection_laui": monitoring_connection_laui,
+            "payload": cfg["payload"],
+            "frequency": "0 6 * * *",
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+        response = await create_item(body)
+        task_laui = response.get("item_laui")
+        created[cfg["name"]] = task_laui
+        print(f"[setup] Created monitoring task '{cfg['name']}' with LAUI: {task_laui}")
+
+    return created
+
+
 async def get_or_create_workflow_config(
     db, workflow_folder_laui: str, project_laui: str, account_laui: str
 ):
@@ -1035,6 +1121,19 @@ async def setup():
         active_db,
         all_items=all_items,
         workflow_folder_laui=folders["workflow"],
+        account_laui=account_laui,
+        project_laui=project_laui,
+    )
+
+    print("\n--- LeastAction Monitoring Tasks ---")
+    monitoring_asset_folder_laui = await get_or_create_monitoring_asset_folder(
+        folders["asset"], project_laui=project_laui, account_laui=account_laui
+    )
+    await get_or_create_monitoring_tasks(
+        active_db,
+        all_items=all_items,
+        workflow_folder_laui=folders["workflow"],
+        monitoring_asset_folder_laui=monitoring_asset_folder_laui,
         account_laui=account_laui,
         project_laui=project_laui,
     )

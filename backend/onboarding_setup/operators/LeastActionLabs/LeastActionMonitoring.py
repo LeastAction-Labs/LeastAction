@@ -996,6 +996,7 @@ def run(least_action_task_object, client):
     try:
         task_laui = least_action_task_object.get("laui")
         log_info("task", "run", "start", "Start")
+        log_info("task", "run", "debug_keys", f"task_object keys: {list(least_action_task_object.keys())}, project_laui={least_action_task_object.get('project_laui')}")
 
         params      = _parse_payload(least_action_task_object)
         start_dt    = params["start_dt"]
@@ -1059,6 +1060,8 @@ def run(least_action_task_object, client):
                     "description": "LeastAction Monitoring Report",
                     "html":        html_content,
                     "parent_laui": parent_laui,
+                    "project_laui": str(least_action_task_object.get("project_laui")),
+                    "account_laui": str(least_action_task_object.get("account_laui")),
                 }
                 log_info("task", "run", "posting_to_catalog",
                          f"Posting '{report_name}' under parent: {parent_laui}")
