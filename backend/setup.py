@@ -921,7 +921,7 @@ async def get_or_create_sales_pipeline_tasks(
     report_operator_laui = all_items["operator"]["Postgresql/PostgresqlGenerateHtmlTableReport"]
     validator_operator_laui = all_items["operator"]["Postgresql/PostgresqlValidatorSQL"]
     pg_connection_laui = all_items["connection"]["Postgresql/dbt_postgresql"]
-    dbt_connection_laui = all_items["connection"]["DBT/dbt_server"]
+    dbt_connection_laui = all_items["connection"]["DBT/DbtServer"]
     check_parents_action_laui = all_items["action"][
         "LeastActionLabs/LeastActionCheckIfParentsAreDone"
     ]
@@ -1075,15 +1075,54 @@ async def get_or_create_sales_pipeline_tasks(
     # dim_key = product::category::region::subregion; '*' expands one row per value.
     _last3 = "date >= (SELECT MAX(date) FROM fact_product_agg_daily) - INTERVAL '3 days'"
     perf_template = [
-        {"display_name": "Revenue by Product", "dim_key_grouping": "*::dim_category::dim_region::dim_subregion", "metric_key": "revenue", "cell_format": "${value:,.0f}", "cell_bg_color": "#E8F5E9"},
-        {"display_name": "Profit by Product", "dim_key_grouping": "*::dim_category::dim_region::dim_subregion", "metric_key": "profit", "cell_format": "${value:,.0f}", "cell_bg_color": "#E3F2FD"},
-        {"display_name": "Units by Product", "dim_key_grouping": "*::dim_category::dim_region::dim_subregion", "metric_key": "units_sold", "cell_format": "{value:,.0f}"},
-        {"display_name": "Revenue YoY %", "dim_key_grouping": "*::dim_category::dim_region::dim_subregion", "metric_key": "revenue_yoy", "cell_format": "{value:,.1f}%"},
+        {
+            "display_name": "Revenue by Product",
+            "dim_key_grouping": "*::dim_category::dim_region::dim_subregion",
+            "metric_key": "revenue",
+            "cell_format": "${value:,.0f}",
+            "cell_bg_color": "#E8F5E9",
+        },
+        {
+            "display_name": "Profit by Product",
+            "dim_key_grouping": "*::dim_category::dim_region::dim_subregion",
+            "metric_key": "profit",
+            "cell_format": "${value:,.0f}",
+            "cell_bg_color": "#E3F2FD",
+        },
+        {
+            "display_name": "Units by Product",
+            "dim_key_grouping": "*::dim_category::dim_region::dim_subregion",
+            "metric_key": "units_sold",
+            "cell_format": "{value:,.0f}",
+        },
+        {
+            "display_name": "Revenue YoY %",
+            "dim_key_grouping": "*::dim_category::dim_region::dim_subregion",
+            "metric_key": "revenue_yoy",
+            "cell_format": "{value:,.1f}%",
+        },
     ]
     category_template = [
-        {"display_name": "Revenue by Category", "dim_key_grouping": "dim_product::*::dim_region::dim_subregion", "metric_key": "revenue", "cell_format": "${value:,.0f}", "cell_bg_color": "#E8F5E9"},
-        {"display_name": "Profit by Category", "dim_key_grouping": "dim_product::*::dim_region::dim_subregion", "metric_key": "profit", "cell_format": "${value:,.0f}", "cell_bg_color": "#E3F2FD"},
-        {"display_name": "Revenue % of Total", "dim_key_grouping": "dim_product::*::dim_region::dim_subregion", "metric_key": "revenue_pct_of_total", "cell_format": "{value:,.1f}%"},
+        {
+            "display_name": "Revenue by Category",
+            "dim_key_grouping": "dim_product::*::dim_region::dim_subregion",
+            "metric_key": "revenue",
+            "cell_format": "${value:,.0f}",
+            "cell_bg_color": "#E8F5E9",
+        },
+        {
+            "display_name": "Profit by Category",
+            "dim_key_grouping": "dim_product::*::dim_region::dim_subregion",
+            "metric_key": "profit",
+            "cell_format": "${value:,.0f}",
+            "cell_bg_color": "#E3F2FD",
+        },
+        {
+            "display_name": "Revenue % of Total",
+            "dim_key_grouping": "dim_product::*::dim_region::dim_subregion",
+            "metric_key": "revenue_pct_of_total",
+            "cell_format": "{value:,.1f}%",
+        },
     ]
 
     report_configs = [
