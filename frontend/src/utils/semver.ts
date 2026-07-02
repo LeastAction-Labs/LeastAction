@@ -102,3 +102,79 @@ export function compatibilityMessage(
   const patterns = versionCompatibility?.core ?? [];
   return `Requires core ${patterns.join(', ')} (you have ${coreVersion})`;
 }
+
+
+export type SemverLevel = 'major' | 'minor' | 'patch';
+export function parseSemver(v: string | null | undefined): VersionTuple | null {
+  if (!v) return null;
+  const parts = v.trim().split('.').map(Number);
+  if (parts.length !== 3 || parts.some((n) => isNaN(n) || n < 0 || !Number.isInteger(n)))
+    return null;
+  return parts as VersionTuple;
+}
+
+export function compareSemver(a: string, b: string): number {
+  const pa = parseSemver(a);
+  const pb = parseSemver(b);
+  if (!pa || !pb) return 0;
+  return compareTuples(pa, pb);
+}
+
+export function incrementSemver(current: string, level: SemverLevel): string {
+  const v = parseSemver(current) ?? ([0, 0, 0] as VersionTuple);
+  if (level === 'major') return `${v[0] + 1}.0.0`;
+  if (level === 'minor') return `${v[0]}.${v[1] + 1}.0`;
+  return `${v[0]}.${v[1]}.${v[2] + 1}`;
+}
+
+export interface VersionBumpOption {
+  level: SemverLevel;
+  version: string;
+  label: string;
+}
+
+/**
+ * The three valid next versions for a publish, in increasing-impact order.
+ * Each is exactly one segment-step above `current` (X.Y.Z → X.Y.Z+1 | X.Y+1.0 | X+1.0.0).
+ */
+export function nextVersionOptions(current: string | null | undefined): VersionBumpOption[] {
+  const base = parseSemver(current) ? current! : '0.0.0';
+  return [
+    { level: 'patch', version: incrementSemver(base, 'patch'), label: 'Patch — backward-compatible fix' },
+    { level: 'minor', version: incrementSemver(base, 'minor'), label: 'Minor — backward-compatible feature' },
+    { level: 'major', version: incrementSemver(base, 'major'), label: 'Major — breaking change' },
+  ];
+}
+
+
+export function isSingleStepIncrement(
+  current: string | null | undefined,
+  next: string | null | undefined,
+): boolean {
+  const c = current && parseSemver(current) ? current : '0.0.0';
+  const n = parseSemver(next);
+  if (!n) return false;
+  return nextVersionOptions(c).some((opt) => opt.version === next);
+}
+export function formatCorePattern(pattern: string): string {
+  const p = pattern.trim();
+  if (p.endsWith('.*')) return `${p.slice(0, -2)}.x`;
+  for (const op of OPERATORS) {
+    if (p.startsWith(op)) {
+      const symbol = op === '>=' ? '≥' : op === '<=' ? '≤' : op === '!=' ? '≠' : op;
+      return `${symbol} ${p.slice(op.length).trim()}`;
+    }
+  }
+  return p; // exact match
+}
+
+export function formatCorePatterns(patterns: string[] | null | undefined): string {
+  if (!patterns || patterns.length === 0) return 'all core versions';
+  return patterns.map(formatCorePattern).join(', ');
+}
+
+export const CORE_COMPAT_HELP =
+  'Core version compatibility — which LeastAction Core releases this item runs on ' +
+  '(independent of the Item version). Prefer an open range like ">=0.4.0" (runs on ' +
+  'Core 0.4.0 and every newer release) over a wildcard like "0.*" (limited to the ' +
+  '0.x series only). Combine entries for a window, e.g. ">=0.4.0, <1.0.0".';

@@ -82,6 +82,21 @@ class ItemOrchestrator:
                 )
                 self.version_manager.check_compatibility(patterns)
 
+            new_details = getattr(item_model, "version_details", None)
+            new_version = (
+                new_details.get("version") if isinstance(new_details, dict) else None
+            )
+            if new_version is not None:
+                old_version = None
+                if existing_item:
+                    old_details = getattr(existing_item, "version_details", None)
+                    old_version = (
+                        old_details.get("version") if isinstance(old_details, dict) else None
+                    )
+                self.version_manager.validate_version_transition(
+                    new_version=new_version, old_version=old_version
+                )
+
             # Safety-net codeblock validation for operators and actions.
             # Covers new creates, updates that change the codeblock, and skips updates that don't touch it
             # (exclude_unset=True drops absent fields, so getattr returns None).

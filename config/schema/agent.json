@@ -63,12 +63,12 @@
             "name": "version_compatibility",
             "datatype": "object",
             "required": false,
-            "description": "Which Core versions this item runs on. Uses glob patterns: \"0.*\" = any 0.x, \"1.2.*\" = any 1.2.x.",
+            "description": "Which Core versions this item runs on. Prefer range operators over wildcards: \">=0.4.0\" = 0.4.0 or newer; combine like [\">=1.0.0\", \"<2.0.0\"]. Wildcards (\"0.*\" = any 0.x) still parse but are discouraged.",
             "editorType": "monaco",
             "editorMonacoFormat": "json",
             "sample_placeholder": {
                 "core": [
-                    "0.*"
+                    ">=0.0.0"
                 ]
             },
             "tab": {
@@ -77,17 +77,17 @@
             },
             "default": {
                 "core": [
-                    "0.*"
+                    ">=0.0.0"
                 ]
             },
             "properties": {
                 "core": {
                     "type": "array",
                     "items": "string",
-                    "description": "Version glob patterns, e.g. [\"0.*\", \"1.*\"]. Empty = all versions."
+                    "description": "Core version patterns, e.g. [\">=0.4.0\"] or [\">=1.0.0\", \"<2.0.0\"]. Empty = all versions. Wildcards (\"0.*\") allowed but ranges preferred."
                 }
             },
-            "tooltip": "Specify core version globs in the core array.\n\nExamples:\n\u2022 [\"0.*\"] \u2014 any 0.x release\n\u2022 [\"0.*\", \"1.*\"] \u2014 0.x or 1.x\n\u2022 [\"1.2.*\"] \u2014 only 1.2.x\n\u2022 [] \u2014 compatible with all versions\n\nPatterns use wildcard (*) matching on each version segment.",
+            "tooltip": "Specify Core version compatibility in the core array. Prefer range operators over wildcards.\n\nExamples:\n\u2022 [\">=0.4.0\"] \u2014 Core 0.4.0 and newer (recommended)\n\u2022 [\">=1.0.0\", \"<2.0.0\"] \u2014 the 1.x series only\n\u2022 [\"0.*\"] \u2014 any 0.x release (wildcard, discouraged)\n\u2022 [] \u2014 compatible with all versions\n\nAll entries must match (AND). Operators: >=, >, <=, <, !=, exact, or X.* wildcard.",
             "ui_display_name": "Version Compatibility"
         },
         {
