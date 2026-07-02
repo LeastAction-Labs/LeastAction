@@ -694,7 +694,9 @@ def write_report_to_database(conn, pivot_table, metric_styles, output_table, rep
             "name": report_name,
             "description": report_title,
             "html": html_content,
-            "parent_laui": output_parent_laui
+            "parent_laui": output_parent_laui,
+            "project_laui": str(least_action_task_object.get('project_laui')),
+            "account_laui": str(least_action_task_object.get('account_laui')),
         }
 
         log_info("task", "run", "send_request", f"Sending POST request to {api_url}")
