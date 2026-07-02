@@ -72,7 +72,12 @@ import {
   runTask,
 } from '@/services/task.service.ts';
 import type { TaskDiagnosticResponse } from '@/services/task.service.ts';
-import { formatDateTime, formatDateTimeCompact, getTimeZoneLabel } from '@/utils/timeFormat';
+import {
+  formatDateTime,
+  formatDateTimeCompact,
+  formatDateTimeFull,
+  getTimeZoneLabel,
+} from '@/utils/timeFormat';
 
 import type { CatalogItem } from '../types.ts';
 
@@ -351,6 +356,12 @@ const formatDateCompact = (dateString: string | null | undefined) => {
   return formatDateTimeCompact(dateString);
 };
 
+const EMBEDDED_DATETIME_RE =
+  /\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:?\d{2}|Z)?/g;
+
+const reformatEmbeddedTimestamps = (text: string) =>
+  text.replace(EMBEDDED_DATETIME_RE, (match) => formatDateTimeFull(match));
+
 // Format JSON for display
 const formatJSON = (data: any) => {
   if (!data) return '';
@@ -367,7 +378,7 @@ const formatJSON = (data: any) => {
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function TaskView({ selectedItem }: TaskViewProps) {
-  const { timeZone } = useTimeFormat();
+  const { timeZone, toggleTimeZone } = useTimeFormat();
   const tzLabel = timeZone === 'utc' ? 'UTC' : getTimeZoneLabel();
   const [tabValue, setTabValue] = useState(0);
   const [logsSessionId, setLogsSessionId] = useState<string | undefined>(undefined);
@@ -2692,21 +2703,36 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
       >
         {diagnosticData && (
           <Box sx={{ mt: 1 }}>
-            <Chip
-              label={
-                diagnosticData.issues_found > 0
-                  ? `${diagnosticData.issues_found} issue(s) found`
-                  : 'No issues found'
-              }
-              size="small"
-              sx={{
-                mb: 2,
-                bgcolor:
-                  diagnosticData.issues_found > 0 ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)',
-                color: diagnosticData.issues_found > 0 ? '#ef4444' : '#22c55e',
-                fontWeight: 600,
-              }}
-            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Chip
+                label={
+                  diagnosticData.issues_found > 0
+                    ? `${diagnosticData.issues_found} issue(s) found`
+                    : 'No issues found'
+                }
+                size="small"
+                sx={{
+                  bgcolor:
+                    diagnosticData.issues_found > 0
+                      ? 'rgba(239,68,68,0.12)'
+                      : 'rgba(34,197,94,0.12)',
+                  color: diagnosticData.issues_found > 0 ? '#ef4444' : '#22c55e',
+                  fontWeight: 600,
+                }}
+              />
+              <Chip
+                label={tzLabel}
+                size="small"
+                onClick={toggleTimeZone}
+                sx={{
+                  bgcolor: 'var(--bg-tertiary)',
+                  color: 'var(--text-secondary)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  '&:hover': { color: 'var(--text-primary)' },
+                }}
+              />
+            </Box>
 
             {/* Detected issues */}
             {diagnosticData.diagnostics
@@ -2777,7 +2803,7 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                         color: 'var(--text-secondary)',
                       }}
                     >
-                      {diag.description}
+                      {reformatEmbeddedTimestamps(diag.description)}
                     </Typography>
                   </Box>
                 );
