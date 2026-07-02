@@ -5,10 +5,11 @@
  * marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
  * Use of this file outside those terms is not permitted.
  */
-import { Box, Divider, Typography } from '@mui/material';
+import { Box, Divider, Tooltip, Typography } from '@mui/material';
 
 import { Chip } from '@/components/ui';
 import { MetaRow, SectionTitle, formatRelativeDate } from '@/components/ui/sidebarParts';
+import { CORE_COMPAT_HELP, formatCorePatterns } from '@/utils/semver';
 
 interface CatalogItemSidebarProps {
   item: any;
@@ -72,7 +73,13 @@ export default function CatalogItemSidebar({
     <Box sx={{ p: 2, overflow: 'auto', height: '100%' }}>
       {/* Status chips */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1.5 }}>
-        {version && <Chip label={`v${version}`} variant="version" />}
+        {version && (
+          <Chip
+            label={`v${version}`}
+            variant="version"
+            tooltip="Item version — this item's own release version"
+          />
+        )}
         {hasPublishStatus && item.is_published === true && !item.has_unpublished_changes && (
           <Chip label="Published" variant="published" tooltip="Published to Marketplace" />
         )}
@@ -310,7 +317,7 @@ export default function CatalogItemSidebar({
       {/* Version section */}
       <Divider sx={{ borderColor: 'var(--border-color)', my: 1.5 }} />
       <SectionTitle>Version</SectionTitle>
-      <MetaRow label="Current">
+      <MetaRow label="Item version">
         {version ? (
           <Typography
             sx={{
@@ -334,21 +341,27 @@ export default function CatalogItemSidebar({
           <NA />
         )}
       </MetaRow>
-      <MetaRow label="Core compat">
+      <MetaRow label="Core version">
         {versionCompatibility?.core?.length > 0 ? (
-          <Typography
-            sx={{
-              fontSize: '11px',
-              color: 'var(--text-secondary)',
-              fontFamily: 'monospace',
-            }}
-          >
-            {(versionCompatibility.core as string[]).join(', ')}
-          </Typography>
+          <Tooltip title={CORE_COMPAT_HELP} placement="left">
+            <Typography
+              sx={{
+                fontSize: '11px',
+                color: 'var(--text-secondary)',
+                fontFamily: 'monospace',
+                cursor: 'help',
+              }}
+            >
+              {formatCorePatterns(versionCompatibility.core as string[])}
+            </Typography>
+          </Tooltip>
         ) : (
           <NA />
         )}
       </MetaRow>
+      <Typography sx={{ fontSize: '10px', color: 'var(--text-secondary)', mt: 0.5 }}>
+        Tip: prefer a range like <code>&gt;=0.4.0</code> over a wildcard like <code>0.*</code>.
+      </Typography>
     </Box>
   );
 }

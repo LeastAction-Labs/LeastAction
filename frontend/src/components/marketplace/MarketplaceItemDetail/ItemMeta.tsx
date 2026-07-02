@@ -14,7 +14,12 @@ import { MetaRow, SectionTitle, formatRelativeDate } from '@/components/ui/sideb
 import { getCoreVersion } from '@/config/version';
 import { useCatalog } from '@/contexts/CatalogContext';
 import { schemaExists } from '@/services/schema.service';
-import { compatibilityMessage, isCoreCompatible } from '@/utils/semver';
+import {
+  CORE_COMPAT_HELP,
+  compatibilityMessage,
+  formatCorePatterns,
+  isCoreCompatible,
+} from '@/utils/semver';
 
 interface ItemMetaProps {
   item: FullItemData;
@@ -218,7 +223,13 @@ function StatusChips({
 }>) {
   return (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1.5 }}>
-      {version && <Chip label={`v${version}`} variant="version" />}
+      {version && (
+        <Chip
+          label={`v${version}`}
+          variant="version"
+          tooltip="Item version — this item's own release version"
+        />
+      )}
       <Chip
         label={compatible ? '✓ Compatible' : 'Incompatible'}
         variant={compatible ? 'compatible' : 'incompatible'}
@@ -339,16 +350,19 @@ export default function ItemMeta({ item, onAddFilter }: Readonly<ItemMetaProps>)
       )}
 
       {corePatterns && corePatterns.length > 0 && (
-        <MetaRow label="Core compat">
-          <Typography
-            sx={{
-              fontSize: '12px',
-              color: compatible ? 'success.dark' : 'error.dark',
-              fontFamily: 'monospace',
-            }}
-          >
-            {corePatterns.join(', ')}
-          </Typography>
+        <MetaRow label="Core version">
+          <Tooltip title={CORE_COMPAT_HELP} placement="left">
+            <Typography
+              sx={{
+                fontSize: '12px',
+                color: compatible ? 'success.dark' : 'error.dark',
+                fontFamily: 'monospace',
+                cursor: 'help',
+              }}
+            >
+              {formatCorePatterns(corePatterns)}
+            </Typography>
+          </Tooltip>
         </MetaRow>
       )}
 
@@ -418,13 +432,16 @@ export default function ItemMeta({ item, onAddFilter }: Readonly<ItemMetaProps>)
           sx={{
             fontSize: '12px',
             color: 'var(--text-primary)',
-            mb: 1,
+            mb: 0.5,
             fontFamily: 'monospace',
           }}
         >
-          Current: v{version}
+          Item version: v{version}
         </Typography>
       )}
+      <Typography sx={{ fontSize: '11px', color: 'var(--text-secondary)', mb: 1 }}>
+        Core compatibility: {formatCorePatterns(corePatterns)}
+      </Typography>
       {/* check-for-updates: discuss with amogha — API shape + whether to auto-call on panel open */}
       <Button
         size="small"
