@@ -217,7 +217,20 @@ class TestParseSemver:
         "value",
         # "².0.0" uses a unicode superscript: isdigit() would accept it but int()
         # rejects it — isdecimal() correctly rejects it up front (no 500).
-        ["-1.0.0", "0.-1.0", "0.0.-1", "1.2", "1.2.3.4", "a.b.c", "", "1..0", "v1.0.0", "².0.0", 123, None],
+        [
+            "-1.0.0",
+            "0.-1.0",
+            "0.0.-1",
+            "1.2",
+            "1.2.3.4",
+            "a.b.c",
+            "",
+            "1..0",
+            "v1.0.0",
+            "².0.0",
+            123,
+            None,
+        ],
     )
     def test_invalid_semver_raises(self, value):
         with pytest.raises(UnprocessableEntityError):
@@ -240,7 +253,9 @@ class TestValidateVersionTransition:
         # equal (0.1.0) and any increase over 0.1.0 pass the baseline transition check
         self.make().validate_version_transition(new, "0.1.0")
 
-    @pytest.mark.parametrize("old,new", [("0.2.0", "0.1.0"), ("1.0.0", "0.9.9"), ("0.0.2", "0.0.1")])
+    @pytest.mark.parametrize(
+        "old,new", [("0.2.0", "0.1.0"), ("1.0.0", "0.9.9"), ("0.0.2", "0.0.1")]
+    )
     def test_decrease_rejected(self, old, new):
         with pytest.raises(UnprocessableEntityError):
             self.make().validate_version_transition(new, old)

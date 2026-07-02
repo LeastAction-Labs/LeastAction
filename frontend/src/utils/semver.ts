@@ -103,7 +103,6 @@ export function compatibilityMessage(
   return `Requires core ${patterns.join(', ')} (you have ${coreVersion})`;
 }
 
-
 export type SemverLevel = 'major' | 'minor' | 'patch';
 export function parseSemver(v: string | null | undefined): VersionTuple | null {
   if (!v) return null;
@@ -140,12 +139,19 @@ export interface VersionBumpOption {
 export function nextVersionOptions(current: string | null | undefined): VersionBumpOption[] {
   const base = parseSemver(current) ? current! : '0.0.0';
   return [
-    { level: 'patch', version: incrementSemver(base, 'patch'), label: 'Patch — backward-compatible fix' },
-    { level: 'minor', version: incrementSemver(base, 'minor'), label: 'Minor — backward-compatible feature' },
+    {
+      level: 'patch',
+      version: incrementSemver(base, 'patch'),
+      label: 'Patch — backward-compatible fix',
+    },
+    {
+      level: 'minor',
+      version: incrementSemver(base, 'minor'),
+      label: 'Minor — backward-compatible feature',
+    },
     { level: 'major', version: incrementSemver(base, 'major'), label: 'Major — breaking change' },
   ];
 }
-
 
 export function isSingleStepIncrement(
   current: string | null | undefined,

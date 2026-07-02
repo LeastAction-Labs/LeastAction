@@ -18,6 +18,7 @@ on publish — not in the core create path, which cannot see publish state.)
 Run against a dev environment with Mongo available:
     pytest tests/integration/catalog/test_version_bump.py -q
 """
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -82,7 +83,9 @@ async def test_create_with_negative_version_rejected(
     parent = _make_usecase_parent(client, base_folders)
 
     resp = _publish(
-        client, base_folders, parent,
+        client,
+        base_folders,
+        parent,
         version_details={"version": bad_version, "versioning_mode": "implicit"},
     )
     assert resp.status_code == 422
@@ -97,20 +100,22 @@ async def test_create_with_malformed_version_rejected(
     parent = _make_usecase_parent(client, base_folders)
 
     resp = _publish(
-        client, base_folders, parent,
+        client,
+        base_folders,
+        parent,
         version_details={"version": bad_version, "versioning_mode": "implicit"},
     )
     assert resp.status_code == 422
 
 
-async def test_create_with_valid_version_accepted(
-    client: TestClient, test_database: MongoDatabase
-):
+async def test_create_with_valid_version_accepted(client: TestClient, test_database: MongoDatabase):
     base_folders = create_base_folders(client)
     parent = _make_usecase_parent(client, base_folders)
 
     resp = _publish(
-        client, base_folders, parent,
+        client,
+        base_folders,
+        parent,
         version_details={"version": "0.1.0", "versioning_mode": "implicit"},
     )
     assert resp.status_code == 200
@@ -121,14 +126,18 @@ async def test_decrease_version_rejected(client: TestClient, test_database: Mong
     parent = _make_usecase_parent(client, base_folders)
 
     created = _publish(
-        client, base_folders, parent,
+        client,
+        base_folders,
+        parent,
         version_details={"version": "0.2.0", "versioning_mode": "implicit"},
     )
     assert created.status_code == 200
 
     # Re-publish with a lower version -> rejected
     resp = _publish(
-        client, base_folders, parent,
+        client,
+        base_folders,
+        parent,
         description="changed",
         version_details={"version": "0.1.0", "versioning_mode": "implicit"},
     )
@@ -137,23 +146,25 @@ async def test_decrease_version_rejected(client: TestClient, test_database: Mong
     assert "decrease" in body or "lower" in body
 
 
-async def test_edit_content_same_version_allowed(
-    client: TestClient, test_database: MongoDatabase
-):
+async def test_edit_content_same_version_allowed(client: TestClient, test_database: MongoDatabase):
     """Core allows editing local content without a bump (bump is enforced in the edit
     UI for published items, not in the core create path)."""
     base_folders = create_base_folders(client)
     parent = _make_usecase_parent(client, base_folders)
 
     created = _publish(
-        client, base_folders, parent,
+        client,
+        base_folders,
+        parent,
         description="original",
         version_details={"version": "0.1.0", "versioning_mode": "implicit"},
     )
     assert created.status_code == 200
 
     resp = _publish(
-        client, base_folders, parent,
+        client,
+        base_folders,
+        parent,
         description="edited, same version",
         version_details={"version": "0.1.0", "versioning_mode": "implicit"},
     )
@@ -168,14 +179,18 @@ async def test_edit_content_with_higher_version_allowed(
     parent = _make_usecase_parent(client, base_folders)
 
     created = _publish(
-        client, base_folders, parent,
+        client,
+        base_folders,
+        parent,
         description="original",
         version_details={"version": "0.1.0", "versioning_mode": "implicit"},
     )
     assert created.status_code == 200
 
     resp = _publish(
-        client, base_folders, parent,
+        client,
+        base_folders,
+        parent,
         description="edited and bumped",
         version_details={"version": bumped, "versioning_mode": "implicit"},
     )

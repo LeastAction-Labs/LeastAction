@@ -83,9 +83,7 @@ class ItemOrchestrator:
                 self.version_manager.check_compatibility(patterns)
 
             new_details = getattr(item_model, "version_details", None)
-            new_version = (
-                new_details.get("version") if isinstance(new_details, dict) else None
-            )
+            new_version = new_details.get("version") if isinstance(new_details, dict) else None
             if new_version is not None:
                 old_version = None
                 if existing_item:

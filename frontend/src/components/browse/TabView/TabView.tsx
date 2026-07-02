@@ -978,7 +978,10 @@ export default function TabView({ sidebar }: { sidebar?: ReactNode }) {
                           color: '#4caf50',
                           borderColor: '#4caf50',
                           '&:hover': { borderColor: '#388e3c', color: '#388e3c' },
-                          '&.Mui-disabled': { borderColor: 'var(--border)', color: 'var(--text-disabled)' },
+                          '&.Mui-disabled': {
+                            borderColor: 'var(--border)',
+                            color: 'var(--text-disabled)',
+                          },
                         }}
                       >
                         {publishLabel}
@@ -1201,8 +1204,8 @@ export default function TabView({ sidebar }: { sidebar?: ReactNode }) {
           {/* Re-publish without local edits has nothing new to push. */}
           {isRepublish && !hasUnpublishedChanges && (
             <Typography sx={{ fontSize: '12px', color: 'var(--warning, #d97706)', mb: 2 }}>
-              No unpublished changes. Edit the item (which bumps its version) before publishing a new
-              version.
+              No unpublished changes. Edit the item (which bumps its version) before publishing a
+              new version.
             </Typography>
           )}
 
@@ -1215,21 +1218,33 @@ export default function TabView({ sidebar }: { sidebar?: ReactNode }) {
               bgcolor: 'var(--bg-primary)',
             }}
           >
-            <Typography sx={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', mb: 0.5 }}>
+            <Typography
+              sx={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', mb: 0.5 }}
+            >
               Versioning rules
             </Typography>
-            <Typography component="ul" sx={{ m: 0, pl: 2, fontSize: '11px', color: 'var(--text-secondary)' }}>
+            <Typography
+              component="ul"
+              sx={{ m: 0, pl: 2, fontSize: '11px', color: 'var(--text-secondary)' }}
+            >
               <li>Every published item must carry an Item version.</li>
-              <li>Editing a published item forces a one-step version bump — that bumped version is what gets published here.</li>
               <li>
-                <strong>Patch</strong> (x.y.<strong>Z+1</strong>) = fix · <strong>Minor</strong>{' '}
-                (x.<strong>Y+1</strong>.0) = feature · <strong>Major</strong> (<strong>X+1</strong>.0.0) = breaking.
+                Editing a published item forces a one-step version bump — that bumped version is
+                what gets published here.
               </li>
-              <li>Core version compatibility is separate — it tracks which Core releases the item supports.</li>
               <li>
-                For Core compatibility, prefer an open range like{' '}
-                <strong>&gt;=0.4.0</strong> (runs on Core 0.4.0 and newer) over a wildcard like{' '}
-                <strong>0.*</strong> (locked to the 0.x series only).
+                <strong>Patch</strong> (x.y.<strong>Z+1</strong>) = fix · <strong>Minor</strong> (x.
+                <strong>Y+1</strong>.0) = feature · <strong>Major</strong> (<strong>X+1</strong>
+                .0.0) = breaking.
+              </li>
+              <li>
+                Core version compatibility is separate — it tracks which Core releases the item
+                supports.
+              </li>
+              <li>
+                For Core compatibility, prefer an open range like <strong>&gt;=0.4.0</strong> (runs
+                on Core 0.4.0 and newer) over a wildcard like <strong>0.*</strong> (locked to the
+                0.x series only).
               </li>
             </Typography>
           </Box>
