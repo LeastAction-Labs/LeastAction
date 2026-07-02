@@ -1353,26 +1353,45 @@ async def get_or_create_sales_pipeline_tasks(
 
     import json as _json
 
+    # Curated metric_templates keep each report a compact, styled dashboard (a
+    # bounded set of dim×metric slices) instead of a raw pivot over all 239
+    # groupings × 31 metrics — which balloons past the catalog html field cap.
+    # dim_key = product::category::region::subregion; '*' expands one row per value.
+    _last3 = "date >= (SELECT MAX(date) FROM fact_product_agg_daily) - INTERVAL '3 days'"
+    perf_template = [
+        {"display_name": "Revenue by Product", "dim_key_grouping": "*::dim_category::dim_region::dim_subregion", "metric_key": "revenue", "cell_format": "${value:,.0f}", "cell_bg_color": "#E8F5E9"},
+        {"display_name": "Profit by Product", "dim_key_grouping": "*::dim_category::dim_region::dim_subregion", "metric_key": "profit", "cell_format": "${value:,.0f}", "cell_bg_color": "#E3F2FD"},
+        {"display_name": "Units by Product", "dim_key_grouping": "*::dim_category::dim_region::dim_subregion", "metric_key": "units_sold", "cell_format": "{value:,.0f}"},
+        {"display_name": "Revenue YoY %", "dim_key_grouping": "*::dim_category::dim_region::dim_subregion", "metric_key": "revenue_yoy", "cell_format": "{value:,.1f}%"},
+    ]
+    category_template = [
+        {"display_name": "Revenue by Category", "dim_key_grouping": "dim_product::*::dim_region::dim_subregion", "metric_key": "revenue", "cell_format": "${value:,.0f}", "cell_bg_color": "#E8F5E9"},
+        {"display_name": "Profit by Category", "dim_key_grouping": "dim_product::*::dim_region::dim_subregion", "metric_key": "profit", "cell_format": "${value:,.0f}", "cell_bg_color": "#E3F2FD"},
+        {"display_name": "Revenue % of Total", "dim_key_grouping": "dim_product::*::dim_region::dim_subregion", "metric_key": "revenue_pct_of_total", "cell_format": "{value:,.1f}%"},
+    ]
+
     report_configs = [
         (
             "04_sales_performance_report",
             "Sales Performance Dashboard",
             "fact_product_agg_daily",
-            "date >= (SELECT MAX(date) FROM fact_product_agg_daily) - INTERVAL '3 days'",
+            _last3,
             "#1565C0",
             "corporate_blue",
+            perf_template,
         ),
         (
             "05_category_performance_report",
-            "Category & Channel Performance",
+            "Category Performance",
             "fact_product_agg_daily",
-            "date >= (SELECT MAX(date) FROM fact_product_agg_daily) - INTERVAL '3 days'",
+            _last3,
             "#2E7D32",
             "modern_green",
+            category_template,
         ),
     ]
 
-    for name, title, table, date_filter, header_color, theme in report_configs:
+    for name, title, table, date_filter, header_color, theme, metric_template in report_configs:
         payload = _json.dumps(
             {
                 "data": {
@@ -1401,6 +1420,7 @@ async def get_or_create_sales_pipeline_tasks(
                         "date_filter": date_filter,
                         "limit": None,
                     },
+                    "metric_template": metric_template,
                 }
             }
         )
