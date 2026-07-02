@@ -24,7 +24,7 @@ The app comes up at **<http://localhost:8080>** — default login `admin@example
 
 - **Watch it run** — open the workflow folder in the UI and you'll see the three tasks move through their states (the insert/update wait on their parent via a dependency action).
 - **Trigger it now** — don't want to wait? Open a task and click **Run** to fire it immediately.
-- **Re-enable later** — after the ~30-minute window (or anytime), use the **Schedule** action (`LeastActionSchedule`) on a task to (re)start its schedule.
+- **Re-enable later** — after the ~30-minute window (or anytime), use the **Schedule** action (`LeastActionScheduleTasks`) on a task to (re)start its schedule.
 
 **Want to deploy a pipeline yourself?** Do it through the AI instead of building by hand — open the AI chat (or connect via MCP) and say:
 

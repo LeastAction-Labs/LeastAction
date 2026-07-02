@@ -497,7 +497,7 @@ Operators use structured logging with **4 parameters only** (no separate task_id
 **Import:**
 
 ```python
-from utils.logger import log_info, log_error
+from src.common.logger.logger import log_info, log_error
 ```
 
 **Signature:**
@@ -607,7 +607,7 @@ def finish(least_action_task_object, client, completion_details, run_details):
 import boto3
 import json
 from botocore.exceptions import ClientError
-from utils.logger import log_info, log_error
+from src.common.logger.logger import log_info, log_error
 
 def initialize(least_action_task_object):
     connection = least_action_task_object.get('connection', {})
@@ -748,7 +748,7 @@ pip install boto3
 ```json
 {
   "name": "AWS Lambda Production",
-  "type": "connection.AWSIAMRole",
+  "item_type": "connection.AWSIAMRole",
   "content": {
     "role_arn": "arn:aws:iam::123456789:role/LambdaRole",
     "region": "us-east-1"
@@ -769,7 +769,7 @@ pip install boto3
 import psycopg2
 import json
 from psycopg2.extras import RealDictCursor
-from utils.logger import log_info, log_error
+from src.common.logger.logger import log_info, log_error
 
 def initialize(least_action_task_object):
     connection = least_action_task_object.get('connection', {})
@@ -902,7 +902,7 @@ pip install psycopg2-binary
 import subprocess
 import json
 import os
-from utils.logger import log_info, log_error
+from src.common.logger.logger import log_info, log_error
 
 def initialize(least_action_task_object):
     connection = least_action_task_object.get('connection', {})

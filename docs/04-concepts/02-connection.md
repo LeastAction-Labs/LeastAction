@@ -92,7 +92,7 @@ LeastAction supports connections for major cloud providers and services. All con
 **Access Pattern in Operators:**
 
 ```python
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
 connection = least_action_task_object.get('connection', {})
 # Direct access to connection fields
 region = connection.get('region', 'us-east-1')
@@ -167,12 +167,12 @@ return client
 
 ```json
 {
-"name": "AWS Lambda Production",
-"type": "connection.AWSIAMRole",
-"content": {
+  "name": "AWS Lambda Production",
+  "item_type": "connection.AWSIAMRole",
+  "content": {
     "role_arn": "arn:aws:iam::123456789012:role/LambdaRole",
     "region": "us-east-1"
-    }
+  }
 }
 ```
 
@@ -190,7 +190,7 @@ return client
 **Access Pattern in Operators:**
 
 ```python
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
 connection = least_action_task_object.get('connection', {})
 # Direct access to connection fields
 project_id = connection.get('project_id')
@@ -252,12 +252,12 @@ return client
 
 ```json
 {
-"name": "GCP BigQuery Production",
-"type": "connection.GCPServiceAccount",
-"content": {
+  "name": "GCP BigQuery Production",
+  "item_type": "connection.GCPServiceAccount",
+  "content": {
     "project_id": "my-project-id",
     "region": "us-central1"
-    }
+  }
 }
 ```
 
@@ -275,7 +275,7 @@ return client
 **Access Pattern in Operators:**
 
 ```python
-def initialize(least_action_task_object, least_action_parameters):
+def initialize(least_action_task_object):
 connection = least_action_task_object.get('connection', {})
 # Direct access to connection fields
 tenant_id = connection.get('tenant_id')
@@ -320,12 +320,12 @@ return client
 
 ```json
 {
-"name": "Azure Blob Production",
-"type": "connection.AzureManagedIdentity",
-"content": {
+  "name": "Azure Blob Production",
+  "item_type": "connection.AzureManagedIdentity",
+  "content": {
     "subscription_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
     "region": "eastus"
-    }
+  }
 }
 ```
 
@@ -387,14 +387,14 @@ return conn
 
 ```json
 {
-"name": "postgresql",
-"type": "connection.postgresql",
-"content": {
+  "name": "postgresql",
+  "item_type": "connection.postgresql",
+  "content": {
     "host": "postgres-demo",
     "port": 5432,
     "database": "postgres_demo_db",
     "user": "postgres"
-    }
+  }
 }
 ```
 
@@ -456,7 +456,7 @@ The recommended workflow is to use AI to generate both operator and connection:
     },
 "connection_sample": {
     "name": "AWS Lambda Production",
-    "type": "connection.AWSIAMRole",
+    "item_type": "connection.AWSIAMRole",
     "content": {
         "region": "us-east-1",
         "role_arn": "arn:aws:iam::123456789012:role/LambdaRole"
@@ -582,10 +582,10 @@ Task Created → Queue Entry → Sort by Rules → Check max_parallelism → Exe
 
 ```json
 {
-"max_parallelism": 5,
-"sort_order": {
-    "priority": "descending" // Higher priority first
-    }
+  "max_parallelism": 5,
+  "sort_order": {
+    "priority": "descending"
+  }
 }
 ```
 
@@ -608,10 +608,10 @@ Priority 1 (runs last)
 
 ```json
 {
-"max_parallelism": 10,
-"sort_order": {
-    "start_date": "ascending" // Oldest first
-    }
+  "max_parallelism": 10,
+  "sort_order": {
+    "start_date": "ascending"
+  }
 }
 ```
 
@@ -691,9 +691,9 @@ Priority 3, 06:00
 
 ```json
 {
-"max_parallelism": 50,
-"max_utilization": 80, // Percentage
-"utilization_metric": "cpu_percent"
+  "max_parallelism": 50,
+  "max_utilization": 80,
+  "utilization_metric": "cpu_percent"
 }
 ```
 
@@ -758,12 +758,13 @@ to use that literal string as the credential. So you have three real options:
 For operators without secret support, the connection stores the actual value. Protect it with
 catalog permissions and a least-privilege DB/cloud user, and prefer option 1 or 2 above.
 
+AWSRedshiftDataExecuteSQL — operator-native secret reference (resolved by AWS, not LeastAction):
+
 ```json
-// AWSRedshiftDataExecuteSQL — operator-native secret reference (resolved by AWS, not LeastAction)
 {
-"content": {
+  "content": {
     "secret_arn": "arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/redshift-AbCdEf"
-    }
+  }
 }
 ```
 
@@ -979,20 +980,20 @@ The same `postgresql` connection, tuned for in-order processing (lower paralleli
 
 ```json
 {
-"item_type": "connection.postgresql",
-"name": "postgresql",
-"parent_laui": "conn-folder-123",
-"content": {
+  "item_type": "connection.postgresql",
+  "name": "postgresql",
+  "parent_laui": "conn-folder-123",
+  "content": {
     "host": "postgres-demo",
     "port": 5432,
     "database": "postgres_demo_db",
     "user": "postgres",
     "password": "postgres"
-    },
-"max_parallelism": 10,
-"sort_order": {
-    "start_date": "ascending" // Process in order received
-    }
+  },
+  "max_parallelism": 10,
+  "sort_order": {
+    "start_date": "ascending"
+  }
 }
 ```
 
@@ -1051,13 +1052,11 @@ The same `postgresql` connection, tuned for in-order processing (lower paralleli
 
 ```json
 {
-"task_id": "my-first-task",
-"workflow": "my-workflow",
-"operator": "<operator_laui>",
-"connection": "<connection_laui>",
-"payload": {
-// Use AI-generated payload_sample
-}
+  "task_id": "my-first-task",
+  "workflow": "my-workflow",
+  "operator": "<operator_laui>",
+  "connection": "<connection_laui>",
+  "payload": {}
 }
 ```
 
@@ -1084,14 +1083,12 @@ Content-Type: application/json
 
 ```json
 {
-"item_type": "connection.{subtype}",
-"name": "connection-name",
-"parent_laui": "folder-laui",
-"content": {
-// Flat structure with operator-specific fields
-},
-"max_parallelism": 10,
-"sort_order": {}
+  "item_type": "connection.{subtype}",
+  "name": "connection-name",
+  "parent_laui": "folder-laui",
+  "content": {},
+  "max_parallelism": 10,
+  "sort_order": {}
 }
 ```
 

@@ -6,5 +6,9 @@ profile: demo
 
 model-paths: ["models"]
 seed-paths: ["seeds"]
+macro-paths: ["macros"]
 target-path: "target"
 clean-targets: ["target", "dbt_packages"]
+
+on-run-start:
+  - "{{ create_cube_functions() }}"

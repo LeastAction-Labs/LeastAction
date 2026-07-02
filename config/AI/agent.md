@@ -291,6 +291,21 @@ def finish(least_action_task_object, client, completion_details, run_details):  
 
 `check_completion` returns a dict (`{"status": ..., "message": ..., "output": {...}}`), not a bool. Wrong argument count → `WRONG_SIGNATURE` error on creation.
 
+### Action function signature (strictly enforced)
+
+An **action** defines a single `run`. The executor calls it as `run(action_object, **action_variables)` — the **only** positional is the action object; **every `action_variable` arrives as a keyword argument**. Read your inputs from `kwargs`:
+
+```python
+def run(least_action_action_object, **kwargs):                 # only ONE positional
+    connection = least_action_action_object.get("connection", {})  # resolved from connection_laui at run time
+    issue_key = kwargs.get("issue_key")                        # each action_variable is a kwarg
+    comment = kwargs.get("comment")
+    ...
+    return True   # actions are SYNC and return a bool (True = success, False = failure)
+```
+
+Do **not** add extra positional params (e.g. `def run(obj, parent_laui, ...)`) — the executor passes only the action object positionally, so a required positional raises `run() missing 1 required positional argument: 'parent_laui'`. An **action** takes a **connection** (resolved from `connection_laui`) + `action_variables`, does the work **synchronously**, and returns **true/false** — the sync counterpart of the async operator/task. Codeblocks may not use `async def` or import `threading`; do sync HTTP with `requests`, and reuse platform work by calling an existing endpoint rather than re-implementing it.
+
 ### Required fields by item type
 
 | Type | Required fields |
@@ -1161,9 +1176,9 @@ When the result is `false` or an error:
 1. State plainly that it did **not** send (do not soften a failure into a success).
 2. Offer to pull the detail, e.g.: *"Looks like the Slack send failed — want me to find the detail so you can copy-paste the message and send it manually?"*
 3. If yes, fetch the failure reason from the run's logs using the `session_id` you kept. **The log category follows how the action was triggered:**
-   - **Standalone `run_action` (this skill, MCP/UI):** the source is the API, so the detail lands in **`category="API"`** — start there: `get_non_task_logs(session_id=<session_id>, category="API")`.
-   - **Action fired by a task (pre/post-action):** it runs in a Celery worker, so the detail is in **`category="CELERY"`**: `get_non_task_logs(session_id=<session_id>, category="CELERY")`.
-   - **Double-check both if needed:** an action can run either way, and a single run may write to both (the API call that dispatched it and the Celery worker that executed it). If the first category is empty or thin, query the other before concluding.
+   - **Standalone `run_action` (this skill, MCP/UI):** `get_non_task_logs(session_id=<session_id>, category="API")` gives the router result (e.g. `returned False`) but **not** the action's own error. The action's **codeblock logs + traceback** (bad `run()` signature, a `requests` error, your `log_error` lines) are written under **`category="CREATE_ACTIONS"`** (`verbose=TASK`, `task_laui=no-task-laui`). To read them reliably: `list_session_log_files(session_id=<id>)` → find the `<name>.action.log` → `read_log_file(file_path=<that path>)`. (The general "avoid `list_session_log_files`" note is about scanning the *whole* store; scoped to one `session_id` it is the correct way to surface an action's own logs.)
+   - **Action fired by a task (pre/post-action):** it runs in a Celery worker, so the detail is in **`category="CELERY"`**: `get_non_task_logs(session_id=<session_id>, category="CELERY")` (or `list_session_log_files` → the action log under the task's session).
+   - **Double-check if needed:** a single run may write to several places (the API call that dispatched it and the worker/executor that ran the codeblock). If the first is empty or thin, `list_session_log_files` shows every file for the session — read the `.action.log`.
    - If the default date window returns empty, pass `date=<the run's UTC date, YYYY-MM-DD>`.
 4. Give the user a clear recovery: a short reason from the logs, the **exact message** in a copy-paste block, and the destination (Slack channel or recipient email) so they can send it by hand.
 5. If the cause is config (placeholder webhook / missing SMTP creds), tell them an admin needs to set the real `webhook_url` or SMTP credentials for automatic sending.

@@ -907,6 +907,300 @@ async def get_or_create_postgres_tasks(
     return created
 
 
+async def get_or_create_sales_pipeline_tasks(
+    db,
+    all_items: dict,
+    workflow_folder_laui: str,
+    reports_folder_laui: str,
+    account_laui: str,
+    project_laui: str,
+) -> dict:
+    """Create the 8-task dbt sales reporting pipeline (seed + contract + 3 dbt + validation + 2 reports)."""
+    sql_operator_laui = all_items["operator"]["Postgresql/PostgresqlExecuteSQL"]
+    dbt_operator_laui = all_items["operator"]["DBT/DBTRunModel"]
+    report_operator_laui = all_items["operator"]["Postgresql/PostgresqlGenerateHtmlTableReport"]
+    validator_operator_laui = all_items["operator"]["Postgresql/PostgresqlValidatorSQL"]
+    pg_connection_laui = all_items["connection"]["Postgresql/dbt_postgresql"]
+    dbt_connection_laui = all_items["connection"]["DBT/dbt_server"]
+    check_parents_action_laui = all_items["action"][
+        "LeastActionLabs/LeastActionCheckIfParentsAreDone"
+    ]
+
+    task_configs = [
+        {
+            "name": "00_fact_sales_daily",
+            "operator_laui": sql_operator_laui,
+            "connection_laui": pg_connection_laui,
+            "payload": (
+                "DROP TABLE IF EXISTS fact_sales_daily CASCADE;\n"
+                "CREATE TABLE fact_sales_daily (\n"
+                "    sale_id BIGSERIAL, sale_date DATE NOT NULL, sale_timestamp TIMESTAMP NOT NULL,\n"
+                "    product_id VARCHAR(50) NOT NULL, product_name VARCHAR(100) NOT NULL,\n"
+                "    category_id VARCHAR(50) NOT NULL, category_name VARCHAR(100) NOT NULL,\n"
+                "    region_id VARCHAR(50) NOT NULL, region_name VARCHAR(100) NOT NULL,\n"
+                "    sub_region_name VARCHAR(100), store_id VARCHAR(50) NOT NULL, store_name VARCHAR(100) NOT NULL,\n"
+                "    sales_channel VARCHAR(50),\n"
+                "    revenue DECIMAL(15,2) NOT NULL, units_sold INTEGER NOT NULL, cost DECIMAL(15,2) NOT NULL,\n"
+                "    discount_amount DECIMAL(15,2) DEFAULT 0, shipping_cost DECIMAL(15,2) DEFAULT 0,\n"
+                "    tax_amount DECIMAL(15,2) DEFAULT 0,\n"
+                "    PRIMARY KEY (sale_id)\n"
+                ");\n"
+                "INSERT INTO fact_sales_daily (\n"
+                "    sale_date, sale_timestamp, product_id, product_name,\n"
+                "    category_id, category_name, region_id, region_name, sub_region_name,\n"
+                "    store_id, store_name, sales_channel,\n"
+                "    revenue, units_sold, cost, discount_amount, shipping_cost, tax_amount\n"
+                ")\n"
+                "SELECT\n"
+                "    (DATE '2023-01-01' + (i % 730) * INTERVAL '1 day')::DATE,\n"
+                "    TIMESTAMP '2023-01-01' + (i % 730) * INTERVAL '1 day' + (i % 86400) * INTERVAL '1 second',\n"
+                "    'P' || LPAD((i % 10 + 1)::TEXT, 3, '0'),\n"
+                "    (ARRAY['Laptop Pro','Wireless Mouse','Mechanical Keyboard','4K Monitor','USB-C Hub',\n"
+                "           'Webcam HD','Gaming Headset','Desk Lamp','Chair Ergonomic','Standing Desk'])[i % 10 + 1],\n"
+                "    'CAT-' || LPAD((i % 5 + 1)::TEXT, 2, '0'),\n"
+                "    (ARRAY['Electronics','Peripherals','Audio','Lighting','Furniture'])[i % 5 + 1],\n"
+                "    'R' || LPAD((i % 5 + 1)::TEXT, 2, '0'),\n"
+                "    (ARRAY['North America','Europe','Asia Pacific','Latin America','Middle East'])[i % 5 + 1],\n"
+                "    (ARRAY['Northeast','Southeast','Midwest','West Coast','Southwest',\n"
+                "           'Western Europe','Eastern Europe','East Asia','Southeast Asia',\n"
+                "           'South Asia','Northern SA','Southern SA','GCC','Levant'])[i % 14 + 1],\n"
+                "    'S' || LPAD((i % 50 + 1)::TEXT, 3, '0'),\n"
+                "    'Store ' || (i % 50 + 1)::TEXT,\n"
+                "    (ARRAY['online','retail','wholesale','direct'])[i % 4 + 1],\n"
+                "    (50.00 + (i % 2451))::DECIMAL(15,2),\n"
+                "    (1 + i % 50)::INTEGER,\n"
+                "    ((50.00 + (i % 2451)) * (0.40 + (i % 31) * 0.01))::DECIMAL(15,2),\n"
+                "    CASE WHEN i % 5 = 0 THEN (2.00 + (i % 99))::DECIMAL(15,2) ELSE 0.00 END,\n"
+                "    (i % 31)::DECIMAL(15,2),\n"
+                "    ((50.00 + (i % 2451)) * 0.08)::DECIMAL(15,2)\n"
+                "FROM generate_series(0, 499999) AS g(i);\n"
+            ),
+        },
+        {
+            "name": "00b_sales_contract",
+            "operator_laui": validator_operator_laui,
+            "connection_laui": pg_connection_laui,
+            "payload": (
+                "report_title: 'Data Contract — fact_sales_daily'\n"
+                "output_table: 'sales_contract_reports'\n"
+                "\nqueries:\n"
+                "  - name: 'Schema — required columns'\n"
+                "    sql: \"SELECT COUNT(*) AS missing FROM (VALUES ('sale_id','bigint'),('sale_date','date'),('revenue','numeric'),('units_sold','integer'),('cost','numeric')) AS c(col, typ) LEFT JOIN information_schema.columns ic ON ic.table_name='fact_sales_daily' AND ic.column_name=c.col AND ic.data_type=c.typ WHERE ic.column_name IS NULL\"\n"
+                "    severity: critical\n"
+                "    pass_condition: 'missing == 0'\n"
+                "    display: scalar\n"
+                "\n  - name: 'PK — sale_id unique'\n"
+                '    sql: "SELECT sale_id, COUNT(*) AS dupes FROM fact_sales_daily GROUP BY sale_id HAVING COUNT(*) > 1 LIMIT 5"\n'
+                "    severity: critical\n"
+                "    pass_condition: 'row_count == 0'\n"
+                "    display: table\n"
+                "\n  - name: 'Nullability — required NOT NULL'\n"
+                '    sql: "SELECT COUNT(*) AS null_rows FROM fact_sales_daily WHERE sale_date IS NULL OR revenue IS NULL OR units_sold IS NULL OR cost IS NULL"\n'
+                "    severity: critical\n"
+                "    pass_condition: 'null_rows == 0'\n"
+                "    display: scalar\n"
+                "\n  - name: 'Domain — revenue non-negative'\n"
+                '    sql: "SELECT COUNT(*) AS neg FROM fact_sales_daily WHERE revenue < 0"\n'
+                "    severity: warning\n"
+                "    pass_condition: 'neg == 0'\n"
+                "    display: scalar\n"
+                "\n  - name: 'Volume — row count'\n"
+                '    sql: "SELECT COUNT(*) AS row_count FROM fact_sales_daily"\n'
+                "    severity: critical\n"
+                "    pass_condition: 'row_count >= 100000'\n"
+                "    display: scalar\n"
+            ),
+            "depends_on": "00_fact_sales_daily",
+        },
+        {
+            "name": "01_cube_aggregation",
+            "operator_laui": dbt_operator_laui,
+            "connection_laui": dbt_connection_laui,
+            "payload": '{"model": "fact_product_agg_daily_stage1"}',
+            "depends_on": "00_fact_sales_daily",
+        },
+        {
+            "name": "02_rolling_metrics",
+            "operator_laui": dbt_operator_laui,
+            "connection_laui": dbt_connection_laui,
+            "payload": '{"model": "fact_product_agg_daily_stage2"}',
+            "depends_on": "01_cube_aggregation",
+        },
+        {
+            "name": "03_final_metrics",
+            "operator_laui": dbt_operator_laui,
+            "connection_laui": dbt_connection_laui,
+            "payload": '{"model": "fact_product_agg_daily"}',
+            "depends_on": "02_rolling_metrics",
+        },
+        {
+            "name": "03b_sales_validation",
+            "operator_laui": validator_operator_laui,
+            "connection_laui": pg_connection_laui,
+            "payload": (
+                "report_title: 'Sales Pipeline Validation'\n"
+                "output_table: 'sales_validation_reports'\n"
+                f"output_parent_laui: '{reports_folder_laui}'\n"
+                "\nqueries:\n"
+                "  - name: 'Stage1 non-empty'\n"
+                '    sql: "SELECT COUNT(*) AS row_count FROM fact_product_agg_daily_stage1"\n'
+                "    severity: critical\n"
+                "    pass_condition: 'row_count > 0'\n"
+                "    display: scalar\n"
+                "\n  - name: 'Final table non-empty'\n"
+                '    sql: "SELECT COUNT(*) AS row_count FROM fact_product_agg_daily"\n'
+                "    severity: critical\n"
+                "    pass_condition: 'row_count > 0'\n"
+                "    display: scalar\n"
+                "\n  - name: 'Metric types count'\n"
+                '    sql: "SELECT COUNT(DISTINCT metric_key) AS metric_count FROM fact_product_agg_daily"\n'
+                "    severity: warning\n"
+                "    pass_condition: 'metric_count >= 20'\n"
+                "    display: scalar\n"
+                "\n  - name: 'No NULL metric values'\n"
+                '    sql: "SELECT COUNT(*) AS null_count FROM fact_product_agg_daily WHERE metric_value IS NULL"\n'
+                "    severity: critical\n"
+                "    pass_condition: 'null_count == 0'\n"
+                "    display: scalar\n"
+            ),
+            "depends_on": "03_final_metrics",
+        },
+    ]
+
+    import json as _json
+
+    # Curated metric_templates keep each report a compact, styled dashboard (a
+    # bounded set of dim×metric slices) instead of a raw pivot over all 239
+    # groupings × 31 metrics — which balloons past the catalog html field cap.
+    # dim_key = product::category::region::subregion; '*' expands one row per value.
+    _last3 = "date >= (SELECT MAX(date) FROM fact_product_agg_daily) - INTERVAL '3 days'"
+    perf_template = [
+        {"display_name": "Revenue by Product", "dim_key_grouping": "*::dim_category::dim_region::dim_subregion", "metric_key": "revenue", "cell_format": "${value:,.0f}", "cell_bg_color": "#E8F5E9"},
+        {"display_name": "Profit by Product", "dim_key_grouping": "*::dim_category::dim_region::dim_subregion", "metric_key": "profit", "cell_format": "${value:,.0f}", "cell_bg_color": "#E3F2FD"},
+        {"display_name": "Units by Product", "dim_key_grouping": "*::dim_category::dim_region::dim_subregion", "metric_key": "units_sold", "cell_format": "{value:,.0f}"},
+        {"display_name": "Revenue YoY %", "dim_key_grouping": "*::dim_category::dim_region::dim_subregion", "metric_key": "revenue_yoy", "cell_format": "{value:,.1f}%"},
+    ]
+    category_template = [
+        {"display_name": "Revenue by Category", "dim_key_grouping": "dim_product::*::dim_region::dim_subregion", "metric_key": "revenue", "cell_format": "${value:,.0f}", "cell_bg_color": "#E8F5E9"},
+        {"display_name": "Profit by Category", "dim_key_grouping": "dim_product::*::dim_region::dim_subregion", "metric_key": "profit", "cell_format": "${value:,.0f}", "cell_bg_color": "#E3F2FD"},
+        {"display_name": "Revenue % of Total", "dim_key_grouping": "dim_product::*::dim_region::dim_subregion", "metric_key": "revenue_pct_of_total", "cell_format": "{value:,.1f}%"},
+    ]
+
+    report_configs = [
+        (
+            "04_sales_performance_report",
+            "Sales Performance Dashboard",
+            "fact_product_agg_daily",
+            _last3,
+            "#1565C0",
+            "corporate_blue",
+            perf_template,
+        ),
+        (
+            "05_category_performance_report",
+            "Category Performance",
+            "fact_product_agg_daily",
+            _last3,
+            "#2E7D32",
+            "modern_green",
+            category_template,
+        ),
+    ]
+
+    for name, title, table, date_filter, header_color, theme, metric_template in report_configs:
+        payload = _json.dumps(
+            {
+                "data": {
+                    "report_title": title,
+                    "output_table": "sales_pipeline_reports",
+                    "output_parent_laui": reports_folder_laui,
+                    "report_style": {
+                        "theme": theme,
+                        "header_bg_color": header_color,
+                        "header_text_color": "#FFFFFF",
+                        "row_bg_color_even": "#f9f9f9",
+                        "row_bg_color_odd": "#ffffff",
+                        "row_hover_color": "#E3F2FD",
+                        "border_color": "#BBDEFB",
+                        "font_family": "Segoe UI, Arial, sans-serif",
+                    },
+                    "database": {
+                        "host": "postgres-demo",
+                        "port": 5432,
+                        "database": "postgres_demo_db",
+                        "user": "postgres",
+                        "password": "postgres",
+                    },
+                    "query": {
+                        "table": table,
+                        "date_filter": date_filter,
+                        "limit": None,
+                    },
+                    "metric_template": metric_template,
+                }
+            }
+        )
+        task_configs.append(
+            {
+                "name": name,
+                "operator_laui": report_operator_laui,
+                "connection_laui": pg_connection_laui,
+                "payload": payload,
+                "depends_on": "03_final_metrics",
+            }
+        )
+
+    now = datetime.now(UTC)
+    created = {}
+    for cfg in task_configs:
+        task_name = cfg["name"]
+
+        body = {
+            "item_type": "task",
+            "name": task_name,
+            "project_laui": project_laui,
+            "account_laui": account_laui,
+            "parent_laui": workflow_folder_laui,
+            "operator_laui": cfg["operator_laui"],
+            "connection_laui": cfg["connection_laui"],
+            "frequency": "0 2 * * *",
+            "start_date": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "end_date": (now + timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "partition": "ALL",
+            "payload": cfg["payload"],
+        }
+
+        depends_on = cfg.get("depends_on")
+        if depends_on:
+            if isinstance(depends_on, str):
+                depends_on = [depends_on]
+            body["actions"] = {
+                "pre_actions": [
+                    {
+                        "laui": check_parents_action_laui,
+                        "action_variables": {
+                            "parents": [
+                                {
+                                    "task_name": dep,
+                                    "project_laui": "{{ project_laui }}",
+                                    "account_laui": "{{ account_laui }}",
+                                    "partition": "{{ partition }}",
+                                }
+                                for dep in depends_on
+                            ]
+                        },
+                    }
+                ],
+            }
+
+        response = await create_item(body)
+        task_laui = response.get("item_laui")
+        created[task_name] = task_laui
+        print(f"[setup] Created sales task '{task_name}' with LAUI: {task_laui}")
+
+    return created
+
+
 async def get_or_create_workflow_config(
     db, workflow_folder_laui: str, project_laui: str, account_laui: str
 ):
@@ -1056,6 +1350,43 @@ async def setup():
         active_db,
         all_items=all_items,
         workflow_folder_laui=pg_demo_folder_laui,
+        account_laui=account_laui,
+        project_laui=project_laui,
+    )
+
+    # --- Sales Pipeline ---
+    print("\n--- Sales Pipeline Workflow Folder ---")
+    sales_workflow = await create_item(
+        {
+            "item_type": "folder.workflow",
+            "name": "dbt_sales_reporting",
+            "parent_laui": folders["workflow"],
+            "project_laui": project_laui,
+            "account_laui": account_laui,
+        }
+    )
+    sales_workflow_folder_laui = sales_workflow.get("item_laui")
+    print(f"[setup] Created dbt_sales_reporting workflow folder: {sales_workflow_folder_laui}")
+
+    print("\n--- Sales Reports Folder ---")
+    sales_reports_resp = await create_item(
+        {
+            "item_type": "folder.asset",
+            "name": "sales_pipeline_reports",
+            "parent_laui": folders["asset"],
+            "project_laui": project_laui,
+            "account_laui": account_laui,
+        }
+    )
+    sales_reports_folder_laui = sales_reports_resp.get("item_laui")
+    print(f"[setup] Created sales_pipeline_reports folder: {sales_reports_folder_laui}")
+
+    print("\n--- Sales Pipeline Tasks ---")
+    await get_or_create_sales_pipeline_tasks(
+        active_db,
+        all_items=all_items,
+        workflow_folder_laui=sales_workflow_folder_laui,
+        reports_folder_laui=sales_reports_folder_laui,
         account_laui=account_laui,
         project_laui=project_laui,
     )
