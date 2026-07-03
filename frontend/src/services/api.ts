@@ -166,7 +166,7 @@ export async function httpJson<TResponse>(
     const message = extractErrorMessage(data, res);
     const errData =
       data && typeof data === 'object' ? (data as Record<string, unknown>) : undefined;
-    if (!input.includes('check')) {
+    if (res.status !== 401) {
       notify.error({ ...errData, message, sessionId: sessionId ?? undefined });
     }
     throw new Error(message);
