@@ -230,7 +230,7 @@ export default function LinkModal() {
 
   if (!linkModalData || !setLinkModalData) return;
 
-  const { childItem, availableItems, itemTypeFilter, supportedParentTypes } = linkModalData;
+  const { childItem, availableItems, supportedParentTypes } = linkModalData;
   const useQuickSearch = !availableItems || availableItems.length === 0;
   const handleSave = async () => {
     setLocalError('');
