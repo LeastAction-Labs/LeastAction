@@ -320,19 +320,27 @@ export async function searchCatalogLinks(filters: Record<string, string>): Promi
 }
 
 export async function getSupportedTypes(itemType: string): Promise<{
-  supported_children_types: string[];
-  supported_parent_types: string[];
+  supported_children_types: { hard: string[]; soft: string[] };
+  supported_parent_types: { hard: string[]; soft: string[] };
 }> {
   const url = `${API_ENDPOINTS.catalog.supportedTypes}?item_type=${encodeURIComponent(itemType)}`;
   try {
     const data = await httpJson<{
-      supported_children_types: string[];
-      supported_parent_types: string[];
+      supported_children_types: { hard: string[]; soft: string[] };
+      supported_parent_types: { hard: string[]; soft: string[] };
     }>(url, { method: 'GET' });
-    return data ?? { supported_children_types: [], supported_parent_types: [] };
+    return (
+      data ?? {
+        supported_children_types: { hard: [], soft: [] },
+        supported_parent_types: { hard: [], soft: [] },
+      }
+    );
   } catch (error) {
     console.error('Error fetching supported types:', error);
-    return { supported_children_types: [], supported_parent_types: [] };
+    return {
+      supported_children_types: { hard: [], soft: [] },
+      supported_parent_types: { hard: [], soft: [] },
+    };
   }
 }
 

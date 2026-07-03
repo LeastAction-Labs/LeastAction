@@ -46,7 +46,7 @@ from src.core.catalog.item_revision.repo import ItemRevisionRepository
 from src.core.catalog.item_revision.schema import CreateItemRevision
 from src.core.catalog.link.repo import LinkRepository
 from src.core.catalog.link.schema import CreateLink, Link, LinkWithPermission
-from src.core.catalog.utils.item_types.schema import ItemCategory
+from src.core.catalog.utils.item_types.schema import ChildType, ItemCategory
 from src.core.catalog.utils.item_types.service import ItemTypesManager
 from src.core.catalog.utils.permissions import PermissionManager
 from src.core.db.transaction import transactional
@@ -163,7 +163,6 @@ class CatalogService:
         await self._ensure_parent_supports_item_type(
             item_type=item.item_type, parent_item_type=parent_item_type
         )
-        self._ensure_folder_parent(item_type=item.item_type, parent_item_type=parent_item_type)
         link = CreateLink(
             child_laui=item_laui,
             parent_laui=item.parent_laui,
@@ -178,7 +177,9 @@ class CatalogService:
 
     async def _ensure_parent_supports_item_type(self, item_type: str, parent_item_type: str):
 
-        allowed_item_types = self.item_types_manager.get_supported_item_types(parent_item_type)
+        allowed_item_types = self.item_types_manager.get_supported_item_types(
+            item_type=parent_item_type, child_type=ChildType.HARD
+        )
         for supported_item_type in allowed_item_types:
             if item_type == supported_item_type or item_type.startswith(supported_item_type + "."):
                 return
@@ -780,6 +781,12 @@ class CatalogService:
         parent_laui = link.parent_laui
         child_laui = link.child_laui
 
+        if parent_laui == child_laui:
+            raise InvalidArgumentError(
+                message="Item cannot be linked to itself",
+                detail="The parent_laui and child_laui cannot be the same.",
+            )
+
         trash_folder_laui = await self.item_repo.get_trash_folder_laui()
         if parent_laui == trash_folder_laui:
             raise InvalidArgumentError(
@@ -796,7 +803,7 @@ class CatalogService:
 
         try:
             parent_item_supported_types = self.item_types_manager.get_supported_item_types(
-                item_type=parent_type, category=ItemCategory.NON_FOLDER
+                item_type=parent_type, category=ItemCategory.NON_FOLDER, child_type=ChildType.SOFT
             )
 
             if not self.item_types_manager.check_item_type_compatible(
@@ -875,11 +882,25 @@ class CatalogService:
             )
         )
 
-    def get_supported_children_types(self, item_type: str) -> list[str]:
-        return self.item_types_manager.get_supported_item_types(item_type)
+    def get_supported_children_types(self, item_type: str) -> dict[str, list[str]]:
+        return {
+            "hard": self.item_types_manager.get_supported_item_types(
+                item_type, child_type=ChildType.HARD
+            ),
+            "soft": self.item_types_manager.get_supported_item_types(
+                item_type, child_type=ChildType.SOFT
+            ),
+        }
 
-    def get_supported_parent_types(self, item_type: str) -> list[str]:
-        return self.item_types_manager.get_supported_parent_types(item_type)
+    def get_supported_parent_types(self, item_type: str) -> dict[str, list[str]]:
+        return {
+            "hard": self.item_types_manager.get_supported_parent_types(
+                item_type, child_type=ChildType.HARD
+            ),
+            "soft": self.item_types_manager.get_supported_parent_types(
+                item_type, child_type=ChildType.SOFT
+            ),
+        }
 
     @staticmethod
     def _empty_response() -> GetItemsResponse:
