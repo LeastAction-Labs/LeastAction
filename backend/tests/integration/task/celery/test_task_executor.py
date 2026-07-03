@@ -36,7 +36,6 @@ from tests.integration.schema import BaseFolders, TestRequest
 from tests.integration.utils import (
     create_base_folders,
     execute_request,
-    get_auth_header,
     get_system_access_token,
 )
 
@@ -98,7 +97,8 @@ class TestAPIClient(APIClient):
                 update_fields = json.loads(update_json_str)
 
                 headers = {
-                    "Cookie": f"frontend_token={auth_token}; celery_auth_token={system_auth_token}"
+                    "Cookie": f"frontend_token={auth_token};",
+                    "X-System-Auth-Token": system_auth_token,
                 }
                 response = self.test_client.post(
                     f"/api/v1/task/update/{task_laui}", json=update_fields, headers=headers
@@ -131,7 +131,8 @@ class TestAPIClient(APIClient):
     ):
         def _sync_finish():
             headers = {
-                "Cookie": f"frontend_token={auth_token}; celery_auth_token={system_auth_token}"
+                "Cookie": f"frontend_token={auth_token};",
+                "X-System-Auth-Token": system_auth_token,
             }
             if session_id:
                 headers["X-Session-ID"] = session_id
@@ -158,15 +159,15 @@ async def database_cleanup(test_database: MongoDatabase, client: TestClient):
 
 
 @pytest.fixture
-async def auth_header() -> str:
-    """Create test user and return auth header"""
-    return await get_auth_header()
-
-
-@pytest.fixture
 async def access_token() -> str:
     """Get system access token"""
     return await get_system_access_token()
+
+
+@pytest.fixture
+async def auth_header(access_token: str) -> str:
+    """Return auth header with access token"""
+    return f"frontend_token={access_token};"
 
 
 @pytest.fixture(autouse=True)

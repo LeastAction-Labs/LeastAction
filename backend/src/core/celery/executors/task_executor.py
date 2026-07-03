@@ -11,7 +11,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 # from src.common.session_context import get_session_id
-from this import s
 from typing import Any
 
 from fastapi.encoders import jsonable_encoder

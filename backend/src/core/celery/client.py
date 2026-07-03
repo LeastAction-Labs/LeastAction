@@ -88,7 +88,6 @@ class APIClient:
     def _build_headers(
         self,
         auth_token: str,
-        system_auth_token: Optional[str] = None,
         additional_headers: dict[str, str] | None = None,
     ) -> dict[str, str]:
         """Build headers with authentication token
@@ -99,8 +98,6 @@ class APIClient:
         """
         headers = {}
         headers["Cookie"] = f"frontend_token={auth_token}"
-        if system_auth_token:
-            headers["Cookie"] += f"; celery_auth_token={system_auth_token}"
         if additional_headers:
             headers.update(additional_headers)
         return headers
@@ -114,7 +111,7 @@ class APIClient:
             "post",
             f"/task/update/{task_laui}",
             json=update_dict,
-            headers=self._build_headers(auth_token, system_auth_token),
+            headers=self._build_headers(auth_token, {"X-System-Auth-Token": system_auth_token}),
         )
         if response.status_code != 200:
             log_error(
@@ -142,21 +139,22 @@ class APIClient:
     async def finish_task(
         self, auth_token: str, system_auth_token: str, task_laui: str, session_id: str | None = None
     ):
-        additional_headers = {}
+        additional_headers = {"X-System-Auth-Token": system_auth_token}
         response = await self._request_with_retry(
             "post",
             f"/task/finish/{task_laui}",
-            headers=self._build_headers(auth_token, system_auth_token, additional_headers),
+            headers=self._build_headers(auth_token, additional_headers),
         )
         response.raise_for_status()
 
     async def get_tasks_ready_to_run(
         self, auth_token: str, project_laui: PydanticObjectId
     ) -> list[dict]:
+        additional_headers = {"X-System-Auth-Token": auth_token}
         response = await self._request(
             "get",
             f"/catalog/get/tasks_ready_to_run/{project_laui}",
-            headers=self._build_headers(auth_token, auth_token),
+            headers=self._build_headers(auth_token, additional_headers),
         )
         response.raise_for_status()
         return response.json()

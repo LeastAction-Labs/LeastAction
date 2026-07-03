@@ -509,23 +509,12 @@ class CatalogService:
                 filter=filter, projections=request.projections_dict, offset=offset, limit=limit
             )
 
-            item_lauis_access = await self.access_reader.batch_check_permissions(
-                permission_to_check=Permission.VIEW,
-                item_lauis=[PydanticObjectId(item.laui) for item in items],
-                user_laui=get_user_laui(),
-            )
-
-            allowed_items = []
-            for item, has_item_access in zip(items, item_lauis_access, strict=False):
-                if has_item_access:
-                    allowed_items.append(item)
-
             has_next = await self.item_repo.check_next_page_exists(
                 filter=filter, offset=offset, limit=limit
             )
 
             return SearchItemsResponse(
-                items=allowed_items,
+                items=items,
                 pagination=PaginationResponse(
                     current_page=request.pagination.page,
                     per_page=request.pagination.per_page,
