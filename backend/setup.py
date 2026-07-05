@@ -257,9 +257,12 @@ async def grant_owners_group_item_access(active_db: MongoDatabase, owners_group_
 
 async def create_item(item_body: dict) -> dict:
     item_response = None
+    url = f"{BACKEND_URL}/api/v1/catalog/create"
+    if item_body.get("item_type") in ["task", "action"]:
+        url = f"{BACKEND_URL}/api/v1/{item_body['item_type']}/run"
     try:
         item_response = requests.post(
-            f"{BACKEND_URL}/api/v1/catalog/create",
+            url,
             json=item_body,
             headers={"Cookie": f"frontend_token={ACCESS_TOKEN}"},
         )

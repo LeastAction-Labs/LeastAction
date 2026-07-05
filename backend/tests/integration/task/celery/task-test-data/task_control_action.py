@@ -64,7 +64,7 @@ def run(
         import os
 
         backend_host = os.getenv("BACKEND_HOST", "backend-test")
-        api_url = f"http://{backend_host}:8000/api/v1/catalog/create"
+        api_url = f"http://{backend_host}:8000/api/v1/task/run"
 
         headers = {
             "Cookie": f"frontend_token={user_access_token}",
@@ -73,7 +73,6 @@ def run(
 
         payload = {
             "item_type": item_type,
-            "item_laui": task_laui,  # Include laui to update existing task
             "name": name,
             "project_laui": project_laui,
             "account_laui": account_laui,

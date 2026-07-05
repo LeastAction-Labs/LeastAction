@@ -28,7 +28,7 @@ def run(least_action_action_object, task_lauis, **kwargs):
         backend_host = os.getenv("BACKEND_HOST", "backend")
         base_api_url = f"http://{backend_host}:8000/api/v1"
         get_api_url = base_api_url + "/catalog/get"
-        post_api_url = base_api_url + "/task/update"
+        post_api_url = base_api_url + "/task/run"
         headers = {
             "Cookie": f"frontend_token={user_access_token}",
             "Content-Type": "application/json"
@@ -43,7 +43,7 @@ def run(least_action_action_object, task_lauis, **kwargs):
             task = task_get_response.json()
             task["user_set_state"]="cancel"
             task_post_response = requests.post(
-                post_api_url+f"/{task_laui}",
+                post_api_url,
                 json=task,
                 headers=headers
             )
@@ -74,7 +74,7 @@ prompt = (
     "Cancel one or more LeastAction tasks by setting user_set_state to 'cancel'. "
     "Action variable: task_lauis (list of task LAUIs to cancel). "
     "Fetches each task via GET /api/v1/catalog/get, sets user_set_state=cancel, "
-    "then POSTs to /api/v1/task/update/{laui}. Returns True if all tasks were cancelled successfully."
+    "then POSTs to /api/v1/task/run. Returns True if all tasks were cancelled successfully."
 )
 
 install_docs = """# LeastActionCancelTask — Install Guide

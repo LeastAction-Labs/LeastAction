@@ -236,7 +236,7 @@ async def test_create_task_with_only_config_field_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",
@@ -294,7 +294,7 @@ async def test_create_task_with_empty_config_field_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",
@@ -356,7 +356,7 @@ async def test_create_task_config_with_complex_nested_structure_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",
@@ -437,7 +437,7 @@ async def test_create_task_with_config_and_attached_configs_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",
@@ -513,7 +513,7 @@ async def test_create_task_with_all_three_configs_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",

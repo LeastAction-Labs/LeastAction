@@ -120,6 +120,9 @@ def task_exists(task_name, project_laui, account_laui, partition, user_access_to
 def create_catalog_item(body, headers):
     backend_host = os.getenv("BACKEND_HOST", "backend")
     api_url = f"http://{backend_host}:8000/api/v1/catalog/create"
+    if body.get("item_type") in ("task", "action"):
+        api_url = f"http://{backend_host}:8000/api/v1/{body.get('item_type')}/run"
+
     try:
         response = requests.post(api_url, json=body, headers=headers, timeout=30)
         if response.status_code in (200, 201):
@@ -780,4 +783,3 @@ version_details = {
     "version": "0.0.0",
     "core": ["0.*"]
 }
-

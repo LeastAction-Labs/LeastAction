@@ -192,7 +192,10 @@ export async function getBreadcrumbs(
 
 export async function createCatalogItem(itemData: any, marketplace: boolean = false): Promise<any> {
   const cleanedData = await preprocessItemData(itemData);
-  const url = marketplace ? API_ENDPOINTS.catalog.marketplaceCreate : API_ENDPOINTS.catalog.create;
+  let url = marketplace ? API_ENDPOINTS.catalog.marketplaceCreate : API_ENDPOINTS.catalog.create;
+  if (['task', 'action'].includes(itemData.item_type)) {
+    url = itemData.item_type === 'task' ? API_ENDPOINTS.task.run : API_ENDPOINTS.action.run;
+  }
   return await httpJson<any>(url, {
     method: 'POST',
     body: cleanedData,
