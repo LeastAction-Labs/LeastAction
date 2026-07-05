@@ -83,7 +83,11 @@ export default function MarketplaceCard({ item, onClick }: Readonly<MarketplaceC
         {dimmed && (
           <Tooltip title={warningTip} placement="top">
             <WarningAmberIcon
-              sx={{ fontSize: 14, color: incompatible ? 'error.main' : 'warning.main', flexShrink: 0 }}
+              sx={{
+                fontSize: 14,
+                color: incompatible ? 'error.main' : 'warning.main',
+                flexShrink: 0,
+              }}
             />
           </Tooltip>
         )}
@@ -112,7 +116,9 @@ export default function MarketplaceCard({ item, onClick }: Readonly<MarketplaceC
           variant={isOfficial ? 'official' : 'publisher'}
           sx={{ fontStyle: item.publisher ? 'normal' : 'italic' }}
         />
-        {item.tags?.slice(0, 3).map((tag) => <Chip key={tag} label={`#${tag}`} variant="tag" />)}
+        {item.tags?.slice(0, 3).map((tag) => (
+          <Chip key={tag} label={`#${tag}`} variant="tag" />
+        ))}
       </Box>
     </Box>
   );

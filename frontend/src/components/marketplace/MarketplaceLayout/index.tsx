@@ -74,8 +74,7 @@ export default function MarketplaceLayout({
     const typeCounts = new Map<string, number>();
     const categoryCounts = new Map<string, number>();
     const tagCounts = new Map<string, number>();
-    const bump = (map: Map<string, number>, key: string) =>
-      map.set(key, (map.get(key) ?? 0) + 1);
+    const bump = (map: Map<string, number>, key: string) => map.set(key, (map.get(key) ?? 0) + 1);
     for (const item of facetSourceItems) {
       if (item.item_type) bump(typeCounts, item.item_type);
       if (item.category) bump(categoryCounts, item.category);
