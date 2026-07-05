@@ -278,7 +278,7 @@ def create_scheduled_task(
         data["attached_config_lauis"] = attached_config_lauis
 
     resp = execute_request(
-        client=client, request=TestRequest(url="/api/v1/catalog/create", method="post", json=data)
+        client=client, request=TestRequest(url="/api/v1/task/run", method="post", json=data)
     )
     assert resp.status_code == 200
     return CreateItemResponse(**resp.json()).item_laui

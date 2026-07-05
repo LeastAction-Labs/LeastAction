@@ -15,7 +15,6 @@ from pydantic_mongo import PydanticObjectId
 from src.common.context_vars.catalog_context import get_schema_manager
 from src.common.context_vars.user_context import get_user_laui, is_root_user
 from src.common.exceptions import (
-    AuthorizationError,
     ConflictError,
     InvalidArgumentError,
     LAException,

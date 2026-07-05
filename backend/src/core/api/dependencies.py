@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException, Request
 
-from src.common.context_vars.user_context import get_user_laui
+from src.common.context_vars.user_context import get_user_laui, is_system_user
 from src.core.catalog.api_request import BaseCreateItemRequest
 from src.core.ee.keto.access_reader import AccessReader, get_access_reader
 from src.core.ee.keto.schema import Permission
@@ -17,8 +17,9 @@ async def validate_access_for_create_run(
     if hasattr(request, "item_laui"):
         if task_api:
             await access_reader.check_item_edit_access(request.item_laui, get_user_laui())
-            return
-        await access_reader.check_item_own_access(request.item_laui, get_user_laui())
+            return request
+        await access_reader.check_item_view_access(request.item_laui, get_user_laui())
+        return request
 
     keys = ["operator_laui", "connection_laui", "payload_laui"] if task_api else ["connection_laui"]
     keys.append("parent_laui")

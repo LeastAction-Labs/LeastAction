@@ -517,7 +517,6 @@ async def test_task_executor_cancellation(
                 headers={"Cookie": auth_header},
                 json={
                     "item_type": "task",
-                    "item_laui": task_laui,
                     "name": task_name,
                     "account_laui": account_laui,
                     "project_laui": project_laui,

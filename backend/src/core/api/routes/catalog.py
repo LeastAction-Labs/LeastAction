@@ -12,6 +12,7 @@ from pydantic_mongo import PydanticObjectId
 from src.common.context_vars.user_context import get_user_laui
 from src.common.exceptions import InvalidArgumentError, LAException
 from src.common.logger.logger import log_error, log_info
+from src.core.api.utils import convert_objectid_to_str
 from src.core.catalog.api_request import (
     BaseCreateItemRequest,
     CreateLinkRequest,
@@ -365,11 +366,11 @@ async def search(
             user_laui=get_user_laui(),
         )
         allowed_items = []
-        for item, has_item_access in zip(items, item_lauis_access, strict=False):
+        for item, has_item_access in zip(items, item_lauis_access):
             if has_item_access:
                 allowed_items.append(item)
         response.items = allowed_items
-        return response
+        return convert_objectid_to_str(response.model_dump())
 
     except LAException as e:
         log_error(

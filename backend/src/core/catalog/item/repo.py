@@ -12,7 +12,7 @@ from fastapi import Request
 from pydantic_mongo import PydanticObjectId
 from pymongo.errors import OperationFailure
 
-from src.common.context_vars.session_context import get_session_id
+from src.common.context_vars.session_context import get_session_id, session_id_context
 from src.common.context_vars.user_context import get_user_laui
 from src.common.decorators.performance import performance_logger
 from src.common.exceptions import NotFoundError

@@ -138,9 +138,8 @@ class ItemOrchestrator:
         return convert_objectid_to_str(result.model_dump())
 
     async def search(self, request: SearchRequest) -> SearchItemsResponse:
-        print(request)
         result = await self.catalog_service.search(request)
-        return convert_objectid_to_str(result.model_dump())
+        return result
 
     async def create_link(self, request: CreateLinkRequest):
         id: PydanticObjectId = await self.catalog_service.create_link(request)
@@ -159,6 +158,7 @@ class ItemOrchestrator:
         task_item = None
         task_laui = None
         item_laui = getattr(request, "item_laui", None)
+
         if item_laui:
             task_laui = item_laui
             task_item = await self.catalog_service.find_item(
@@ -169,27 +169,28 @@ class ItemOrchestrator:
                     message="Cannot run this item",
                     detail=f"The item at '{item_laui}' is a '{task_item.item_type}'. You can only run 'task' items.",
                 )
-        else:
-            if request.item_type != "task":
-                raise UnprocessableEntityError(
-                    message="Cannot run this item",
-                    detail=f"You requested a '{request.item_type}', but you can only run 'task' items.",
-                )
-            create_response = await self.create_item(request)
-            task_laui = create_response.item_laui
-            task_item = await self.catalog_service.find_item(
-                item_laui=ObjectId(task_laui), include_deleted=False
-            )
 
-        task_item.last_run_session_id = get_session_id()
-        task_item.user_set_state = None
-        task_update_data = {"user_set_state": None}
-        if getattr(request, "logical_date", None):
-            task_item.logical_date = request.logical_date
-            task_update_data["logical_date"] = request.logical_date
-        await self.catalog_service.update_task_item(task_laui, task_update_data)
-        await self.task_manager.execute_tasks([task_item])
-        return CreateItemResponse(item_laui=task_item.laui)
+            task_item.last_run_session_id = get_session_id()
+            task_item.user_set_state = None
+            task_update_data = {"user_set_state": None}
+            if getattr(request, "logical_date", None):
+                task_item.logical_date = request.logical_date
+                task_update_data["logical_date"] = request.logical_date
+            await self.catalog_service.update_task_item(task_laui, task_update_data)
+            await self.task_manager.execute_tasks([task_item])
+            return CreateItemResponse(item_laui=task_item.laui)
+
+        if request.item_type != "task":
+            raise UnprocessableEntityError(
+                message="Cannot create this item",
+                detail=f"You requested a '{request.item_type}', but you can only create 'task' items.",
+            )
+        create_response = await self.create_item(request)
+        task_laui = create_response.item_laui
+        task_item = await self.catalog_service.find_item(
+            item_laui=ObjectId(task_laui), include_deleted=False
+        )
+        return create_response
 
     async def execute_multiple_tasks(self, request: MultipleTaskRequest) -> MultipleTaskResponse:
         tasks = await self.catalog_service.find_multiple_items_by_laui(
@@ -198,7 +199,7 @@ class ItemOrchestrator:
         for task in tasks:
             task.last_run_session_id = get_session_id()
 
-        task_results = await self.task_manager.execute_tasks(request.tasks)
+        task_results = await self.task_manager.execute_tasks(tasks)
         return MultipleTaskResponse(task_results=task_results["task_results"])
 
     async def execute_action(self, request: BaseCreateItemRequest) -> dict[str, Any]:
@@ -222,32 +223,33 @@ class ItemOrchestrator:
                     message="Item type mismatch",
                     detail=f"The request type must be an 'action', but got '{request.item_type}' instead.",
                 )
-        else:
-            if request.item_type.split(".")[0] != "action":
-                raise UnprocessableEntityError(
-                    message="Cannot run this item",
-                    detail=f"The type '{request.item_type}' cannot be run. Only 'action' items are supported.",
-                )
-            create_response = await self.create_item(request)
-            action_laui = create_response.item_laui
-            action_item = await self.catalog_service.find_item(
-                item_laui=ObjectId(action_laui), include_deleted=False
+            user_laui = (
+                str(action_item.updated_by)
+                if action_item.updated_by
+                else str(action_item.created_by)
             )
-
-        user_laui = (
-            str(action_item.updated_by) if action_item.updated_by else str(action_item.created_by)
+            action = ActionItem(
+                laui=action_laui,
+                name=action_item.name,
+                session_id=get_session_id(),
+                connection_laui=connection_laui,
+                action_variables=action_variables,
+            )
+            res = await self.pre_action_manager.create_actions(
+                Actions(create_actions=[action]), user_laui
+            )
+            return {"result": res}
+        if request.item_type.split(".")[0] != "action":
+            raise UnprocessableEntityError(
+                message="Cannot run this item",
+                detail=f"The type '{request.item_type}' cannot be run. Only 'action' items are supported.",
+            )
+        create_response = await self.create_item(request)
+        action_laui = create_response.item_laui
+        action_item = await self.catalog_service.find_item(
+            item_laui=ObjectId(action_laui), include_deleted=False
         )
-        action = ActionItem(
-            laui=action_laui,
-            name=action_item.name,
-            session_id=get_session_id(),
-            connection_laui=connection_laui,
-            action_variables=action_variables,
-        )
-        res = await self.pre_action_manager.create_actions(
-            Actions(create_actions=[action]), user_laui
-        )
-        return {"result": res}
+        return create_response.model_dump()
 
     async def finish_task(self, task_laui: PydanticObjectId):
         task = await self.catalog_service.find_item(item_laui=task_laui)

@@ -315,7 +315,7 @@ def _create_task(
             ]
         }
     resp = execute_request(
-        client=client, request=TestRequest(url="/api/v1/catalog/create", method="post", json=body)
+        client=client, request=TestRequest(url="/api/v1/task/run", method="post", json=body)
     )
     assert resp.status_code == 200, f"Task '{name}' creation failed: {resp.text}"
     return str(CreateItemResponse(**resp.json()).item_laui)
