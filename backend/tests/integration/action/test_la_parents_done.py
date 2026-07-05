@@ -82,7 +82,7 @@
 #     resp = execute_request(
 #         client=client,
 #         request=TestRequest(
-#             url="/api/v1/catalog/create",
+#             url="/api/v1/task/run",
 #             method="post",
 #             json=task_data,
 #         ),
@@ -156,7 +156,7 @@
 #     resp = execute_request(
 #         client=client,
 #         request=TestRequest(
-#             url="/api/v1/catalog/create",
+#             url="/api/v1/task/run",
 #             method="post",
 #             json=task_data,
 #         ),

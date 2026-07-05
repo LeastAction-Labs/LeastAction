@@ -655,7 +655,7 @@ async def test_all_three_configs_with_distinct_params_merged_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",
@@ -730,7 +730,7 @@ async def test_create_task_with_multiple_attached_configs_merge_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",
@@ -802,7 +802,7 @@ async def test_get_task_with_config_field_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",
@@ -855,7 +855,7 @@ async def test_get_task_without_config_field_defaults_to_empty_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",

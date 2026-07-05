@@ -177,7 +177,7 @@ async def get_test_context(client: TestClient) -> TestContext:
         task_resp = execute_request(
             client=client,
             request=TestRequest(
-                url="/api/v1/catalog/create",
+                url="/api/v1/task/run",
                 method="post",
                 json={
                     "item_type": "task",

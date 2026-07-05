@@ -237,7 +237,7 @@ async def check_parents_action_laui(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/action/run",
             method="post",
             json={
                 "item_type": "action",

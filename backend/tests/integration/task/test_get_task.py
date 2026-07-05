@@ -127,7 +127,7 @@ async def task_laui(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",
@@ -224,7 +224,7 @@ async def test_get_task_with_config_field_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",
@@ -279,7 +279,7 @@ async def test_get_task_without_config_field_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",

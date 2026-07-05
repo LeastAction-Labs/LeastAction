@@ -105,7 +105,7 @@ async def setup(client: TestClient, test_database: MongoDatabase) -> list[str]:
             task_resp = execute_request(
                 client=client,
                 request=TestRequest(
-                    url="/api/v1/catalog/create",
+                    url="/api/v1/task/run",
                     method="post",
                     json={
                         "item_type": "task",

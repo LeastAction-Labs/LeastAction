@@ -290,7 +290,7 @@ def create_adhoc_task(client: TestClient, ctx: TestContext, name_suffix: str = "
     resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",
@@ -588,7 +588,7 @@ async def test_paused_workflow_tasks_not_ready(client: TestClient):
         resp = execute_request(
             client=client,
             request=TestRequest(
-                url="/api/v1/catalog/create",
+                url="/api/v1/task/run",
                 method="post",
                 json={
                     "item_type": "task",

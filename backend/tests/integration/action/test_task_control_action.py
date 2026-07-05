@@ -155,7 +155,7 @@ async def cancel_action_laui(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/action/run",
             method="post",
             json={
                 "item_type": "action",
@@ -293,7 +293,7 @@ def create_task(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",

@@ -29,40 +29,9 @@ class PermissionManager:
         )
 
     async def check_permission_for_create_item(self, item: CreateItem):
-
-        item_lauis_with_permissions = [("parent_laui", Permission.EDIT)]
-        if item.item_type == "task":
-            item_lauis_with_permissions.extend(
-                [
-                    (item.operator_laui, Permission.EDIT),
-                    (item.connection_laui, Permission.EDIT),
-                ]
-            )
-            if getattr(item, "payload_laui", None):
-                item_lauis_with_permissions.append((item.payload_laui, Permission.VIEW))
-
-            if hasattr(item, "actions"):
-                actions = (
-                    Actions(**item.actions) if isinstance(item.actions, dict) else item.actions
-                )
-                for action_list in [
-                    actions.pre_actions,
-                    actions.create_actions,
-                    actions.running_actions,
-                    actions.post_actions,
-                ]:
-                    for action in action_list:
-                        item_lauis_with_permissions.append((action.laui, Permission.VIEW))
-
-        if item.item_type == "action":
-            item_lauis_with_permissions.append((item.connection_laui, Permission.EDIT))
-
-        item_access = await self.access_reader.batch_check_permissions_aliter(
-            item_lauis_with_permissions, get_user_laui()
+        await self.access_reader.check_item_edit_access(
+            item_laui=item.parent_laui, user_laui=get_user_laui()
         )
-        for (item_laui, _), access in zip(item_lauis_with_permissions, item_access):
-            if not access:
-                raise AuthorizationError(f"Unauthorized for item {item_laui}")
 
     async def build_permission_map(
         self, links: list, parent_or_child: str, inherited_item_permission: Permission

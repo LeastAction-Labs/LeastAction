@@ -226,7 +226,7 @@ def run(least_action_action_object, folder_path, file_path):
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/action/run",
             method="post",
             json={
                 "item_type": "action",

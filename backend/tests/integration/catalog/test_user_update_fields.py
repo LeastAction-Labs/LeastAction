@@ -132,7 +132,7 @@ async def test_update_allowed_fields_success(client: TestClient, test_context):
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",
@@ -156,7 +156,7 @@ async def test_update_allowed_fields_success(client: TestClient, test_context):
     update_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",
@@ -194,7 +194,7 @@ async def test_update_user_set_state_allowed(client: TestClient, test_context):
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",
@@ -215,7 +215,7 @@ async def test_update_user_set_state_allowed(client: TestClient, test_context):
     update_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",
@@ -251,7 +251,7 @@ async def test_update_system_fields_always_excluded(client: TestClient, test_con
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",
@@ -282,7 +282,7 @@ async def test_update_system_fields_always_excluded(client: TestClient, test_con
     update_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task/run",
             method="post",
             json={
                 "item_type": "task",

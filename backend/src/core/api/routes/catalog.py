@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic_mongo import PydanticObjectId
 
 from src.common.context_vars.user_context import get_user_laui
-from src.common.exceptions import LAException
+from src.common.exceptions import InvalidArgumentError, LAException
 from src.common.logger.logger import log_error, log_info
 from src.core.catalog.api_request import (
     BaseCreateItemRequest,
@@ -42,6 +42,11 @@ async def create_item(
             "create_item",
             f"user={get_user_laui()} payload={item.model_dump()}",
         )
+        if item.item_type in ["task", "action"]:
+            raise InvalidArgumentError(
+                "Invalid item type passed",
+                f"use /api/v1/{item.item_type}/run api to create {item.item_type}",
+            )
         return await item_orchestrator.create_item(item)
     except LAException as e:
         log_error(
