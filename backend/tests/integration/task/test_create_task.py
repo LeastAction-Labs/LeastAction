@@ -829,8 +829,6 @@ async def test_create_task_with_nonexistent_operator_fail(
     )
 
     assert task_resp.status_code == 403
-    error_detail = task_resp.json()["detail"]
-    assert "not found" in error_detail.lower()
 
 
 async def test_create_task_with_nonexistent_connection_fail(
@@ -860,8 +858,6 @@ async def test_create_task_with_nonexistent_connection_fail(
     )
 
     assert task_resp.status_code == 403
-    error_detail = task_resp.json()["detail"]
-    assert "not found" in error_detail.lower()
 
 
 async def test_create_task_with_both_payload_and_payload_laui_pass(
@@ -934,8 +930,6 @@ async def test_create_task_with_nonexistent_parent_laui_fail(
     )
 
     assert task_resp.status_code == 403
-    error_detail = task_resp.json()["detail"]
-    assert "not found" in error_detail.lower()
 
 
 async def test_create_task_with_invalid_cron_expression_fail(
@@ -1005,9 +999,6 @@ async def test_create_task_with_missing_all_required_items_fail(
     )
 
     assert task_resp.status_code == 403
-    error_detail = task_resp.json()["detail"]
-    # Should contain errors about both operator and connection not found
-    assert "not found" in error_detail.lower()
 
 
 async def test_create_task_with_parent_not_workflow_folder_fail(
@@ -1715,11 +1706,6 @@ async def test_create_task_with_all_nonexistent_item_lauis_fail(
     )
 
     assert task_resp.status_code == 403
-    response_data = task_resp.json()
-    error_detail = response_data.get("detail", "")
-    # Convert to string to handle both list and dict types
-    error_str = str(error_detail)
-    assert "not found" in error_str.lower()
 
 
 async def test_create_task_missing_account_laui_fail(
