@@ -66,7 +66,6 @@ async def create_run_task(
 
 async def _verify_access_and_attach_tasks(
     request: MultipleTaskRequest,
-    catalog_service: CatalogService = Depends(get_catalog_manager),
     access_reader: AccessReader = Depends(get_access_reader),
 ):
     task_lauis_access = await access_reader.batch_check_permissions(
@@ -81,48 +80,7 @@ async def _verify_access_and_attach_tasks(
         if has_task_access:
             filtered_task_lauis.append(task_laui)
 
-    tasks = await catalog_service.find_multiple_items_by_laui(
-        item_lauis=filtered_task_lauis,
-        projections={},
-        include_deleted=False,
-    )
-
-    lauis_to_check_for_access = set()
-
-    task_lauis_map: dict[LAUI, tuple[list[str | PydanticObjectId], ItemProjection]] = {}
-
-    for task in tasks:
-        lauis = [task.operator_laui, task.connection_laui, task.parent_laui]
-        if getattr(task, "payload_laui", None):
-            lauis.append(task.payload_laui)
-        if getattr(task, "actions", None):
-            actions = Actions(**task.actions) if isinstance(task.actions, dict) else task.actions
-            for action_list in [
-                actions.pre_actions,
-                actions.create_actions,
-                actions.running_actions,
-                actions.post_actions,
-            ]:
-                for action in action_list:
-                    lauis.append(action.laui)
-        task_lauis_map[task.laui] = (lauis, task)
-        lauis_to_check_for_access.update(lauis)
-
-    item_lauis_access = await access_reader.batch_check_permissions(
-        permission_to_check=Permission.VIEW,
-        item_lauis=list(lauis_to_check_for_access),
-        user_laui=get_user_laui(),
-    )
-
-    item_laui_access_map = dict(zip(lauis_to_check_for_access, item_lauis_access))
-
-    filtered_tasks = []
-
-    for task_laui, (lauis, task) in task_lauis_map.items():
-        if all([[item_laui_access_map[laui] for laui in lauis]]):
-            filtered_tasks.append(task)
-
-    request.tasks = filtered_tasks
+    request.task_lauis = filtered_task_lauis
 
     return request
 

@@ -43,7 +43,6 @@ class TaskUpdateRequest(TaskUpdateData):
 
 class MultipleTaskRequest(BaseModel):
     task_lauis: list[PydanticObjectId]
-    tasks: list[Item] = Field(default_factory=list)
 
 
 class MultipleTaskResponse(BaseModel):

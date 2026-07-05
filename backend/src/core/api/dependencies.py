@@ -12,22 +12,22 @@ async def validate_access_for_create_run(
     request: BaseCreateItemRequest,
     access_reader: AccessReader = Depends(get_access_reader),
 ):
-
     task_api = True if api_request.url.path.startswith("/api/v1/task") else False
+
+    if hasattr(request, "item_laui"):
+        if task_api:
+            await access_reader.check_item_edit_access(request.item_laui, get_user_laui())
+            return
+        await access_reader.check_item_own_access(request.item_laui, get_user_laui())
 
     keys = ["operator_laui", "connection_laui", "payload_laui"] if task_api else ["connection_laui"]
     keys.append("parent_laui")
 
     item_lauis_with_permissions = []
-    item_laui_passed = False
-    if hasattr(request, "item_laui"):
-        item_laui_permission = Permission.EDIT if task_api else Permission.VIEW
-        item_lauis_with_permissions.append((request.item_laui, item_laui_permission))
-        item_laui_passed = True
 
     for key in keys:
         if hasattr(request, key):
-            if not item_laui_passed and key == "parent_laui":
+            if key == "parent_laui":
                 item_lauis_with_permissions.append((getattr(request, key), Permission.EDIT))
             item_lauis_with_permissions.append((getattr(request, key), Permission.VIEW))
 
