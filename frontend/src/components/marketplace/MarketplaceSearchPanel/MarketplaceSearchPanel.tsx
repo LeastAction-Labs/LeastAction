@@ -7,6 +7,7 @@
  */
 import { useCallback, useRef } from 'react';
 
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Download as ImportIcon } from '@mui/icons-material';
 import SearchIcon from '@mui/icons-material/Search';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
@@ -46,6 +47,7 @@ interface MarketplaceSearchPanelProps {
   onLoadMore?: () => void;
   selectedLaui: string | null;
   onSelect: (item: CatalogItem) => void;
+  onBack?: () => void;
   width?: number;
 }
 
@@ -60,6 +62,7 @@ export default function MarketplaceSearchPanel({
   onLoadMore,
   selectedLaui,
   onSelect,
+  onBack,
   width = 320,
 }: MarketplaceSearchPanelProps) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -102,9 +105,17 @@ export default function MarketplaceSearchPanel({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          gap: 0.5,
         }}
       >
-        Marketplace
+        {onBack && (
+          <Tooltip title="Back to browse">
+            <IconButton size="small" onClick={onBack} sx={{ color: 'var(--text-secondary)' }}>
+              <ArrowBackIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+        )}
+        <Box sx={{ flex: 1 }}>Marketplace</Box>
       </Box>
 
       {/* Search input */}

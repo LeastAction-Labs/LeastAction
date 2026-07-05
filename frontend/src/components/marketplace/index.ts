@@ -6,6 +6,7 @@
  * Use of this file outside those terms is not permitted.
  */
 export { default as MarketplaceLayout } from './MarketplaceLayout';
+export { default as MarketplaceBrowse } from './MarketplaceBrowse/MarketplaceBrowse';
 export { default as MarketplaceSearchPanel } from './MarketplaceSearchPanel/MarketplaceSearchPanel';
 export { default as MarketplaceItemDetail } from './MarketplaceItemDetail/MarketplaceItemDetail';
 export { default as MarketplaceItemTabView } from './MarketplaceItemTabView/MarketplaceItemTabView';

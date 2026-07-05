@@ -21,6 +21,8 @@ import { httpJson } from '@/services/api';
 import { getCatalogItemById, searchCatalogItems } from '@/services/catalog.service';
 import { parseMarketplaceQuery } from '@/utils/marketplaceSearch';
 
+import MarketplaceBrowse from '../MarketplaceBrowse/MarketplaceBrowse';
+import type { MarketplaceFacets } from '../MarketplaceBrowse/MarketplaceFilterSidebar';
 import MarketplaceItemDetail from '../MarketplaceItemDetail/MarketplaceItemDetail';
 import MarketplaceSearchPanel from '../MarketplaceSearchPanel/MarketplaceSearchPanel';
 
@@ -28,11 +30,16 @@ const PANEL_MIN = 200;
 const PANEL_MAX = 600;
 const PANEL_DEFAULT = 320;
 
+const TOP_TYPES_LIMIT = Infinity;
+const TOP_CATEGORIES_LIMIT = 10;
+const TOP_TAGS_LIMIT = 20;
+
 interface MarketplaceLayoutProps {
   initialQuery?: string;
   initialLaui?: string;
   onSearchChange?: (q: string) => void;
   onItemSelect?: (laui: string) => void;
+  onBack?: () => void;
 }
 
 export default function MarketplaceLayout({
@@ -40,12 +47,14 @@ export default function MarketplaceLayout({
   initialLaui,
   onSearchChange,
   onItemSelect,
+  onBack,
 }: MarketplaceLayoutProps) {
   const { showError } = useNotification();
   const { addTab } = useGlobal();
 
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [searchResults, setSearchResults] = useState<CatalogItem[]>([]);
+  const [facetSourceItems, setFacetSourceItems] = useState<CatalogItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<FullItemData | null>(null);
   const [selectedLaui, setSelectedLaui] = useState<string | null>(initialLaui ?? null);
   const [isSearchLoading, setIsSearchLoading] = useState(false);
@@ -60,6 +69,29 @@ export default function MarketplaceLayout({
   const resizeStartWidthRef = useRef(PANEL_DEFAULT);
 
   const parsedQuery = useMemo(() => parseMarketplaceQuery(searchQuery), [searchQuery]);
+
+  const facets: MarketplaceFacets = useMemo(() => {
+    const typeCounts = new Map<string, number>();
+    const categoryCounts = new Map<string, number>();
+    const tagCounts = new Map<string, number>();
+    const bump = (map: Map<string, number>, key: string) =>
+      map.set(key, (map.get(key) ?? 0) + 1);
+    for (const item of facetSourceItems) {
+      if (item.item_type) bump(typeCounts, item.item_type);
+      if (item.category) bump(categoryCounts, item.category);
+      for (const tag of item.tags ?? []) bump(tagCounts, tag);
+    }
+    const topByCount = (map: Map<string, number>, limit: number) =>
+      [...map.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([key]) => key);
+    return {
+      types: topByCount(typeCounts, TOP_TYPES_LIMIT),
+      categories: topByCount(categoryCounts, TOP_CATEGORIES_LIMIT),
+      tags: topByCount(tagCounts, TOP_TAGS_LIMIT),
+    };
+  }, [facetSourceItems]);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasAutoSelected = useRef(false);
@@ -139,17 +171,15 @@ export default function MarketplaceLayout({
         const items: CatalogItem[] = (data?.items ?? []).map((i: any) => i.item ?? i);
         setSearchResults(items);
         setHasNextPage(data?.pagination?.has_next ?? false);
+        if (Object.keys(filters).length === 0) {
+          setFacetSourceItems(items);
+        }
 
-        // On initial load: restore URL-specified item or auto-select first
-        if (autoSelectLaui) {
+        // On initial load: restore URL-specified item (browse landing page shows no selection by default)
+        if (autoSelectLaui && !hasAutoSelected.current) {
           hasAutoSelected.current = true;
           setSelectedLaui(autoSelectLaui);
           await fetchDetail(autoSelectLaui);
-        } else if (items.length > 0 && !hasAutoSelected.current) {
-          hasAutoSelected.current = true;
-          const first = items[0];
-          setSelectedLaui(first.laui);
-          await fetchDetail(first.laui);
         }
       } catch {
         /* ignore */
@@ -198,11 +228,15 @@ export default function MarketplaceLayout({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // React to external laui changes (e.g. tab bar click while already on /marketplace)
+  // React to external laui changes (e.g. tab bar click while already on /marketplace,
+  // or navigating back to the bare /marketplace browse landing page)
   useEffect(() => {
     if (initialLaui && initialLaui !== selectedLaui) {
       setSelectedLaui(initialLaui);
       void fetchDetail(initialLaui);
+    } else if (!initialLaui && selectedLaui) {
+      setSelectedLaui(null);
+      setSelectedItem(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialLaui]);
@@ -235,6 +269,12 @@ export default function MarketplaceLayout({
     await fetchDetail(item.laui);
   };
 
+  const handleBack = () => {
+    setSelectedLaui(null);
+    setSelectedItem(null);
+    onBack?.();
+  };
+
   return (
     <Box
       sx={{
@@ -250,50 +290,68 @@ export default function MarketplaceLayout({
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <LeftSidebar />
 
-        {/* Marketplace two-panel body */}
-        <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          <MarketplaceSearchPanel
+        {selectedLaui ? (
+          /* Marketplace two-panel body — existing detail experience, unchanged */
+          <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+            <MarketplaceSearchPanel
+              searchQuery={searchQuery}
+              onSearchChange={handleSearchChange}
+              parsedQuery={parsedQuery}
+              results={searchResults}
+              isLoading={isSearchLoading}
+              isLoadingMore={isLoadingMore}
+              hasNextPage={hasNextPage}
+              onLoadMore={() => void loadMore()}
+              selectedLaui={selectedLaui}
+              onSelect={(item) => void handleSelect(item)}
+              onBack={handleBack}
+              width={panelWidth}
+            />
+
+            {/* Resize handle */}
+            <Box
+              onMouseDown={handleResizeMouseDown}
+              sx={{
+                width: 6,
+                flexShrink: 0,
+                cursor: 'col-resize',
+                bgcolor: 'transparent',
+                '&:hover': { bgcolor: 'var(--accent)', opacity: 0.5 },
+              }}
+            />
+
+            <Box
+              sx={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden',
+              }}
+            >
+              <ItemTabBar activeItemLaui={selectedLaui} />
+              <MarketplaceItemDetail
+                item={selectedItem}
+                isLoading={isDetailLoading}
+                onAddFilter={handleAddFilter}
+              />
+            </Box>
+          </Box>
+        ) : (
+          /* Marketplace browse landing page — filters + card grid, no item selected */
+          <MarketplaceBrowse
             searchQuery={searchQuery}
             onSearchChange={handleSearchChange}
             parsedQuery={parsedQuery}
+            facets={facets}
+            onToggleFilter={handleAddFilter}
             results={searchResults}
             isLoading={isSearchLoading}
             isLoadingMore={isLoadingMore}
             hasNextPage={hasNextPage}
             onLoadMore={() => void loadMore()}
-            selectedLaui={selectedLaui}
             onSelect={(item) => void handleSelect(item)}
-            width={panelWidth}
           />
-
-          {/* Resize handle */}
-          <Box
-            onMouseDown={handleResizeMouseDown}
-            sx={{
-              width: 6,
-              flexShrink: 0,
-              cursor: 'col-resize',
-              bgcolor: 'transparent',
-              '&:hover': { bgcolor: 'var(--accent)', opacity: 0.5 },
-            }}
-          />
-
-          <Box
-            sx={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            }}
-          >
-            <ItemTabBar activeItemLaui={selectedLaui} />
-            <MarketplaceItemDetail
-              item={selectedItem}
-              isLoading={isDetailLoading}
-              onAddFilter={handleAddFilter}
-            />
-          </Box>
-        </Box>
+        )}
       </Box>
 
       <ImportModal />
