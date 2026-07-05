@@ -29,9 +29,10 @@ class PermissionManager:
         )
 
     async def check_permission_for_create_item(self, item: CreateItem):
-        await self.access_reader.check_item_edit_access(
-            item_laui=str(item.parent_laui), user_laui=get_user_laui()
-        )
+        if item.parent_laui:
+            await self.access_reader.check_item_edit_access(
+                item_laui=str(item.parent_laui), user_laui=get_user_laui()
+            )
 
     async def build_permission_map(
         self, links: list, parent_or_child: str, inherited_item_permission: Permission
