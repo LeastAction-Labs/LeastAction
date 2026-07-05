@@ -9,7 +9,17 @@
 
 Execute an action. Can either execute an existing action by LAUI or create and execute a new action.
 
-**Access Control**: Inherits from catalog create/access patterns.
+### Access Control
+
+**Router-Level Authorization**: This endpoint validates access permissions **before** reaching the service layer using FastAPI dependencies.
+
+**Permission Checks**:
+- If `item_laui` is provided (running existing action): User must have **own** permission on the action
+- If creating a new action:
+  - User must have **edit** permission on `parent_laui`
+  - User must have **view** permission on `connection_laui` (if provided)
+
+**Why It Matters**: This is the **only** way to create action items. The generic `/api/v1/catalog/create` endpoint explicitly blocks `action` item types, ensuring all action creation flows through this controlled endpoint with proper permission validation and immediate execution.
 
 ### Request Body
 

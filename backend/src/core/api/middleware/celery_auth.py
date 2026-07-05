@@ -31,7 +31,7 @@ async def celery_auth_middleware(
     if not system_auth_token:
         return JSONResponse(
             status_code=401,
-            content={"message": "Unauthenitcated", "detail": "Missing celery token"},
+            content={"message": "Unauthenitcated", "detail": "Missing X-System-Auth-Token"},
         )
 
     session_service = get_session_service(request)
