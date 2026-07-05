@@ -85,7 +85,7 @@ export function datesInRange(from: string, to: string): string[] {
   return dates;
 }
 
-function fetchListItems(folderPath: string): Promise<any[]> {
+export function fetchListItems(folderPath: string): Promise<any[]> {
   return new Promise((resolve, reject) => {
     const items: any[] = [];
     consumeSSE(buildLogApiUrl(`listItems/${folderPath}`), {
@@ -99,7 +99,7 @@ function fetchListItems(folderPath: string): Promise<any[]> {
   });
 }
 
-function fetchFileContent(filePath: string): Promise<string> {
+export function fetchFileContent(filePath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     let content = '';
     consumeSSE(buildLogApiUrl(`file/${filePath}`), {
@@ -111,6 +111,82 @@ function fetchFileContent(filePath: string): Promise<string> {
       onDone: () => resolve(content),
     });
   });
+}
+
+/**
+ * Parse a single TASK_HISTORY `.log` file into a TaskHistoryEntry.
+ *
+ * The file is a sequence of JSON log lines that we merge into one record. The
+ * history log's `state` field is the task state at log time (often
+ * "queued_in_redis" or "running"), NOT the final outcome — so we derive a
+ * final execution `status` from the available signals when one isn't present.
+ *
+ * Returns `null` when the file contains no usable JSON.
+ */
+export function parseRunFile(
+  content: string,
+  fileName: string,
+  date: string,
+): TaskHistoryEntry | null {
+  const merged: Record<string, any> = {};
+  for (const rawLine of content.split('\n')) {
+    const trimmed = rawLine.trim();
+    if (!trimmed.startsWith('{')) continue;
+    try {
+      const outer = JSON.parse(trimmed);
+      Object.assign(merged, outer);
+      if (typeof outer.message === 'string' && outer.message.trim().startsWith('{')) {
+        try {
+          const inner = JSON.parse(outer.message);
+          Object.assign(merged, inner);
+        } catch {
+          /* message is plain text */
+        }
+      }
+    } catch {
+      /* skip malformed lines */
+    }
+  }
+  if (Object.keys(merged).length === 0) return null;
+
+  // If output is a string, try to parse it as JSON
+  if (typeof merged.output === 'string') {
+    try {
+      merged.output = JSON.parse(merged.output);
+    } catch {
+      /* keep as-is */
+    }
+  }
+
+  // Derive final execution status from available signals.
+  if (!merged.status) {
+    const outputErr = merged.output?.error || merged.error;
+    const outputMsg = merged.output?.message;
+    if (outputErr) {
+      merged.status = 'error';
+    } else if (merged.user_set_state === 'cancel') {
+      merged.status = 'cancelled';
+    } else if (
+      ['success', 'error', 'failed', 'fail', 'timeout', 'cancelled'].includes(merged.state)
+    ) {
+      merged.status = merged.state;
+    } else if (typeof outputMsg === 'string' && /timed?\s*out/i.test(outputMsg)) {
+      merged.status = 'timeout';
+    } else if (merged.output?.run_output && !outputErr) {
+      merged.status = 'success';
+    } else if (merged.duration_seconds != null && merged.duration_seconds > 0 && !outputErr) {
+      // Completed with duration and no error — likely success
+      merged.status = 'success';
+    } else {
+      merged.status = merged.state || 'unknown';
+    }
+  }
+
+  return {
+    ...merged,
+    fileName,
+    _date: date,
+  } as TaskHistoryEntry;
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
@@ -174,72 +250,8 @@ export function useTaskHistory(
             historyFiles.map(async (file: any) => {
               try {
                 const content = await fetchFileContent(`${folderPath}/${file.name}`);
-                const merged: Record<string, any> = {};
-                for (const rawLine of content.split('\n')) {
-                  const trimmed = rawLine.trim();
-                  if (!trimmed.startsWith('{')) continue;
-                  try {
-                    const outer = JSON.parse(trimmed);
-                    Object.assign(merged, outer);
-                    if (typeof outer.message === 'string' && outer.message.trim().startsWith('{')) {
-                      try {
-                        const inner = JSON.parse(outer.message);
-                        Object.assign(merged, inner);
-                      } catch {
-                        /* message is plain text */
-                      }
-                    }
-                  } catch {
-                    /* skip malformed lines */
-                  }
-                }
-                if (Object.keys(merged).length > 0) {
-                  // If output is a string, try to parse it as JSON
-                  if (typeof merged.output === 'string') {
-                    try {
-                      merged.output = JSON.parse(merged.output);
-                    } catch {
-                      /* keep as-is */
-                    }
-                  }
-
-                  // Derive final execution status from available signals.
-                  // The history log's `state` field is the task state at log time (often
-                  // "queued_in_redis" or "running"), NOT the final outcome. Infer from output.
-                  if (!merged.status) {
-                    const outputErr = merged.output?.error || merged.error;
-                    const outputMsg = merged.output?.message;
-                    if (outputErr) {
-                      merged.status = 'error';
-                    } else if (merged.user_set_state === 'cancel') {
-                      merged.status = 'cancelled';
-                    } else if (
-                      ['success', 'error', 'failed', 'fail', 'timeout', 'cancelled'].includes(
-                        merged.state,
-                      )
-                    ) {
-                      merged.status = merged.state;
-                    } else if (typeof outputMsg === 'string' && /timed?\s*out/i.test(outputMsg)) {
-                      merged.status = 'timeout';
-                    } else if (merged.output?.run_output && !outputErr) {
-                      merged.status = 'success';
-                    } else if (
-                      merged.duration_seconds != null &&
-                      merged.duration_seconds > 0 &&
-                      !outputErr
-                    ) {
-                      // Completed with duration and no error — likely success
-                      merged.status = 'success';
-                    } else {
-                      merged.status = merged.state || 'unknown';
-                    }
-                  }
-                  dateEntries.push({
-                    ...merged,
-                    fileName: file.name,
-                    _date: date,
-                  } as TaskHistoryEntry);
-                }
+                const entry = parseRunFile(content, file.name, date);
+                if (entry) dateEntries.push(entry);
               } catch {
                 /* skip */
               }

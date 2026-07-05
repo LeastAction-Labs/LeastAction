@@ -4,6 +4,7 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 import hashlib
+from typing import Any
 
 from bson import ObjectId
 from fastapi import Request
@@ -17,6 +18,7 @@ from src.common.context_vars.user_context import (
     is_system_user,
 )
 from src.common.exceptions import AuthenticationError, ConflictError
+from src.common.logger.logger import log_debug
 from src.common.utils import generate_password
 from src.core.admin.api_request import (
     GetUsersRequest,
@@ -24,15 +26,22 @@ from src.core.admin.api_request import (
     PaginationResponse,
     UpdateUserPayload,
 )
-
-from .api_request import CreateUserResponse, SearchUsersRequest, SearchUsersResponse
-from .repo import UserRepository
-from .schema import CreateUser, User
+from src.core.db.transaction import transactional
+from src.core.ee.iam.user.api_request import (
+    CreateUserResponse,
+    SearchUsersRequest,
+    SearchUsersResponse,
+)
+from src.core.ee.iam.user.repo import UserRepository
+from src.core.ee.iam.user.schema import CreateUser, UpdateUser, User
+from src.core.ee.license.schema import UpdateLicense, UserListPatch
+from src.core.ee.license.service import LicenseService
 
 
 class UserService:
-    def __init__(self, user_repo: UserRepository):
+    def __init__(self, user_repo: UserRepository, license_service: LicenseService):
         self.user_repo = user_repo
+        self.license_service = license_service
 
     async def create_user(
         self, user: CreateUser, auto_generate: bool = False
@@ -105,14 +114,28 @@ class UserService:
             ),
         )
 
+    @transactional
     async def delete_user(self, laui: PydanticObjectId) -> None:
         if laui == ObjectId(get_root_user_laui()) or laui == ObjectId(get_system_user_laui()):
             raise ConflictError("Cannot delete root or system user")
         if laui == ObjectId(get_user_laui()):
             raise ConflictError("User cannot delete himself")
+        user = await self.user_repo.find_user(laui)
         await self.user_repo.delete_user(laui)
+        try:
+            await self.license_service.update_license(
+                license=UpdateLicense(
+                    laui=user.license_laui,
+                    user_list_patch=UserListPatch(remove=[laui]),
+                )
+            )
+        except Exception as e:
+            log_debug("API", "user_service", "delete_user", f"Failed to update license: {str(e)}")
+            pass
 
-    async def update_user(self, laui: PydanticObjectId, payload: UpdateUserPayload) -> None:
+    async def update_user(
+        self, laui: PydanticObjectId, payload: UpdateUserPayload
+    ) -> None | dict[str, Any]:
 
         if laui == ObjectId(get_root_user_laui()):
             if not is_root_user():
@@ -121,7 +144,20 @@ class UserService:
         if laui == ObjectId(get_system_user_laui()):
             raise ConflictError("Cannot update system user")
 
-        await self.user_repo.update_user(laui, payload.model_dump(exclude_unset=True))
+        password = None
+
+        update_user = UpdateUser(**payload.model_dump(exclude_unset=True))
+
+        if payload.change_password:
+            password = generate_password()
+            update_user.password = hashlib.sha256(password.encode()).hexdigest()
+            update_user.must_change_password = True
+
+        await self.user_repo.update_user(
+            laui, update_data=update_user.model_dump(exclude_unset=True)
+        )
+
+        return {"password": password} if payload.change_password else None
 
     async def update_users(self, lauis: list[PydanticObjectId], payload: UpdateUserPayload) -> None:
         lauis = [

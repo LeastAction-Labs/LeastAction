@@ -15,7 +15,7 @@ from src.common.logger.logger import log_error, log_info
 from src.core.admin.api_request import AdminCreateUserRequest, GetUsersRequest, UpdateUserPayload
 from src.core.admin.service import AdminService, get_admin_service
 from src.core.ee.iam.user.service import UserService, get_user_service
-from src.core.mcp.server import ALL_MCP_TOOLS
+from src.core.mcp.server import ALL_MCP_TOOLS, MCP_TOOL_GROUPS
 
 admin_router = APIRouter()
 
@@ -25,7 +25,7 @@ def check_admin() -> str:
     return get_root_user_laui() or ""
 
 
-from .license import license_router
+from src.core.api.routes.license import license_router
 
 admin_router.include_router(license_router, prefix="/license")
 
@@ -105,7 +105,7 @@ async def get_all_mcp_tools():
     """Return the canonical list of all available MCP tool names."""
     try:
         log_info("api", "admin_router", "get_all_mcp_tools", f"user={get_user_laui()} payload={{}}")
-        return {"tools": ALL_MCP_TOOLS}
+        return {"tools": ALL_MCP_TOOLS, "groups": MCP_TOOL_GROUPS}
     except LAException as e:
         log_error(
             "api_traceback",
@@ -150,8 +150,13 @@ async def admin_update_user(
                     status_code=400,
                     detail={"message": "Bad Request", "detail": f"Unknown tool names: {unknown}"},
                 )
-        await user_service.update_user(laui=PydanticObjectId(user_id), payload=payload)
-        return {"message": "User config updated"}
+        update_user_data = await user_service.update_user(
+            laui=PydanticObjectId(user_id), payload=payload
+        )
+        response = {"message": "User config updated"}
+        if update_user_data:
+            response.update(update_user_data)
+        return response
     except LAException as e:
         log_error(
             "api_traceback",

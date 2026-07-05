@@ -134,7 +134,7 @@ LeastAction Labs, Inc. will provide at least **thirty (30) days** written notice
 
 To purchase a Business or Enterprise license, start a trial, or discuss custom terms:
 
-Contact: [https://leastactionlabs.com/contactus](https://leastactionlabs.com/contactus)
+Contact: [https://leastactionlabs.com/contact](https://leastactionlabs.com/contact)
 
 ---
 

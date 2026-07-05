@@ -46,11 +46,32 @@ WORKDIR /backend
 # Create non-root user early
 RUN useradd -m -u 1000 celeryuser
 
-# Install git (required by gitpython)
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+# Install git (required by gitpython) and Node.js (required to run the official
+# Azure MCP server that the Azure data-plane tools proxy). Pre-bake the pinned
+# @azure/mcp package so spawning it at runtime needs no network fetch.
+RUN apt-get update && apt-get install -y git curl ca-certificates \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g @azure/mcp@0.5.0 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy uv binary for running commands with "uv run"
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Pre-install the official awslabs MCP servers that the AWS data-plane tools proxy.
+# Each lands as a console script on PATH (/usr/local/bin) so runtime spawns need no
+# network fetch. Installed isolated via uv tool; creds are passed at spawn time.
+ENV UV_TOOL_BIN_DIR=/usr/local/bin \
+    UV_TOOL_DIR=/opt/uv-tools \
+    UV_CACHE_DIR=/opt/uv-cache
+RUN uv tool install awslabs.redshift-mcp-server \
+    && uv tool install awslabs.aws-dataprocessing-mcp-server \
+    && uv tool install awslabs.s3-tables-mcp-server \
+    && uv tool install awslabs.cloudwatch-mcp-server \
+    && uv tool install awslabs.billing-cost-management-mcp-server \
+    && uv tool install awslabs.aws-documentation-mcp-server \
+    && chown -R celeryuser:celeryuser /opt/uv-cache \
+    && chmod -R a+rX /opt/uv-tools /opt/uv-cache
 
 # Copy virtual environment from builder
 COPY --from=builder --chown=celeryuser:celeryuser /backend/.venv /backend/.venv

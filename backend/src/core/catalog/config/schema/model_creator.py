@@ -13,8 +13,7 @@ from src.core.catalog.config.constants_mappers import (
     system_field_schemas,
     types_mapper,
 )
-
-from .schema_model import ColumnModel, SchemaModel
+from src.core.catalog.config.schema.schema_model import ColumnModel, SchemaModel
 
 _IGNORE_ACCOUNT_AND_PROEJCT_LAUI = ["connection_queue"]
 _IGNORE_PROEJCT_LAUI = ["chat_history", "generate_history"]

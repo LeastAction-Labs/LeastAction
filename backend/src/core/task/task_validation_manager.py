@@ -17,9 +17,7 @@ from src.core.catalog.utils.item_types.service import ItemTypesManager
 from src.core.task.action.schema import Actions
 from src.core.task.config.config_manager import ConfigManager
 from src.core.task.connection.connection_manager import ConnectionManager
-from src.core.task.schema import TaskCreationValidationModel, TaskValidationModel
-
-from .schema import TaskState
+from src.core.task.schema import TaskCreationValidationModel, TaskState, TaskValidationModel
 
 
 class TaskValidationManager:
@@ -69,10 +67,13 @@ class TaskValidationManager:
                 task_data.logical_date = task_data.start_date
             task_data.state = TaskState.SCHEDULED
 
-        # Set next_run_date: start_date if provided, else current UTC time
-        task_data.next_run_date = (
-            task_data.start_date if task_data.start_date else datetime.now(UTC)
-        )
+        # Set next_run_date: start_date if provided, else current UTC time.
+        # Preserve an already-set value (e.g. carried over from an existing task on
+        # update) so scheduling progress is not rewound to start_date.
+        if not task_data.next_run_date:
+            task_data.next_run_date = (
+                task_data.start_date if task_data.start_date else datetime.now(UTC)
+            )
 
         action_lauis = []
         if task_data.actions:

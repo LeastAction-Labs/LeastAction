@@ -16,7 +16,6 @@ import {
   Email,
   LockOpen,
   LockReset,
-  // Added for Reset Password action
   Person,
   PersonAdd,
 } from '@mui/icons-material';
@@ -83,7 +82,7 @@ const styles = {
     },
     '&::-webkit-scrollbar-thumb': {
       bgcolor: 'rgba(255, 255, 255, 0.15)',
-      borderRadius: '4px',
+      borderRadius: 'var(--radius-sm)',
       '&:hover': {
         bgcolor: 'rgba(255, 255, 255, 0.25)',
       },
@@ -98,7 +97,7 @@ const styles = {
   },
   table: {
     tableLayout: 'fixed',
-    minWidth: 830, // Marginally increased to cleanly accommodate 3 actions
+    minWidth: 830,
   },
   tableHead: {
     '& .MuiTableCell-root': {
@@ -221,8 +220,12 @@ const ManageUsers = () => {
 
   const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
   const [activationAlterTarget, setactivationAlterTarget] = useState<UserRecord | null>(null);
+
+  // State for tracking password reset workflow
   const [resetPasswordTarget, setResetPasswordTarget] = useState<UserRecord | null>(null);
-  const [newPassword, setNewPassword] = useState('');
+  const [resetResultPassword, setResetResultPassword] = useState<string | null>(null);
+  const [resetCopied, setResetCopied] = useState(false);
+
   const [passwordError, setPasswordError] = useState('');
   const [userActionLoading, setUserActionLoading] = useState<string | null>(null);
 
@@ -317,29 +320,38 @@ const ManageUsers = () => {
 
   const handleResetPasswordConfirm = async () => {
     if (!resetPasswordTarget) return;
-    if (!newPassword.trim()) {
-      setPasswordError('Password cannot be empty');
-      return;
-    }
-    if (newPassword.trim().length < 6) {
-      setPasswordError('Password must be of at least 6 characters');
-      return;
-    }
-
     setUserActionLoading(resetPasswordTarget.laui);
     const targetLaui = resetPasswordTarget.laui;
-    setResetPasswordTarget(null);
     setPasswordError('');
 
     try {
-      await updateUser(targetLaui, { password: newPassword.trim() });
-      showSuccess('Password reset successfully');
-      setNewPassword('');
+      const response = await updateUser(targetLaui, { change_password: true });
+      if (response && response.password) {
+        setResetResultPassword(response.password);
+        showSuccess('Password reset successfully');
+      } else {
+        setPasswordError('Failed to capture the new password context.');
+      }
+      await fetchUsers();
     } catch (error: any) {
       console.error('Failed to reset password:', error);
+      setPasswordError('An error occurred while resetting the password.');
     } finally {
       setUserActionLoading(null);
     }
+  };
+
+  const handleResetDialogClose = () => {
+    setResetPasswordTarget(null);
+    setResetResultPassword(null);
+    setPasswordError('');
+  };
+
+  const handleResetCopy = () => {
+    if (!resetResultPassword) return;
+    void navigator.clipboard.writeText(resetResultPassword);
+    setResetCopied(true);
+    setTimeout(() => setResetCopied(false), 2000);
   };
 
   return (
@@ -667,16 +679,12 @@ const ManageUsers = () => {
                                         color="info"
                                         onClick={() => {
                                           setPasswordError('');
-                                          setNewPassword('');
+                                          setResetResultPassword(null);
                                           setResetPasswordTarget(user);
                                         }}
-                                        disabled={isActioning}
+                                        disabled={userActionLoading !== null}
                                       >
-                                        <LockReset
-                                          sx={{
-                                            fontSize: 16,
-                                          }}
-                                        />
+                                        <LockReset sx={{ fontSize: 16 }} />
                                       </IconButton>
                                     </span>
                                   </Tooltip>
@@ -695,17 +703,9 @@ const ManageUsers = () => {
                                           disabled={isActioning}
                                         >
                                           {user.is_active ? (
-                                            <Block
-                                              sx={{
-                                                fontSize: 16,
-                                              }}
-                                            />
+                                            <Block sx={{ fontSize: 16 }} />
                                           ) : (
-                                            <LockOpen
-                                              sx={{
-                                                fontSize: 16,
-                                              }}
-                                            />
+                                            <LockOpen sx={{ fontSize: 16 }} />
                                           )}
                                         </IconButton>
                                       </span>
@@ -719,11 +719,7 @@ const ManageUsers = () => {
                                           disabled={isActioning}
                                           onClick={() => setDeleteTarget(user)}
                                         >
-                                          <Delete
-                                            sx={{
-                                              fontSize: 16,
-                                            }}
-                                          />
+                                          <Delete sx={{ fontSize: 16 }} />
                                         </IconButton>
                                       </span>
                                     </Tooltip>
@@ -739,7 +735,7 @@ const ManageUsers = () => {
                 </TableBody>
               </Table>
 
-              {/* Pagination Section Remaining Unchanged */}
+              {/* Pagination Section */}
               <Box sx={styles.paginationContainer}>
                 <Box sx={styles.itemsPerPageContainer}>
                   <Typography sx={styles.itemsPerPageLabel}>Users per page:</Typography>
@@ -749,7 +745,7 @@ const ManageUsers = () => {
                       onChange={(e) => {
                         setUserPagination((prev) => ({
                           ...prev,
-                          perPage: e.target.value,
+                          perPage: Number(e.target.value),
                         }));
                       }}
                       sx={styles.itemsPerPageSelect}
@@ -803,42 +799,97 @@ const ManageUsers = () => {
         )}
       </Box>
 
-      {/* Reset password dialog */}
+      {/* Reset password dialog with embedded password view flow */}
       <Dialog
         open={!!resetPasswordTarget}
-        onClose={() => setResetPasswordTarget(null)}
+        onClose={userActionLoading ? undefined : handleResetDialogClose}
         fullWidth
         maxWidth="xs"
       >
         <DialogTitle>Reset Password</DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ mb: 2 }}>
-            Set a new password for user <strong>{resetPasswordTarget?.username}</strong>.
-          </DialogContentText>
-          <TextField
-            autoFocus
-            size="small"
-            fullWidth
-            label="New Password"
-            type="password"
-            value={newPassword}
-            onChange={(e) => {
-              setNewPassword(e.target.value);
-              if (e.target.value.trim()) setPasswordError('');
-            }}
-            error={!!passwordError}
-            helperText={passwordError}
-          />
+          {passwordError && (
+            <Alert severity="error" sx={{ mb: 2, fontSize: FONT_SIZES.XS }}>
+              {passwordError}
+            </Alert>
+          )}
+
+          {!resetResultPassword ? (
+            <DialogContentText sx={{ mb: 2 }}>
+              Are you sure you want to reset the password for user{' '}
+              <strong>{resetPasswordTarget?.username}</strong>? This action cannot be undone.
+            </DialogContentText>
+          ) : (
+            <>
+              <Alert severity="success" sx={{ mb: 2, fontSize: FONT_SIZES.XS }}>
+                Password successfully regenerated for{' '}
+                <strong>{resetPasswordTarget?.username}</strong>. Please ensure they store it
+                safely.
+              </Alert>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  p: 1.5,
+                  bgcolor: 'var(--bg-tertiary)',
+                  borderRadius: 1,
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  sx={{
+                    flex: 1,
+                    fontFamily: 'monospace',
+                    fontWeight: 'bold',
+                    wordBreak: 'break-all',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  {resetResultPassword}
+                </Typography>
+                <Tooltip title={resetCopied ? 'Copied!' : 'Copy password'}>
+                  <IconButton
+                    size="small"
+                    onClick={handleResetCopy}
+                    sx={{ color: 'var(--text-secondary)' }}
+                  >
+                    {resetCopied ? (
+                      <Check fontSize="small" color="success" />
+                    ) : (
+                      <ContentCopy fontSize="small" />
+                    )}
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setResetPasswordTarget(null)}>Cancel</Button>
-          <Button
-            onClick={() => void handleResetPasswordConfirm()}
-            color="info"
-            variant="contained"
-          >
-            Save Password
-          </Button>
+          {!resetResultPassword ? (
+            <>
+              <Button onClick={handleResetDialogClose} disabled={!!userActionLoading}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => void handleResetPasswordConfirm()}
+                color="info"
+                variant="contained"
+                disabled={!!userActionLoading}
+              >
+                {userActionLoading ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  'Confirm Reset'
+                )}
+              </Button>
+            </>
+          ) : (
+            <Button onClick={handleResetDialogClose} color="primary" variant="contained">
+              Close
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

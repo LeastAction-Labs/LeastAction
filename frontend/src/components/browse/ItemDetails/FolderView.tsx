@@ -21,6 +21,7 @@ import { TabPanel } from '@/components/ui';
 import { useCatalog } from '@/contexts/CatalogContext';
 import { useGlobal } from '@/contexts/GlobalContext';
 import { useEditorHandlers } from '@/screens/Browse/handlers/editorHandlers';
+import { useRefreshHandlers } from '@/screens/Browse/handlers/refreshHandlers';
 import {
   getCatalogItemById,
   getChildCatalogNodes,
@@ -84,6 +85,7 @@ export default function FolderView() {
     setActiveWorkflowTab,
   } = catalogState;
   const { handleCreateNewItem, handleEditItem } = useEditorHandlers();
+  const { handleRefreshTree } = useRefreshHandlers();
 
   // selectedItem may be temporarily null during sort/pagination; fall back to filteredFromItem
   const effectiveItem = selectedItem ?? catalogState.filteredFromItem;
@@ -302,7 +304,12 @@ export default function FolderView() {
     !effectiveItem?.deleted_at &&
     ['own', 'edit'].includes(effectiveItem?.permission ?? '');
 
-  const handleDeleteSuccess = () => setRefreshKey((k) => k + 1);
+  const handleDeleteSuccess = () => {
+    // Refresh the open content list (incl. the trash view) and the whole sidebar
+    // tree, since delete/restore moves items between the parent and trash.
+    setRefreshKey((k) => k + 1);
+    void handleRefreshTree();
+  };
 
   const renderHeader = () => (
     <Box
@@ -439,8 +446,7 @@ export default function FolderView() {
         </Box>
 
         <TabPanel value={activeWorkflowTab} index={0}>
-          {renderHeader()}
-          <ItemsView />
+          <ItemsView dependencyGrouping />
         </TabPanel>
 
         <TabPanel value={activeWorkflowTab} index={1}>

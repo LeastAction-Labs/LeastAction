@@ -173,7 +173,7 @@ export default function ItemTabBar({ activeItemLaui }: ItemTabBarProps) {
                   '&:hover': {
                     color: 'var(--text-primary)',
                     bgcolor: COLORS.SELECTED,
-                    borderRadius: '4px',
+                    borderRadius: 'var(--radius-sm)',
                   },
                 }}
               >

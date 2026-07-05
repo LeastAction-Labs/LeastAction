@@ -944,7 +944,7 @@ function ArraySection({
                 bgcolor: TYPE_META.array.bg,
                 color: TYPE_META.array.fg,
                 border: `1px solid ${TYPE_META.array.border}`,
-                borderRadius: '4px',
+                borderRadius: 'var(--radius-sm)',
                 fontSize: '11px',
                 fontWeight: 600,
                 letterSpacing: '0.04em',

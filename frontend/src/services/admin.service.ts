@@ -136,8 +136,11 @@ export async function setUserStatus(userId: string, is_active: boolean): Promise
   });
 }
 
-export async function updateUser(userId: string, payload: any): Promise<void> {
-  await httpJson<{ message: string }>(API_ENDPOINTS.userUpdate(userId), {
+export async function updateUser(
+  userId: string,
+  payload: any,
+): Promise<{ message: string; password?: string }> {
+  return await httpJson<{ message: string; password?: string }>(API_ENDPOINTS.userUpdate(userId), {
     method: 'POST',
     body: payload,
   });
@@ -154,6 +157,16 @@ export async function getAllMcpTools(): Promise<string[]> {
     method: 'GET',
   });
   return data.tools;
+}
+
+export type McpToolGroups = Record<string, string[]>;
+
+export async function getMcpToolGroups(): Promise<{ tools: string[]; groups: McpToolGroups }> {
+  const data = await httpJson<{ tools: string[]; groups?: McpToolGroups }>(
+    API_ENDPOINTS.getAllMcpTools,
+    { method: 'GET' },
+  );
+  return { tools: data.tools, groups: data.groups ?? { LeastAction: data.tools } };
 }
 
 export async function updateUserMcpTools(

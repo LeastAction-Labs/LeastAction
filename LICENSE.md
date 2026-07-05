@@ -108,7 +108,7 @@ IN NO EVENT SHALL LEASTACTION LABS, INC. OR ITS CONTRIBUTORS BE LIABLE FOR ANY C
 
 If you wish to use this software in a way not permitted by this license — including as a hosted service, with more than one user, or to activate Enterprise Edition features — contact LeastAction Labs, Inc.
 
-Contact: [https://leastactionlabs.com/contactus](https://leastactionlabs.com/contactus)
+Contact: [https://leastactionlabs.com/contact](https://leastactionlabs.com/contact)
 
 ---
 

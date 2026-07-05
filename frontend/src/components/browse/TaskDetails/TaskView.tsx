@@ -766,7 +766,8 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
 
   const openTaskModal = (taskModalMode: TaskModalMode) => {
     const operatorLaui = taskData.operator_laui;
-    const payloadValue = taskData.payload ? JSON.stringify(taskData.payload, null, 2) : undefined;
+    const serializePayload = (p: any) => (typeof p === 'string' ? p : JSON.stringify(p, null, 2));
+    const payloadValue = taskData.payload ? serializePayload(taskData.payload) : undefined;
     const initialTaskData = {
       laui: taskData.laui || '',
       name: taskData.name || '',
@@ -776,7 +777,7 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
       workflow_laui: taskData.parent_laui || taskData.workflow_laui || '',
       operator_laui: taskData.operator_laui || '',
       connection_laui: taskData.connection_laui || '',
-      payload: taskData.payload ? JSON.stringify(taskData.payload, null, 2) : '',
+      payload: taskData.payload ? serializePayload(taskData.payload) : '',
       payload_laui: taskData.payload_laui || undefined,
       config: taskData.config ? JSON.stringify(taskData.config, null, 2) : '',
       attached_config_lauis: taskData.attached_config_lauis || taskData.attached_config_laui || [],
@@ -1249,7 +1250,7 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                   gap: 0.75,
                   px: 1.125,
                   py: 0.375,
-                  borderRadius: '6px',
+                  borderRadius: 'var(--radius-md)',
                   bgcolor: stateColor ? `${stateColor}18` : 'var(--bg-secondary)',
                   border: '1px solid',
                   borderColor: stateColor || 'var(--border)',
@@ -1303,7 +1304,7 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                       gap: 0.5,
                       px: 1,
                       py: 0.375,
-                      borderRadius: '6px',
+                      borderRadius: 'var(--radius-md)',
                       border: '1px solid',
                       borderColor:
                         schedulerStatus === 'RUNNING'
@@ -1774,6 +1775,108 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                     </Typography>
                   </Box>
                 </Box>
+
+                {/* Actions */}
+                <Box sx={{ ...styles.card, p: 0, overflow: 'hidden' }}>
+                  {[
+                    { label: 'Pre', color: '#fbbf24', actions: preActions, key: 'pre_actions' },
+                    {
+                      label: 'Running',
+                      color: '#4ade80',
+                      actions: runningActions,
+                      key: 'running_actions',
+                    },
+                    { label: 'Post', color: '#f87171', actions: postActions, key: 'post_actions' },
+                  ].map((col, colIdx, arr) => {
+                    const counts = getActionCounts(col.actions, col.key);
+                    return (
+                      <Box
+                        key={col.key}
+                        sx={{
+                          borderBottom: colIdx < arr.length - 1 ? 1 : 0,
+                          borderColor: 'var(--border)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                        }}
+                      >
+                        <Box sx={styles.actionColumnHeader}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                            <Box sx={{ ...styles.sectionDot, bgcolor: col.color }} />
+                            <Typography
+                              sx={{
+                                fontSize: '10px',
+                                fontWeight: FONT_WEIGHTS.WEIGHT_600,
+                                color: 'var(--text-secondary)',
+                                textTransform: 'uppercase',
+                                letterSpacing: LETTER_SPACING.WIDE,
+                              }}
+                            >
+                              {col.label}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            {counts.success > 0 && (
+                              <Chip
+                                label={`${counts.success}`}
+                                size="small"
+                                sx={{
+                                  bgcolor: '#4ade80',
+                                  color: '#fff',
+                                  fontSize: '10px',
+                                  height: 16,
+                                  minWidth: 16,
+                                  fontWeight: 700,
+                                  '& .MuiChip-label': { px: 0.5 },
+                                }}
+                              />
+                            )}
+                            {counts.failed > 0 && (
+                              <Chip
+                                label={`${counts.failed}`}
+                                size="small"
+                                sx={{
+                                  bgcolor: '#f87171',
+                                  color: '#fff',
+                                  fontSize: '10px',
+                                  height: 16,
+                                  minWidth: 16,
+                                  fontWeight: 700,
+                                  '& .MuiChip-label': { px: 0.5 },
+                                }}
+                              />
+                            )}
+                            <Chip
+                              label={col.actions.length}
+                              size="small"
+                              sx={{
+                                bgcolor: 'var(--bg-primary)',
+                                color: 'var(--text-secondary)',
+                                fontSize: '10px',
+                                height: 16,
+                                minWidth: 16,
+                                '& .MuiChip-label': { px: 0.5 },
+                              }}
+                            />
+                          </Box>
+                        </Box>
+                        <Box sx={styles.actionColumnBody}>
+                          {col.actions.map((action: any, idx: number) =>
+                            renderActionItem(action, idx, col.key),
+                          )}
+                          {col.actions.length === 0 && (
+                            <Box sx={{ p: 1.5 }}>
+                              <Typography
+                                sx={{ fontSize: FONT_SIZES.XS, color: 'var(--text-dim)' }}
+                              >
+                                None
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
               </Box>
 
               {/* RIGHT COLUMN: Schedule, Timeline, Output */}
@@ -1818,7 +1921,7 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                           {taskData.logical_date ? formatDate(taskData.logical_date) : 'N/A'}
                         </Typography>
                       </Box>
-                      {taskData.next_run_date && (
+                      {taskData.frequency && taskData.frequency !== 'ADHOC' && (
                         <Box sx={styles.metadataRow}>
                           <Tooltip
                             title={`Scheduler trigger date (${tzLabel}) — when next_run_date ≤ wall clock, the cron dispatches this task (pre-actions then operator). Advances one cron interval from the previous next_run_date, not from the physical run time. This enables automatic catch-up: a scheduler that was down will immediately dispatch consecutive runs until next_run_date > now.`}
@@ -1833,17 +1936,38 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                               Next Run ({tzLabel})
                             </Typography>
                           </Tooltip>
-                          <Tooltip title={formatDate(taskData.next_run_date)} placement="top">
-                            <Typography
-                              sx={{
-                                ...styles.metadataValue,
-                                fontFamily: FONT_FAMILIES.MONOSPACE,
-                                maxWidth: 240,
-                              }}
-                            >
-                              {formatDateCompact(taskData.next_run_date)}
-                            </Typography>
-                          </Tooltip>
+                          {(() => {
+                            const isOverdue =
+                              taskData.next_run_date &&
+                              new Date(taskData.next_run_date) < new Date() &&
+                              (taskData.state === 'error' ||
+                                taskData.state === 'ERROR' ||
+                                taskData.state === 'fail' ||
+                                taskData.state === 'FAIL');
+                            return (
+                              <Tooltip
+                                title={
+                                  taskData.next_run_date
+                                    ? formatDate(taskData.next_run_date)
+                                    : 'Not set'
+                                }
+                                placement="top"
+                              >
+                                <Typography
+                                  sx={{
+                                    ...styles.metadataValue,
+                                    fontFamily: FONT_FAMILIES.MONOSPACE,
+                                    maxWidth: 240,
+                                    color: isOverdue ? '#ef4444' : 'var(--text-primary)',
+                                  }}
+                                >
+                                  {taskData.next_run_date
+                                    ? formatDateCompact(taskData.next_run_date)
+                                    : 'N/A'}
+                                </Typography>
+                              </Tooltip>
+                            );
+                          })()}
                         </Box>
                       )}
                       <Box sx={styles.metadataRow}>
@@ -2064,7 +2188,7 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                   {taskData.last_run_output ? (
                     <Box
                       sx={{
-                        height: 150,
+                        height: 312,
                         borderBottom: 1,
                         borderColor: 'var(--border)',
                       }}
@@ -2083,7 +2207,7 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                   ) : (
                     <Box
                       sx={{
-                        height: 48,
+                        height: 312,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -2101,142 +2225,6 @@ export default function TaskView({ selectedItem }: TaskViewProps) {
                       </Typography>
                     </Box>
                   )}
-
-                  {/* Actions columns */}
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
-                    {[
-                      {
-                        label: 'Pre',
-                        color: '#fbbf24',
-                        actions: preActions,
-                        key: 'pre_actions',
-                      },
-                      {
-                        label: 'Running',
-                        color: '#4ade80',
-                        actions: runningActions,
-                        key: 'running_actions',
-                      },
-                      {
-                        label: 'Post',
-                        color: '#f87171',
-                        actions: postActions,
-                        key: 'post_actions',
-                      },
-                    ].map((col, colIdx) => {
-                      const counts = getActionCounts(col.actions, col.key);
-                      return (
-                        <Box
-                          key={col.key}
-                          sx={{
-                            borderRight: colIdx < 2 ? 1 : 0,
-                            borderColor: 'var(--border)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                          }}
-                        >
-                          <Box sx={styles.actionColumnHeader}>
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 0.75,
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  ...styles.sectionDot,
-                                  bgcolor: col.color,
-                                }}
-                              />
-                              <Typography
-                                sx={{
-                                  fontSize: '10px',
-                                  fontWeight: FONT_WEIGHTS.WEIGHT_600,
-                                  color: 'var(--text-secondary)',
-                                  textTransform: 'uppercase',
-                                  letterSpacing: LETTER_SPACING.WIDE,
-                                }}
-                              >
-                                {col.label}
-                              </Typography>
-                            </Box>
-                            <Box
-                              sx={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 0.5,
-                              }}
-                            >
-                              {counts.success > 0 && (
-                                <Chip
-                                  label={`${counts.success}`}
-                                  size="small"
-                                  sx={{
-                                    bgcolor: '#4ade80',
-                                    color: '#fff',
-                                    fontSize: '10px',
-                                    height: 16,
-                                    minWidth: 16,
-                                    fontWeight: 700,
-                                    '& .MuiChip-label': {
-                                      px: 0.5,
-                                    },
-                                  }}
-                                />
-                              )}
-                              {counts.failed > 0 && (
-                                <Chip
-                                  label={`${counts.failed}`}
-                                  size="small"
-                                  sx={{
-                                    bgcolor: '#f87171',
-                                    color: '#fff',
-                                    fontSize: '10px',
-                                    height: 16,
-                                    minWidth: 16,
-                                    fontWeight: 700,
-                                    '& .MuiChip-label': {
-                                      px: 0.5,
-                                    },
-                                  }}
-                                />
-                              )}
-                              <Chip
-                                label={col.actions.length}
-                                size="small"
-                                sx={{
-                                  bgcolor: 'var(--bg-primary)',
-                                  color: 'var(--text-secondary)',
-                                  fontSize: '10px',
-                                  height: 16,
-                                  minWidth: 16,
-                                  '& .MuiChip-label': { px: 0.5 },
-                                }}
-                              />
-                            </Box>
-                          </Box>
-                          <Box sx={styles.actionColumnBody}>
-                            {col.actions.map((action: any, idx: number) =>
-                              renderActionItem(action, idx, col.key),
-                            )}
-                            {col.actions.length === 0 && (
-                              <Box sx={{ p: 1.5 }}>
-                                <Typography
-                                  sx={{
-                                    fontSize: FONT_SIZES.XS,
-                                    color: 'var(--text-dim)',
-                                  }}
-                                >
-                                  None
-                                </Typography>
-                              </Box>
-                            )}
-                          </Box>
-                        </Box>
-                      );
-                    })}
-                  </Box>
 
                   {/* Latest Action Logs — expanded by default, keyed to logical_date partition */}
                   {latestActionFiles.length > 0 && (

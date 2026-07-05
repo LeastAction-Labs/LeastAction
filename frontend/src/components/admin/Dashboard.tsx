@@ -50,10 +50,11 @@ import { useNotification } from '@/contexts/NotificationContext';
 import { useUserCache, useUsers } from '@/contexts/UserCacheContext';
 import { searchCatalogItems } from '@/services';
 import {
+  type McpToolGroups,
   type UserRecord,
-  getAllMcpTools,
   getLicenseByLaui,
   getLicenses,
+  getMcpToolGroups,
   listUsers,
   updateLicense,
   updateUserMcpTools,
@@ -111,6 +112,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState(0);
   const [userList, setUserList] = useState<UserRecord[]>([]);
   const [allMcpTools, setAllMcpTools] = useState<string[]>([]);
+  const [mcpToolGroups, setMcpToolGroups] = useState<McpToolGroups>({});
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
   const [editingTools, setEditingTools] = useState<string[]>([]);
 
@@ -156,8 +158,9 @@ export default function AdminDashboard() {
   };
 
   const fetchAllMcpToolsList = async () => {
-    const data = await getAllMcpTools();
-    setAllMcpTools(data);
+    const { tools, groups } = await getMcpToolGroups();
+    setAllMcpTools(tools);
+    setMcpToolGroups(groups);
   };
 
   const handleOpenEditTools = (user: UserRecord) => {
@@ -185,19 +188,28 @@ export default function AdminDashboard() {
   };
 
   const searchConns = async (q: string) => {
-    const res = await searchCatalogItems('connection', false, { perPage: 10 });
+    const res = await searchCatalogItems('connection', false, {
+      filters: { name: q },
+      perPage: 10,
+    });
     const items = (res?.items ?? []).map((raw: any) => {
       const item = raw.item || raw;
       return { laui: item._laui || item.laui, name: item.name || 'Unnamed' };
     });
-    setConnResults(
-      q.trim() ? items.filter((i: any) => i.name.toLowerCase().includes(q.toLowerCase())) : items,
-    );
+    setConnResults(items);
   };
 
   const handleToggleTool = (tool: string) => {
     setEditingTools((prev) =>
       prev.includes(tool) ? prev.filter((t) => t !== tool) : [...prev, tool],
+    );
+  };
+
+  const handleToggleGroup = (groupTools: string[], enable: boolean) => {
+    setEditingTools((prev) =>
+      enable
+        ? Array.from(new Set([...prev, ...groupTools]))
+        : prev.filter((t) => !groupTools.includes(t)),
     );
   };
 
@@ -1070,35 +1082,63 @@ export default function AdminDashboard() {
                 Clear all
               </Button>
             </Stack>
-            <FormGroup sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
-              {allMcpTools.map((tool) => (
-                <FormControlLabel
-                  key={tool}
-                  control={
-                    <Checkbox
-                      checked={editingTools.includes(tool)}
-                      onChange={() => handleToggleTool(tool)}
-                      size="small"
-                      sx={{
-                        color: 'var(--text-secondary)',
-                        '&.Mui-checked': { color: 'var(--accent)' },
-                      }}
-                    />
-                  }
-                  label={
+            {Object.entries(mcpToolGroups).map(([groupName, groupTools]) => {
+              const selectedCount = groupTools.filter((t) => editingTools.includes(t)).length;
+              const allSelected = selectedCount === groupTools.length;
+              return (
+                <Box key={groupName} sx={{ mb: 1.5 }}>
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    sx={{ mb: 0.5 }}
+                  >
                     <Typography
-                      variant="body2"
-                      sx={{
-                        color: 'var(--text-primary)',
-                        fontFamily: 'monospace',
-                      }}
+                      variant="subtitle2"
+                      sx={{ color: 'var(--text-secondary)', fontWeight: 600 }}
                     >
-                      {tool}
+                      {groupName}{' '}
+                      <Typography component="span" variant="caption" sx={{ opacity: 0.7 }}>
+                        ({selectedCount}/{groupTools.length})
+                      </Typography>
                     </Typography>
-                  }
-                />
-              ))}
-            </FormGroup>
+                    <Button
+                      size="small"
+                      onClick={() => handleToggleGroup(groupTools, !allSelected)}
+                      sx={{ color: 'var(--text-secondary)', minWidth: 0 }}
+                    >
+                      {allSelected ? 'Clear' : 'Select'}
+                    </Button>
+                  </Stack>
+                  <FormGroup sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
+                    {groupTools.map((tool) => (
+                      <FormControlLabel
+                        key={tool}
+                        control={
+                          <Checkbox
+                            checked={editingTools.includes(tool)}
+                            onChange={() => handleToggleTool(tool)}
+                            size="small"
+                            sx={{
+                              color: 'var(--text-secondary)',
+                              '&.Mui-checked': { color: 'var(--accent)' },
+                            }}
+                          />
+                        }
+                        label={
+                          <Typography
+                            variant="body2"
+                            sx={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}
+                          >
+                            {tool}
+                          </Typography>
+                        }
+                      />
+                    ))}
+                  </FormGroup>
+                </Box>
+              );
+            })}
 
             <Divider sx={{ my: 2, borderColor: 'var(--border)' }} />
             <Typography variant="subtitle2" sx={{ color: 'var(--text-secondary)', mb: 1.5 }}>

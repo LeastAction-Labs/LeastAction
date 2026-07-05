@@ -8,7 +8,7 @@ import os
 import requests
 from google.oauth2 import laui_token
 from google.auth.transport import requests as google_requests
-from .credentials import  ExternalCredentialsValidatorResonse , AuthorizationCodeCredentials
+from src.core.ee.iam.auth.credentials.credentials import ExternalCredentialsValidatorResonse, AuthorizationCodeCredentials
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")

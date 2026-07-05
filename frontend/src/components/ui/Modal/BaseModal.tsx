@@ -38,7 +38,7 @@ const styles = {
     '& .MuiDialog-paper': {
       backgroundColor: 'var(--bg-tertiary)',
       color: 'var(--text-primary)',
-      borderRadius: '8px',
+      borderRadius: 'var(--radius-md)',
     },
   },
   titleContainer: {

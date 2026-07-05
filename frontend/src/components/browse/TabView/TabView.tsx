@@ -64,8 +64,10 @@ import type { ValidationResult } from '@/services/validation.service';
 import { validateCodeblock } from '@/services/validation.service';
 
 import FieldRenderer, { TabFields } from '../FieldRenderer';
+import { LauiDropdown } from '../FieldRenderer/LauiDropdown';
 import SchedulerTab from '../SchedulerTab';
 import OtherActionsDropdown from './OtherActionsDropdown';
+import { WorkflowConfigField } from './WorkflowConfigField';
 import { generateTabs, processFormData, renderHtmlTab } from './tabUtils';
 
 // ===== STYLES =====
@@ -629,6 +631,45 @@ export default function TabView({ sidebar }: { sidebar?: ReactNode }) {
   const renderFieldInput = (field: any) => {
     const value = formData[field.name] ?? '';
 
+    // Add Config flow: dropdown to attach an existing config instead of creating a new one
+    if (field.name === 'existing_config_laui') {
+      return (
+        <LauiDropdown
+          fieldName="config_laui"
+          value={value}
+          onChange={(_, configLaui) => handleFieldChange('existing_config_laui', configLaui)}
+        />
+      );
+    }
+
+    // Skill picker: let the user attach a skill (e.g. a Report Explorer skill) to a folder.
+    // Render the dropdown in create AND edit (FieldRenderer only shows it in create mode).
+    if (field.name === 'skill_laui' && (mode === 'create' || mode === 'edit')) {
+      return (
+        <LauiDropdown
+          fieldName="skill_laui"
+          value={value}
+          onChange={(_, skillLaui) => handleFieldChange('skill_laui', skillLaui)}
+        />
+      );
+    }
+
+    // Attach-config field: only meaningful for workflow folders during creation
+    if (field.name === 'attached_config') {
+      const baseType = filterType?.split('.')[0] || '';
+      const isWorkflow =
+        filterType === 'folder.workflow' ||
+        (baseType === 'folder' && formData.subtype === 'workflow');
+      if ((mode !== 'create' && mode !== 'edit') || !isWorkflow) return null;
+      return (
+        <WorkflowConfigField
+          value={formData.attached_config}
+          onChange={handleFieldChange}
+          defaultName={formData.name}
+        />
+      );
+    }
+
     // Subtype dropdown for folder/operator/connection when we have options
     const isSubtypeField = field.name === 'subtype';
     if (isSubtypeField && availableSubtypes.length > 0) {
@@ -727,7 +768,19 @@ export default function TabView({ sidebar }: { sidebar?: ReactNode }) {
       );
     }
 
-    const fields = tabFields[tabName] || [];
+    let fields = tabFields[tabName] || [];
+
+    // The synthetic attach-config field only applies to workflow folders during creation.
+    // Drop it entirely (label + row) otherwise so no empty section is shown.
+    if (fields.some((f: any) => f.name === 'attached_config')) {
+      const baseType = filterType?.split('.')[0] || '';
+      const isWorkflow =
+        filterType === 'folder.workflow' ||
+        (baseType === 'folder' && formData.subtype === 'workflow');
+      if ((mode !== 'create' && mode !== 'edit') || !isWorkflow) {
+        fields = fields.filter((f: any) => f.name !== 'attached_config');
+      }
+    }
 
     const hasCodeblockField = fields.some((f: any) => f.name === 'codeblock');
     const showValidate =

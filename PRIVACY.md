@@ -183,7 +183,7 @@ For questions, concerns, or requests related to this Privacy Policy or our priva
 **Privacy Officer**
 LeastAction Labs, Inc.
 Email: [privacy@leastactionlabs.com](mailto:privacy@leastactionlabs.com)
-Web: [https://leastactionlabs.com/contactus](/contactus)
+Web: [https://leastactionlabs.com/contact](/contact)
 
 You may also contact the **Office of the Information and Privacy Commissioner for British Columbia (OIPC BC)** if you are not satisfied with our response to a privacy complaint:
 

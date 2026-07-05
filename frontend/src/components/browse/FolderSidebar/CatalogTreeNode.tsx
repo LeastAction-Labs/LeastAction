@@ -160,7 +160,7 @@ export default function CatalogTreeNode({
   const { handleSelectItem, handleToggleExpand, loadMoreChildren } = useSidebarHandlers();
   const nodePagination = childrenPagination[node.item.laui];
   const hasMore = nodePagination?.has_next === true;
-  const { handleRefreshItem } = useRefreshHandlers();
+  const { handleRefreshItem, handleRefreshTree } = useRefreshHandlers();
 
   const isMarketplaceCatalog = catalogType === CatalogType.MARKETPLACE;
 
@@ -192,12 +192,16 @@ export default function CatalogTreeNode({
     if (canExpand) void handleToggleExpand(node.item.laui, node.item.permission);
   };
 
+  // After delete/restore the item moves between subtrees (parent <-> trash),
+  // so reload the whole sidebar tree to keep both ends consistent.
   const handleDelete = () => {
     setDeleteModalState({
       isOpen: true,
       itemLaui: node.item.laui,
       itemName: node.item.name,
       parentLaui: parentLaui,
+      onSuccess: () => void handleRefreshTree(),
+      isPermanent: restoreAble || !!node.item.deleted_at,
     });
   };
 
@@ -206,7 +210,11 @@ export default function CatalogTreeNode({
   };
 
   const handleRestore = (item: CatalogItem) => {
-    setRestoreModalState({ isOpen: true, item: item });
+    setRestoreModalState({
+      isOpen: true,
+      item: item,
+      onSuccess: () => void handleRefreshTree(),
+    });
   };
 
   const handleLoadMore = async (e: React.MouseEvent) => {

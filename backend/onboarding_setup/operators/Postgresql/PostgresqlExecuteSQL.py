@@ -189,31 +189,15 @@ def run(least_action_task_object, conn):
         if not sql_command:
             raise ValueError("SQL command cannot be empty")
 
-        log_info(
-            "task",
-            "run",
-            "validating_sql_command",
-            "Validating SQL command",
-        )
+        log_info("task", "run", "validating_sql_command", "Validating SQL command")
 
         has_error, validation_error_msg = _validate_sql_statement(sql_command)
 
         if has_error:
             raise ValueError(f"SQL validation failed: {validation_error_msg}")
 
-        log_info(
-            "task",
-            "run",
-            "validation_passed",
-            "SQL validation passed",
-        )
-
-        log_info(
-            "task",
-            "run",
-            "executing_sql_command",
-            "Executing SQL command",
-        )
+        log_info("task", "run", "validation_passed", "SQL validation passed")
+        log_info("task", "run", "executing_sql_command", "Executing SQL command")
 
         cursor = conn.cursor()
 
@@ -222,10 +206,9 @@ def run(least_action_task_object, conn):
         execution_time = time.time() - start_time
 
         affected_rows = cursor.rowcount
-
         conn.commit()
 
-        result = {
+        return {
             'execution_type': 'sync',
             'result': {
                 'sql_command': sql_command[:500],
@@ -238,15 +221,28 @@ def run(least_action_task_object, conn):
             'timestamp': time.time(),
         }
 
-        return result
-
     except Exception as e:
         if conn:
             try:
                 conn.rollback()
             except Exception:
                 pass
-        raise
+
+        log_error("task", "run", "executing_sql_command", f"error executing sql cmd :- {e}")
+
+        return {
+            'execution_type': 'sync',
+            'result': {
+                'sql_command': '',
+                'affected_rows': 0,
+                'execution_time_seconds': 0,
+                'status': 'failed',
+                'message': str(e),
+            },
+            'status': 'failed',
+            'timestamp': time.time(),
+        }
+
     finally:
         if cursor:
             try:

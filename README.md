@@ -18,7 +18,7 @@ Airflow, Dagster, and Prefect are excellent at running pipelines. LeastAction ta
 
 Works on the stack you already have, self-hosted, with no migration.
 
-**Honest, detailed comparisons:** [vs Apache Airflow](docs/comparision/airflow.md) · [vs Dagster](docs/comparision/dagster.md) · [vs Prefect](docs/comparision/prefect.md)
+**Honest, detailed comparisons:** [vs Apache Airflow](docs/11-comparisons/airflow.md) · [vs Dagster](docs/11-comparisons/dagster.md) · [vs Prefect](docs/11-comparisons/prefect.md)
 
 ---
 
@@ -52,7 +52,7 @@ describe a pipeline as SKILL or Usecase → AI generates operator + task → run
 
 No terminal switching, no BI tool, no separate database client. The `inspect_data` MCP tool connects directly to any catalog connection (PostgreSQL, MySQL, Athena, Redshift, BigQuery, S3, GCS, Azure Blob) and returns results inline — so the AI can verify what a task wrote, validate row counts, sample loaded data, and self-correct without human intervention at each step.
 
-Admins can restrict which MCP tools each user can access — for example, disabling destructive operations like `delete_item` or `reset_task` for specific users. Managed per-user from **Admin → MCP Access**. See [MCP setup guide](docs/advanced/AI_managment/mcp.md) for details.
+Admins can restrict which MCP tools each user can access — for example, disabling destructive operations like `delete_item` or `reset_task` for specific users. Managed per-user from **Admin → MCP Access**. See [MCP setup guide](docs/06-ai/05-mcp.md) for details.
 
 
 ![Claude Code + MCP](images/MCP-Claude-VSC.png)
@@ -85,7 +85,7 @@ The **Report Explorer** gives business users direct access to reports — organi
 
 Supported types: `html_report` (AI-generated HTML stored in the catalog) plus live embeds for Power BI, Looker Enterprise, Looker Studio, QuickSight, and Tableau. Each live dashboard (except Looker Studio) points to a `connection`; the backend exchanges credentials for a short-lived embed URL so secrets never reach the browser. Looker Studio needs no connection — it renders via the user's Google browser session.
 
-See [Report Explorer — User Guide](docs/AI_explore_intro.md) for the full overview.
+See [Report Explorer — User Guide](docs/06-ai/06-report-explorer.md) for the full overview.
 
 ![Explorer View](images/Explorer-view.png)
 
@@ -94,7 +94,14 @@ See [Report Explorer — User Guide](docs/AI_explore_intro.md) for the full over
 
 ## Installation
 
-All you need is Docker (>= 24, with Compose v2):
+All you need is Docker (>= 24, with Compose v2). Two paths, depending on what you're doing:
+
+| Path | Use it for | Command |
+|------|-----------|---------|
+| **Docker Compose** | Development & testing | `docker compose up -d --build` |
+| **Blue-Green** | Production / self-hosting | `./blue-green-run.sh --fresh` |
+
+### Development & testing — Docker Compose
 
 ```bash
 git clone https://github.com/LeastAction-Labs/LeastAction.git
@@ -111,14 +118,26 @@ docker compose up -d
 workers reuse the backend image by tag. Pass `--build` again any time you pull
 new source changes.
 
-Open **http://localhost:8080** — login username `admin123` / password `admin123`.
+Open **http://localhost:8080** — default login `admin@example.com` (or username
+`admin123`) / password `admin123`. Override the root login and other defaults
+with a `.env` file — see [deploy/.env.example](deploy/.env.example). RSA signing
+keys are generated automatically on first run. The install also bundles a **dbt**
+runner and a **`postgres-demo`** database, and seeds a small demo workflow that
+**starts running on its own within ~3 minutes** — so there's a working pipeline
+to watch immediately.
 
 | Port | URL | What's there |
 |------|-----|--------------|
 | 8080 | http://localhost:8080 | UI, REST API (`/api/`), MCP endpoint (`/mcp/`) |
 | 5555 | http://localhost:5555 | Flower — Celery worker monitor |
 
-**Scaling Celery workers** — each queue has its own service; pass `--scale` to run more instances:
+```bash
+docker compose down       # stop
+docker compose down -v    # stop and wipe all data
+```
+
+**Scaling Celery workers** — every queue has its own service, and **all of them can be scaled** with
+`--scale` (independently or together):
 
 ```bash
 # Scale a single queue
@@ -133,25 +152,21 @@ docker compose up -d \
   --scale celery-cron-worker=2
 ```
 
-RSA signing keys are generated automatically on first run. Override defaults
-(root password, Claude API key) with a `.env` file — see
-[.env.example](.env.example).
+### Production / self-hosting — Blue-Green
+
+The compose flow above restarts everything on each update. For production-style
+self-hosting, use the blue-green deploy script instead: it runs the app in two
+slots (blue/green), brings the new one up alongside the old, switches traffic
+only once it's healthy, and rolls back failed deploys automatically.
 
 ```bash
-docker compose down       # stop
-docker compose down -v    # stop and wipe all data
-```
+chmod +x blue-green-run.sh    # one-time (or run `bash blue-green-run.sh ...`)
 
-**Zero-downtime redeploys** — the compose flow above restarts everything on
-each update. For production-style self-hosting, use the blue-green deploy
-script instead: it runs the app in two slots (blue/green), brings the new one
-up alongside the old, switches traffic only once it's healthy, and rolls back
-failed deploys automatically. See [deploy/README.md](deploy/README.md).
-
-```bash
 ./blue-green-run.sh --fresh   # first install
 ./blue-green-run.sh           # zero-downtime redeploy (swaps blue <-> green)
 ```
+
+See [deploy/README.md](deploy/README.md) for flags, slots, rollback, and how the deploy works.
 
 ---
 
@@ -159,10 +174,10 @@ failed deploys automatically. See [deploy/README.md](deploy/README.md).
 
 All product documentation lives in [`docs/`](docs/). Start here:
 
-- [Getting Started](docs/task_intro.md) — core concepts, your first task in under 20 minutes
-- [Advanced](docs/advanced/) — connections, operators, actions, config, workflows, CI/CD, monitoring
+- [Getting Started](docs/01-getting-started/02-quickstart.md) — core concepts, your first task in under 20 minutes
+- [Concepts](docs/04-concepts/) — connections, operators, actions, config, workflows, CI/CD, monitoring
 - [Examples](docs/examples/) — real patterns built on LeastAction
-- [Data Inspector](docs/advanced/API_management/12-query.md) — (Experimental Preview) `inspect_data` MCP tool + REST endpoint for read-only queries across any catalog connection; primary use is AI-driven post-task verification; UI at `/query` is a debug surface for engineers
+- [Data Inspector](docs/10-reference/api/12-query.md) — (Experimental Preview) `inspect_data` MCP tool + REST endpoint for read-only queries across any catalog connection; primary use is AI-driven post-task verification; UI at `/query` is a debug surface for engineers
 - [Production deployment](deploy/README.md) — local blue-green zero-downtime deploys via `./blue-green-run.sh`: two-slot (blue/green) swap from Docker Hub images or local source, automatic rollback on failed health, graceful worker draining
 
 ---
@@ -173,4 +188,4 @@ The LeastAction core is licensed under the [LeastAction Sustainable Use License]
 
 Enterprise Edition features (RBAC, SSO/SAML, multi-user beyond 1) are governed by the [Enterprise Edition License](LICENSE_EE.md) and require a commercial license from LeastAction Labs, Inc.
 
-For licensing inquiries: [leastactionlabs.com/contactus](https://leastactionlabs.com/contactus)
+For licensing inquiries: [leastactionlabs.com/contact](https://leastactionlabs.com/contact)

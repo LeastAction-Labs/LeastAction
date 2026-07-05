@@ -612,17 +612,24 @@ def write_report_to_database(conn, table_html, metrics_count, date_range_count, 
 
         cursor = conn.cursor()
 
-        create_table_sql = f"""
-        CREATE TABLE IF NOT EXISTS {output_table} (
-            id SERIAL PRIMARY KEY,
-            report_title VARCHAR(500),
-            html_content TEXT,
-            generation_time TIMESTAMP,
-            metrics_count INTEGER,
-            date_range_count INTEGER
+        cursor.execute(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = %s)",
+            (output_table,)
         )
-        """
-        cursor.execute(create_table_sql)
+        table_exists = cursor.fetchone()[0]
+
+        if not table_exists:
+            create_table_sql = f"""
+            CREATE TABLE {output_table} (
+                id SERIAL PRIMARY KEY,
+                report_title VARCHAR(500),
+                html_content TEXT,
+                generation_time TIMESTAMP,
+                metrics_count INTEGER,
+                date_range_count INTEGER
+            )
+            """
+            cursor.execute(create_table_sql)
 
         insert_sql = f"""
         INSERT INTO {output_table}

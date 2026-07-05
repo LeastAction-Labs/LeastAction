@@ -10,8 +10,7 @@ from dotenv import load_dotenv
 from fastapi import Request
 
 from src.common.exceptions import AuthorizationError
-
-from .schema import (
+from src.core.ee.keto.schema import (
     GetRelationTuplesResponse,
     RelationTuple,
     RelationTupleParams,

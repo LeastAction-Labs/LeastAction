@@ -35,6 +35,13 @@ declare module '@tanstack/react-router' {
 }
 
 const muiTheme = createTheme({
+  // Central corner-radius lever: sx `borderRadius: 1` -> 6px, `2` -> 12px,
+  // aligning MUI components with the marketplace (7px controls / 12px cards).
+  shape: { borderRadius: 6 },
+  palette: {
+    primary: { main: '#5d68b0' }, // brand indigo — matches var(--accent) in both apps
+    error: { main: '#ef4444' },
+  },
   typography: {
     fontFamily: FONT_FAMILIES.PRIMARY,
     fontSize: 13,

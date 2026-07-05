@@ -12,8 +12,7 @@ from pydantic_mongo import PydanticObjectId
 
 from src.common.exceptions import LicenseError
 from src.core.ee.license.repo import LicenseRepository
-
-from .schema import (
+from src.core.ee.license.schema import (
     CreateLicense,
     License,
     LicenseClaims,

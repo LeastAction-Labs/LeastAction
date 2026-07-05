@@ -94,7 +94,7 @@ const styles = {
     minHeight: '40px',
     p: 1,
     border: '1px solid var(--border)',
-    borderRadius: '4px',
+    borderRadius: 'var(--radius-sm)',
     bgcolor: 'var(--bg-secondary)',
   },
   chip: {

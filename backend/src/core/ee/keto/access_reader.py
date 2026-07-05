@@ -12,9 +12,8 @@ from pydantic_mongo import PydanticObjectId
 from src.common.context_vars.user_context import get_root_user_laui, is_root_user
 from src.common.exceptions import AuthorizationError
 from src.core.catalog.link.repo import LinkRepository
-
-from .api_request import GetAccessRelationsRequest, GetAccessRelationsResponse
-from .schema import (
+from src.core.ee.keto.api_request import GetAccessRelationsRequest, GetAccessRelationsResponse
+from src.core.ee.keto.schema import (
     AccessRelation,
     GroupsRawResponse,
     Namespace,
@@ -25,8 +24,8 @@ from .schema import (
     SharedItemsResponse,
     SubjectSet,
 )
-from .service import KetoClient
-from .utils import permission_relation_map
+from src.core.ee.keto.service import KetoClient
+from src.core.ee.keto.utils import permission_relation_map
 
 
 class AccessReader:
@@ -463,6 +462,7 @@ class AccessReader:
             )
             for link in true_children_links:
                 user_item_lauis.append(str(link.child_laui))
+            user_item_lauis.append(rt.object)
 
         res = GetAccessRelationsResponse(
             access_relations=[],

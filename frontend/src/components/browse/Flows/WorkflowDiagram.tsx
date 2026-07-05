@@ -167,12 +167,56 @@ export interface WorkflowInput {
 // ═══════════════════════════════════════════════════════════════════════
 
 /**
+ * Minimal task shape needed to derive dependency edges. Shared by the graph and
+ * the Tasks list so both agree on how tasks are wired. `TaskItem` and the
+ * catalog list item both satisfy this structurally.
+ */
+export interface DependencyTask {
+  laui: string;
+  name: string;
+  partition?: string | null;
+  actions?: {
+    pre_actions?: Array<{
+      name?: string;
+      action?: string;
+      action_variables?: { parents?: Array<{ task_name?: string; partition?: string | null }> };
+    }>;
+  };
+}
+
+/**
+ * Builds the parent → child adjacency list for a set of tasks from their
+ * `LeastActionCheckIfParentsAreDone` pre-actions. Node id = "name__partition".
+ */
+export function extractTaskConnections(tasks: DependencyTask[]): Record<string, string[]> {
+  const connections: Record<string, string[]> = {};
+  tasks.forEach((task) => {
+    const nodeId = `${task.name}__${task.partition}`;
+    task.actions?.pre_actions?.forEach((action) => {
+      const actionName = action.name || action.action;
+      if (actionName !== 'LeastActionCheckIfParentsAreDone') return;
+      const parents = action.action_variables?.parents;
+      if (!Array.isArray(parents)) return;
+      parents.forEach((parentObj) => {
+        if (!parentObj.task_name) return;
+        // Parent and child share the same partition — use the child task's partition.
+        const parentId = `${parentObj.task_name}__${task.partition}`;
+        if (!connections[parentId]) connections[parentId] = [];
+        if (!connections[parentId].includes(nodeId)) {
+          connections[parentId].push(nodeId);
+        }
+      });
+    });
+  });
+  return connections;
+}
+
+/**
  * Transforms an array of TaskItem objects into WorkflowInput format.
  * Extracts parent-child relationships from pre_actions with LeastActionCheckIfParentsAreDone.
  */
 export function transformTaskArrayToWorkflowInput(tasks: TaskItem[]): WorkflowInput {
   const items: Record<string, NodeData> = {};
-  const connections: Record<string, string[]> = {};
 
   // Node ID = "name__partition" — unique, readable, matches edge references directly.
 
@@ -225,28 +269,142 @@ export function transformTaskArrayToWorkflowInput(tasks: TaskItem[]): WorkflowIn
           }
         : undefined,
     };
-
-    // Extract edges from LeastActionCheckIfParentsAreDone pre-action
-    task.actions?.pre_actions?.forEach((action) => {
-      const actionName = action.name || action.action;
-      if (actionName !== 'LeastActionCheckIfParentsAreDone') return;
-      const parents = action.action_variables?.parents;
-      if (!Array.isArray(parents)) return;
-
-      parents.forEach((parentObj: { task_name?: string; partition?: string }) => {
-        if (!parentObj.task_name) return;
-        // Parent and child share the same partition — use the child task's partition.
-        const parentId = `${parentObj.task_name}__${task.partition}`;
-
-        if (!connections[parentId]) connections[parentId] = [];
-        if (!connections[parentId].includes(nodeId)) {
-          connections[parentId].push(nodeId);
-        }
-      });
-    });
   });
 
-  return { items, connections };
+  return { items, connections: extractTaskConnections(tasks) };
+}
+
+/**
+ * Computes the dependency topology shared by the graph layout and the Tasks list:
+ *   – connected components (undirected BFS over parent/child links)
+ *   – per-node topological level (depth = max parent level + 1 within its component)
+ *
+ * Exposed so the Tasks list can group/order tasks exactly the way the graph wires them.
+ */
+export function computeTopology(
+  nodeIds: string[],
+  connections: Record<string, string[]>,
+): {
+  components: string[][];
+  level: Map<string, number>;
+  parents: Map<string, string[]>;
+  children: Map<string, string[]>;
+} {
+  const edgeMap = connections;
+
+  const allIds = new Set<string>([
+    ...nodeIds,
+    ...Object.keys(edgeMap),
+    ...Object.values(edgeMap).flat(),
+  ]);
+
+  // ── adjacency ────────────────────────────────────────────────────
+  const children = new Map<string, string[]>();
+  const parents = new Map<string, string[]>();
+  allIds.forEach((id) => {
+    children.set(id, []);
+    parents.set(id, []);
+  });
+  for (const [parent, kids] of Object.entries(edgeMap)) {
+    for (const child of kids) {
+      children.get(parent)!.push(child);
+      parents.get(child)!.push(parent);
+    }
+  }
+
+  // ── connected components (BFS on undirected graph) ───────────────
+  const visited = new Set<string>();
+  const components: string[][] = [];
+  for (const id of allIds) {
+    if (visited.has(id)) continue;
+    const component: string[] = [];
+    const queue = [id];
+    visited.add(id);
+    while (queue.length) {
+      const cur = queue.shift()!;
+      component.push(cur);
+      const neighbors = [...(children.get(cur) || []), ...(parents.get(cur) || [])];
+      for (const n of neighbors) {
+        if (!visited.has(n)) {
+          visited.add(n);
+          queue.push(n);
+        }
+      }
+    }
+    components.push(component);
+  }
+
+  // ── topological level per component (level = max parent level + 1) ─
+  const level = new Map<string, number>();
+  for (const comp of components) {
+    const inComponent = new Set(comp);
+    comp.forEach((id) => level.set(id, 0));
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const id of comp) {
+        const myParents = (parents.get(id) || []).filter((p) => inComponent.has(p));
+        if (myParents.length === 0) continue;
+        const needed = Math.max(...myParents.map((p) => level.get(p)!)) + 1;
+        if (needed !== level.get(id)) {
+          level.set(id, needed);
+          changed = true;
+        }
+      }
+    }
+  }
+
+  return { components, level, parents, children };
+}
+
+/**
+ * Groups tasks the same way the workflow graph wires them, for the Tasks list.
+ * Connected tasks are returned adjacent and in dependency (topological) order;
+ * each connected component — including a standalone task — is one group with a
+ * running index, so the list can tint groups with alternating colors.
+ */
+export function groupTasksByDependency(tasks: DependencyTask[]): {
+  orderedLauis: string[];
+  groupIndexByLaui: Map<string, number>;
+} {
+  // nodeId ("name__partition") → laui, plus the task's original index for stable ordering
+  const lauiByNodeId = new Map<string, string>();
+  const orderByNodeId = new Map<string, number>();
+  tasks.forEach((task, idx) => {
+    const nodeId = `${task.name}__${task.partition}`;
+    if (!lauiByNodeId.has(nodeId)) {
+      lauiByNodeId.set(nodeId, task.laui);
+      orderByNodeId.set(nodeId, idx);
+    }
+  });
+
+  const nodeIds = tasks.map((task) => `${task.name}__${task.partition}`);
+  const { components, level } = computeTopology(nodeIds, extractTaskConnections(tasks));
+
+  // Order components by the earliest original index of their members (stable, predictable).
+  const orderOf = (nodeId: string) => orderByNodeId.get(nodeId) ?? Number.MAX_SAFE_INTEGER;
+  const sortedComponents = components
+    .map((comp) => ({ comp, minOrder: Math.min(...comp.map(orderOf)) }))
+    .sort((a, b) => a.minOrder - b.minOrder);
+
+  const orderedLauis: string[] = [];
+  const groupIndexByLaui = new Map<string, number>();
+
+  sortedComponents.forEach(({ comp }, groupIndex) => {
+    // Within a component: dependency order (level), then original order.
+    const sorted = [...comp].sort((a, b) => {
+      const lv = (level.get(a) ?? 0) - (level.get(b) ?? 0);
+      return lv !== 0 ? lv : orderOf(a) - orderOf(b);
+    });
+    for (const nodeId of sorted) {
+      const laui = lauiByNodeId.get(nodeId);
+      if (!laui) continue; // edge-only node (parent referenced but not on this page)
+      orderedLauis.push(laui);
+      groupIndexByLaui.set(laui, groupIndex);
+    }
+  });
+
+  return { orderedLauis, groupIndexByLaui };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -284,78 +442,9 @@ export function computeLayout(input: WorkflowInput): {
   if (allIds.size > MAX_NODES)
     throw new Error(`Too many nodes (${allIds.size}). Max is ${MAX_NODES}.`);
 
-  // ── Phase 1: adjacency & connected-components ────────────────────
-  const children = new Map<string, string[]>();
-  const parents = new Map<string, string[]>();
-  allIds.forEach((id) => {
-    children.set(id, []);
-    parents.set(id, []);
-  });
-  for (const [parent, kids] of Object.entries(edgeMap)) {
-    for (const child of kids) {
-      children.get(parent)!.push(child);
-      parents.get(child)!.push(parent);
-    }
-  }
-
-  // BFS on undirected graph → connected components
-  const visited = new Set<string>();
-  const components: string[][] = [];
-
-  for (const id of allIds) {
-    if (visited.has(id)) continue;
-    const component: string[] = [];
-    const queue = [id];
-    visited.add(id);
-    while (queue.length) {
-      const cur = queue.shift()!;
-      component.push(cur);
-      const neighbors = [...(children.get(cur) || []), ...(parents.get(cur) || [])];
-      for (const n of neighbors) {
-        if (!visited.has(n)) {
-          visited.add(n);
-          queue.push(n);
-        }
-      }
-    }
-    components.push(component);
-  }
-
-  // ── Phase 2: topological level assignment per component ──────────
-  // level[id] = depth column index
-  const level = new Map<string, number>();
-
-  for (const comp of components) {
-    // find roots (no parents inside this component)
-    const compSet = new Set(comp);
-    const roots = comp.filter(
-      (id) => (parents.get(id) || []).filter((p) => compSet.has(p)).length === 0,
-    );
-
-    // BFS – each node's level = max(parent levels) + 1
-    roots.forEach((r) => level.set(r, 0));
-
-    // We do repeated passes to honour max-parent rule
-    let changed = true;
-    const inComponent = new Set(comp);
-    // initialise everything at 0
-    comp.forEach((id) => {
-      if (!level.has(id)) level.set(id, 0);
-    });
-
-    while (changed) {
-      changed = false;
-      for (const id of comp) {
-        const myParents = (parents.get(id) || []).filter((p) => inComponent.has(p));
-        if (myParents.length === 0) continue;
-        const needed = Math.max(...myParents.map((p) => level.get(p)!)) + 1;
-        if (needed !== level.get(id)) {
-          level.set(id, needed);
-          changed = true;
-        }
-      }
-    }
-  }
+  // ── Phases 1 & 2: connected components + topological levels ──────
+  // Shared with the Tasks list via computeTopology so both agree on wiring.
+  const { components, level, parents, children } = computeTopology(Object.keys(items), edgeMap);
 
   // ── Phase 3: within-component X/Y layout ─────────────────────────
   // Group nodes by component, then by level
@@ -596,13 +685,12 @@ const STATUS_LABELS: Record<string, string> = {
   fail: 'Failed',
 };
 
-const ACTION_STYLES: Record<string, { bg: string; color: string; border: string; label: string }> =
-  {
-    pre: { bg: '#e8f5e9', color: '#4ade80', border: '#c8e6c9', label: 'preAction' },
-    run: { bg: '#fff3e0', color: '#fb923c', border: '#ffe0b2', label: 'runningInterval' },
-    sla: { bg: '#e3f2fd', color: '#60a5fa', border: '#bbdefb', label: 'runningSLA' },
-    post: { bg: '#e0f7fa', color: '#67e8f9', border: '#b2ebf2', label: 'postAction' },
-  };
+const ACTION_STYLES: Record<string, { color: string; label: string }> = {
+  pre: { color: '#4ade80', label: 'preAction' },
+  run: { color: '#fb923c', label: 'runningInterval' },
+  sla: { color: '#60a5fa', label: 'runningSLA' },
+  post: { color: '#67e8f9', label: 'postAction' },
+};
 
 const ACTION_STATUS_COLORS: Record<string, string> = {
   success: '#4ade80',
@@ -629,14 +717,14 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
         sx={{
           position: 'relative',
           width: 240,
-          background: '#ffffff',
-          borderRadius: '12px',
-          border: '2px solid #e2e8f0',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+          background: 'var(--bg-secondary)',
+          borderRadius: 'var(--radius-lg)',
+          border: '2px solid rgba(var(--color-border), 0.15)',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           overflow: 'hidden',
           transition: 'all 0.2s',
           '&:hover': {
-            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
             transform: 'translateY(-2px)',
           },
           '&:hover .add-task-button': {
@@ -705,8 +793,8 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
               sx={{
                 width: 36,
                 height: 36,
-                borderRadius: '8px',
-                background: '#f1f5f9',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-tertiary)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -721,14 +809,16 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
               sx={{
                 fontSize: '13px',
                 fontWeight: 700,
-                color: '#1e293b',
+                color: 'var(--text-primary)',
                 lineHeight: 1.3,
                 mb: 0.3,
               }}
             >
               {data.name}
             </Typography>
-            <Typography sx={{ fontSize: '10px', color: '#64748b', fontFamily: 'monospace' }}>
+            <Typography
+              sx={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'monospace' }}
+            >
               {data.operator}
             </Typography>
           </Box>
@@ -738,8 +828,10 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
         {hasDates && (
           <Box sx={{ mt: 0.8, p: 1 }}>
             {data.logical_date && (
-              <Typography sx={{ fontSize: '10px', color: '#64748b', lineHeight: 1.4 }}>
-                <span style={{ color: '#334155', fontWeight: 600 }}>logical_date:</span>{' '}
+              <Typography sx={{ fontSize: '10px', color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                  logical_date:
+                </span>{' '}
                 {formatDateTimeCompact(data.logical_date.value)}
               </Typography>
             )}
@@ -747,12 +839,14 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
               <Typography
                 sx={{
                   fontSize: '10px',
-                  color: '#64748b',
+                  color: 'var(--text-dim)',
                   mt: 0.5,
                   lineHeight: 1.4,
                 }}
               >
-                <span style={{ color: '#334155', fontWeight: 600 }}>last_run_date:</span>{' '}
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                  last_run_date:
+                </span>{' '}
                 {formatDateTimeCompact(data.last_run_date.value)}
               </Typography>
             )}
@@ -768,7 +862,7 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
               gap: 0.5,
               p: 1,
               pt: 1.5,
-              borderTop: '1px solid #f1f5f9',
+              borderTop: '1px solid var(--bg-tertiary)',
             }}
           >
             {[
@@ -800,9 +894,9 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
                     gap: 0.4,
                     px: 0.8,
                     py: 0.3,
-                    borderRadius: '12px',
-                    background: style.bg,
-                    border: `1px solid ${style.border}`,
+                    borderRadius: 'var(--radius-lg)',
+                    background: `color-mix(in srgb, ${style.color} 15%, var(--bg-secondary))`,
+                    border: `1px solid color-mix(in srgb, ${style.color} 35%, transparent)`,
                     fontSize: '8px',
                     fontWeight: 600,
                     color: style.color,
@@ -835,10 +929,11 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
                       mb: 0.5,
                       px: 1,
                       py: 0.5,
-                      background: '#1e293b',
-                      color: '#fff',
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid rgba(var(--color-border), 0.2)',
                       fontSize: '8px',
-                      borderRadius: '4px',
+                      borderRadius: 'var(--radius-sm)',
                       whiteSpace: 'nowrap',
                       opacity: 0,
                       visibility: 'hidden',
@@ -853,7 +948,7 @@ const WorkflowNode = ({ data }: { data: NodeData }) => {
                         transform: 'translateX(-50%)',
                         borderWidth: '4px',
                         borderStyle: 'solid',
-                        borderColor: '#1e293b transparent transparent transparent',
+                        borderColor: 'var(--bg-primary) transparent transparent transparent',
                       },
                     }}
                   >
@@ -877,9 +972,9 @@ const PartitionBoxNode = ({ data }: { data: { label: string; width: number; heig
     sx={{
       width: data.width,
       height: data.height,
-      border: '2px solid #e2e8f0',
+      border: '2px solid rgba(var(--color-border), 0.12)',
       borderRadius: '16px',
-      background: 'rgba(241, 245, 249, 0.6)',
+      background: 'rgba(var(--color-card-muted), 0.4)',
       pointerEvents: 'none',
       position: 'relative',
     }}
@@ -891,7 +986,7 @@ const PartitionBoxNode = ({ data }: { data: { label: string; width: number; heig
         left: 14,
         fontSize: '10px',
         fontWeight: 700,
-        color: '#94a3b8',
+        color: 'var(--text-dim)',
         textTransform: 'uppercase',
         letterSpacing: '1.5px',
       }}
@@ -1021,12 +1116,14 @@ const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({
         sx={{
           mt: 3,
           p: 2,
-          background: '#fff',
-          borderRadius: '8px',
-          border: '1px solid #e2e8f0',
+          background: 'var(--bg-secondary)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid rgba(var(--color-border), 0.15)',
         }}
       >
-        <Typography sx={{ fontSize: '12px', fontWeight: 700, color: '#1e293b', mb: 1.5 }}>
+        <Typography
+          sx={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', mb: 1.5 }}
+        >
           Action Types Legend
         </Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
@@ -1039,9 +1136,9 @@ const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({
                 gap: 0.5,
                 px: 1,
                 py: 0.5,
-                borderRadius: '12px',
-                background: style.bg,
-                border: `1px solid ${style.border}`,
+                borderRadius: 'var(--radius-lg)',
+                background: `color-mix(in srgb, ${style.color} 15%, var(--bg-secondary))`,
+                border: `1px solid color-mix(in srgb, ${style.color} 35%, transparent)`,
                 fontSize: '10px',
                 fontWeight: 600,
                 color: style.color,
@@ -1066,9 +1163,9 @@ const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({
         sx={{
           width: '100%',
           height: `${height}px`,
-          background: '#fafbfc',
-          borderRadius: '12px',
-          border: '1px solid #e2e8f0',
+          background: 'var(--bg-tertiary)',
+          borderRadius: 'var(--radius-lg)',
+          border: '1px solid rgba(var(--color-border), 0.15)',
           overflow: 'hidden',
         }}
       >
@@ -1090,7 +1187,7 @@ const WorkflowDiagram: React.FC<WorkflowDiagramProps> = ({
           nodesConnectable={false}
           elementsSelectable={true}
         >
-          <Background color="#e2e8f0" gap={16} />
+          <Background color="rgba(var(--color-border), 0.2)" gap={16} />
           <Controls />
         </ReactFlow>
       </Box>

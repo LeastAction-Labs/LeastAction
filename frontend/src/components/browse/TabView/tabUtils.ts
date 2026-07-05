@@ -129,8 +129,9 @@ export function generateTabs(
 
   // Filter out form_excluded_fields in create/edit mode
   const formExcludedFields: string[] = schema?.form_excluded_fields ?? [];
-  // *_laui reference fields are never shown — auto-set from context
-  const autoContextFields = ['account_laui', 'project_laui', 'skill_laui', 'marketplace_laui'];
+  // *_laui reference fields are never shown — auto-set from context.
+  // (skill_laui is user-settable — e.g. wiring a Report Explorer skill to a folder — so it stays visible.)
+  const autoContextFields = ['account_laui', 'project_laui', 'marketplace_laui'];
   const allExcluded = new Set([
     ...autoContextFields,
     ...(mode !== 'view' ? formExcludedFields : []),
@@ -164,6 +165,39 @@ export function generateTabs(
         ]
       : [];
 
+  // Synthetic field to optionally attach a config when creating a workflow folder.
+  // Rendered only for folder.workflow by TabView; carries no backend meaning.
+  const attachedConfigField =
+    (mode === 'create' || mode === 'edit') && baseType === 'folder'
+      ? [
+          {
+            name: 'attached_config',
+            datatype: 'object',
+            required: false,
+            description: 'Optionally attach a config to this workflow',
+            readOnly: false,
+            tab: hasTabConfig ? { name: 'Overview', order: 4 } : undefined,
+          },
+        ]
+      : [];
+
+  // Synthetic field shown atop the Add Config form to attach an existing config
+  // instead of creating a new one. UI-only — handled in handleSaveItem.
+  const existingConfigField =
+    mode === 'create' && baseType === 'config'
+      ? [
+          {
+            name: 'existing_config_laui',
+            datatype: 'string',
+            required: false,
+            description: 'Or attach an existing config instead of creating a new one',
+            readOnly: false,
+            ui_display_name: 'Attach Existing Config',
+            tab: hasTabConfig ? { name: 'Overview', order: 0 } : undefined,
+          },
+        ]
+      : [];
+
   const addToTab = (tabName: string, field: any) => {
     if (!tabs.includes(tabName)) {
       tabs.push(tabName);
@@ -173,7 +207,12 @@ export function generateTabs(
   };
 
   if (hasTabConfig) {
-    const allFields = [...subtypeField, ...visibleColumns];
+    const allFields = [
+      ...existingConfigField,
+      ...subtypeField,
+      ...attachedConfigField,
+      ...visibleColumns,
+    ];
     allFields.forEach((field: any) => {
       // In view mode, name is already shown in the header — skip it here
       if (field.name.toLowerCase() === 'name' && mode === 'view') return;
@@ -191,7 +230,7 @@ export function generateTabs(
       if (f.name.toLowerCase() === 'name' && mode === 'view') return false;
       return f.name.toLowerCase() === 'name' || f.name.toLowerCase() === 'description';
     });
-    const subtypeOverviewFields = subtypeField; // goes into Overview too
+    const subtypeOverviewFields = [...existingConfigField, ...subtypeField, ...attachedConfigField]; // goes into Overview too
     if (overviewFields.length > 0 || subtypeOverviewFields.length > 0) {
       addToTab('Overview', null); // ensure tab exists
       tabFields['Overview'] = [];

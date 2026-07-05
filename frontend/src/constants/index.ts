@@ -9,9 +9,11 @@
 // FONT FAMILIES
 // ============================================================================
 export const FONT_FAMILIES = {
-  PRIMARY:
-    "'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'",
-  MONOSPACE: "Consolas, Monaco, 'Courier New', monospace",
+  PRIMARY: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif",
+  // Brand / wordmark font — matches marketplace (var(--font-brand))
+  BRAND: "'Space Grotesk', 'Inter', system-ui, sans-serif",
+  // Monospace — matches marketplace (var(--font-mono))
+  MONOSPACE: "'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace",
   INHERIT: 'inherit',
 } as const;
 
@@ -100,10 +102,21 @@ export const COLORS = {
   // Purple — DEBUG, cancelled
   PURPLE: '#8b5cf6',
 
+  // Steel Blue / Sage — dependency-group accents (workflow Tasks DAG view)
+  INDIGO: '#9BB8CD',
+  INDIGO_BG: 'rgba(155,184,205,0.4)',
+  TEAL: '#D4E2D4',
+  TEAL_BG: 'rgba(212,226,212,0.4)',
+  // Dark text for use on light/pastel accent fills (e.g. dependency-number badge)
+  ON_ACCENT_DARK: 'rgba(0,0,0,0.82)',
+
   // Surface overlays — hover, selected, focus states
   HOVER: 'rgba(0, 0, 0, 0.08)',
   SELECTED: 'rgba(0, 0, 0, 0.12)',
   SELECTED_HOVER: 'rgba(0, 0, 0, 0.16)',
+
+  // Neutral gray overlay — scrollbar thumbs, muted dividers (theme-agnostic)
+  SCROLLBAR_THUMB: 'rgba(150, 150, 150, 0.35)',
 } as const;
 
 // ============================================================================
@@ -234,6 +247,17 @@ export const TASK_STATE_COLORS = {
     dot: 'rgba(139,92,246,0.8)',
   },
 } as const;
+
+// ============================================================================
+// TASK DEPENDENCY GROUP COLORS
+// Alternating styles for the workflow Tasks list so the user can see which tasks
+// form a connected dependency group (DAG). Each group gets a solid left `bar`
+// plus a very faint row `tint`; colors alternate (indigo / teal) per group.
+// ============================================================================
+export const TASK_DEPENDENCY_GROUP_COLORS = [
+  { bar: COLORS.INDIGO, tint: COLORS.INDIGO_BG },
+  { bar: COLORS.TEAL, tint: COLORS.TEAL_BG },
+] as const;
 
 // ============================================================================
 // OPACITY

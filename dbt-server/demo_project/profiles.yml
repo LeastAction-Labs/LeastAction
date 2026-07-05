@@ -1,0 +1,12 @@
+demo:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DBT_PG_HOST', 'postgres-demo') }}"
+      port: 5432
+      user: "{{ env_var('DBT_PG_USER', 'postgres') }}"
+      pass: "{{ env_var('DBT_PG_PASSWORD', 'postgres') }}"
+      dbname: "{{ env_var('DBT_PG_DATABASE', 'postgres_demo_db') }}"
+      schema: public
+      threads: 4

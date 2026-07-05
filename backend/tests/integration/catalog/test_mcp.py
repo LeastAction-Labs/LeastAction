@@ -55,7 +55,7 @@ def mcp_ctx(client: TestClient):
     set_current_token(token)
     set_allowed_mcp_tools(None)
 
-    mcp = create_mcp_server()
+    mcp = create_mcp_server(client.app.state.item_orchestrator)
     return mcp
 
 

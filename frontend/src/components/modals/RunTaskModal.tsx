@@ -272,22 +272,7 @@ export default function RunTaskModal() {
         if (scope.scopeType === TaskModalScopeType.OPERATOR && scope.operatorLaui) {
           setSelectedOperator(scope.operatorLaui);
           setFormData((prev) => ({ ...prev, operator_laui: scope.operatorLaui! }));
-          // Mirror handleOperatorChange: pull the operator's payload so the
-          // payload field is autofilled (it isn't when prefilling directly).
-          try {
-            const operatorItem = await getCatalogItemById(scope.operatorLaui);
-            const payload = operatorItem.payload;
-            if (payload) {
-              const payloadString =
-                typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
-              setFormData((prev) =>
-                // Only autofill when the user hasn't already provided a payload
-                !prev.payload && !prev.payload_laui ? { ...prev, payload: payloadString } : prev,
-              );
-            }
-          } catch (err) {
-            console.error('Failed to fetch operator payload:', err);
-          }
+          void loadOperatorPayload(scope.operatorLaui);
         }
 
         // Payload context: prefill payload and payload dropdown
@@ -676,23 +661,27 @@ export default function RunTaskModal() {
     handleChange('connection_laui', value || '');
   };
 
-  const handleOperatorChange = async (value: string) => {
+  // Fetch the operator's payload and fill the payload field.
+  // Skipped when the user has explicitly selected a catalog payload (payload_laui).
+  const loadOperatorPayload = async (operatorLaui: string) => {
+    if (!operatorLaui) return;
+    try {
+      const operatorItem = await getCatalogItemById(operatorLaui);
+      const payload = operatorItem.payload;
+      if (payload) {
+        const payloadString =
+          typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+        setFormData((prev) => ({ ...prev, payload: payloadString }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch operator payload:', err);
+    }
+  };
+
+  const handleOperatorChange = (value: string) => {
     setSelectedOperator(value);
     handleChange('operator_laui', value);
-
-    if (value && !formData.payload && !formData.payload_laui) {
-      try {
-        const operatorItem = await getCatalogItemById(value);
-        const payload = operatorItem.payload;
-        if (payload) {
-          const payloadString =
-            typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
-          setFormData((prev) => ({ ...prev, payload: payloadString }));
-        }
-      } catch (err) {
-        console.error('Failed to fetch operator payload:', err);
-      }
-    }
+    if (!formData.payload_laui) void loadOperatorPayload(value);
   };
 
   const handlePayloadChange = async (value: string) => {
@@ -974,6 +963,11 @@ export default function RunTaskModal() {
               ? 'Task updated successfully!'
               : 'Task created successfully!';
         showSuccess(successMessage);
+
+        // Notify the opener (e.g. ItemsView) so it can refresh the list and
+        // show the just-created/updated task. Capture before handleClose, which
+        // resets taskModalState.
+        taskModalState.onSuccess?.();
 
         handleClose();
       } else if (taskModalState.mode === 'run') {
@@ -1516,7 +1510,7 @@ export default function RunTaskModal() {
                     mt: 2,
                     p: 2,
                     border: '1px solid var(--border)',
-                    borderRadius: '8px',
+                    borderRadius: 'var(--radius-md)',
                     bgcolor: 'var(--bg-secondary)',
                   }}
                 >
@@ -1773,7 +1767,7 @@ export default function RunTaskModal() {
                   sx={{
                     p: 2,
                     border: '1px solid var(--border)',
-                    borderRadius: '8px',
+                    borderRadius: 'var(--radius-md)',
                     bgcolor: 'var(--bg-secondary)',
                   }}
                 >
@@ -1876,7 +1870,7 @@ export default function RunTaskModal() {
                         p: 1.5,
                         mb: 1.5,
                         bgcolor: 'var(--bg-tertiary)',
-                        borderRadius: '6px',
+                        borderRadius: 'var(--radius-md)',
                         borderLeft: '3px solid var(--accent)',
                       }}
                     >
@@ -1972,7 +1966,7 @@ export default function RunTaskModal() {
                           key={index}
                           sx={{
                             bgcolor: 'var(--bg-tertiary)',
-                            borderRadius: '6px',
+                            borderRadius: 'var(--radius-md)',
                             border: '1px solid var(--border)',
                             overflow: 'hidden',
                           }}
@@ -2142,7 +2136,7 @@ export default function RunTaskModal() {
                     mt: 2,
                     p: 2,
                     border: '1px solid var(--border)',
-                    borderRadius: '8px',
+                    borderRadius: 'var(--radius-md)',
                     bgcolor: 'var(--bg-secondary)',
                   }}
                 >
@@ -2202,7 +2196,7 @@ export default function RunTaskModal() {
                                 bgcolor: 'var(--bg-primary)',
                                 px: 0.75,
                                 py: 0.25,
-                                borderRadius: '4px',
+                                borderRadius: 'var(--radius-sm)',
                               }}
                             >
                               {opt.value}

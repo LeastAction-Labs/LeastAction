@@ -18,7 +18,7 @@ from src.common.logger.logger import log_info, log_error
 def _get_server_url(connection):
     url = connection.get("dbt_server_url", "").strip().rstrip("/")
     if not url:
-        raise ValueError("connection must contain 'dbt_server_url' (e.g. http://host.docker.internal:8001)")
+        raise ValueError("connection must contain 'dbt_server_url' (e.g. http://dbt-demo:8001)")
     return url
 
 
@@ -87,7 +87,7 @@ def finish(least_action_task_object, client, completion_details, run_details):
 
 bashblock = {"main.sh": "# No additional dependencies required — uses Python stdlib only (urllib, json)"}
 
-connection = {"dbt_server_url": "http://host.docker.internal:8001"}
+connection = {"dbt_server_url": "http://dbt-demo:8001"}
 
 payload = '{"model": "stg_badge_events"}'
 

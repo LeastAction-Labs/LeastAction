@@ -59,8 +59,8 @@ function ChangePasswordPage() {
     if (!formData.current) newErrors.current = 'Temporary password is required';
     if (!formData.next) {
       newErrors.next = 'New password is required';
-    } else if (formData.next.length < 8) {
-      newErrors.next = 'New password must be at least 8 characters';
+    } else if (formData.next.length < 6) {
+      newErrors.next = 'New password must be at least 6 characters';
     }
     if (!formData.confirm) {
       newErrors.confirm = 'Please confirm your new password';

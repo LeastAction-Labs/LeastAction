@@ -9,8 +9,7 @@ from src.common.context_vars.catalog_context import (
     get_supported_item_tpyes_cache,
 )
 from src.core.catalog.item.schema import ItemProjection
-
-from .schema import ItemCategory
+from src.core.catalog.utils.item_types.schema import ItemCategory
 
 
 class ItemTypesManager:
