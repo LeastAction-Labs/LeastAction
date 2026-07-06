@@ -4,22 +4,25 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 skill = {
-    "description": "Debug skill for the dbt sales reporting pipeline — reads pipeline and data-contract skills from the catalog, logs task state, and surfaces failure context.",
+    "description": "Debug skill for the dbt sales reporting pipeline — calls an AI agent with pipeline and data-contract skills plus task state, and routes the resulting report to email, Slack, or a catalog asset.",
     "content": """\
 # dbt Sales Pipeline — Debug Skill
 
 ## Purpose
 
 Use this skill to diagnose a failing task in the `dbt_sales_reporting` workflow.
-It drives the `LeastActionDebug` action, which fetches named skills from the catalog
-and logs their full content alongside the current task state.
+It drives the `LeastActionAgentDebug` action, which fetches named skills and the
+current task state from the catalog, calls an AI agent to produce a structured
+root-cause analysis, and routes the report to whichever `notify` destination is
+configured (email, Slack, catalog asset, or local file).
 
 ## When to use
 
-Attach `LeastActionDebug` as a **post_action** on any task in the pipeline that is
-failing or producing unexpected output. The debug output appears in the task logs.
+Attach `LeastActionAgentDebug` as a **post_action** on any task in the pipeline that is
+failing or producing unexpected output. The agent's analysis is routed per `notify`;
+if no destination is configured, the report is logged to the task logs instead.
 
-## LeastActionDebug action_variables
+## LeastActionAgentDebug action_variables
 
 ```json
 {
@@ -27,12 +30,22 @@ failing or producing unexpected output. The debug output appears in the task log
     "DBT_Postgresql_Sales_Pipelines_Skill",
     "DBT_Postgresql_Sales_Data_Contract"
   ],
-  "task_lauies": [],
-  "include_task_context": true
+  "connection_laui": "<claude-connection-laui>",
+  "chat_laui": "<agent-chat-item-laui>",
+  "include_task_context": true,
+  "notify": {
+    "email": "you@example.com",
+    "slack_url": "https://hooks.slack.com/services/xxx/yyy/zzz",
+    "asset_laui": "<folder-asset-laui-to-write-report-under>"
+  }
 }
 ```
 
-To add only the pipeline skill (lighter output):
+`notify` is conditional — only the keys you set are used: set `notify.email` to send
+by email, `notify.slack_url` to post to Slack, `notify.asset_laui` to save the report
+as a catalog asset. Any combination can be set at once.
+
+To add only the pipeline skill (lighter context, no notify — report goes to logs):
 
 ```json
 {
@@ -41,24 +54,14 @@ To add only the pipeline skill (lighter output):
 }
 ```
 
-To also inspect a specific sibling task by LAUI:
-
-```json
-{
-  "skill_names": ["DBT_Postgresql_Sales_Pipelines_Skill"],
-  "task_lauies": ["<laui-of-sibling-task>"],
-  "include_task_context": true
-}
-```
-
-## What gets logged
+## What the agent receives and produces
 
 | Section | Content |
 |---------|---------|
-| `CURRENT TASK` | Full task document fetched from catalog (state, payload, actions_status, …) |
-| `SKILL: <name>` | Full `content` field of the named skill document |
-| `SKILL PROMPT: <name>` | The `prompt` field of the named skill (the AI prompt used by the orchestrator) |
-| `TASK: <name> (<laui>)` | Any extra task documents requested via `task_lauies` |
+| Task state | Full task document fetched from catalog (state, payload, actions_status, …) |
+| `SKILL: <name>` | Full `content` field of each named skill document |
+| `SKILL PROMPT: <name>` | The `prompt` field of each named skill (the AI prompt used by the orchestrator) |
+| Agent analysis | Structured root-cause analysis returned by the AI agent, included at the top of the report |
 
 ## Common failure patterns and fixes
 
