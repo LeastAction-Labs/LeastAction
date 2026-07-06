@@ -96,10 +96,10 @@ def load_system_config():
     # AWS=true implies email_otp; otherwise respect EMAIL_OTP env var (default false)
     aws = os.environ.get("AWS", "false").lower() == "true"
     if aws:
-        config["email_totp"] = True
+        config["totp_enabled"] = True
     else:
         email_otp_env = os.environ.get("EMAIL_OTP", "false").lower()
-        config["email_totp"] = email_otp_env == "true"
+        config["totp_enabled"] = email_otp_env == "true"
 
     return config
 

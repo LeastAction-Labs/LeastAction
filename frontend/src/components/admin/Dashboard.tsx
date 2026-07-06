@@ -1803,9 +1803,7 @@ export default function AdminDashboard() {
                     }}
                   >
                     <Box>
-                      <Typography
-                        sx={{ color: 'var(--text-primary)', fontWeight: 500, mb: 0.5 }}
-                      >
+                      <Typography sx={{ color: 'var(--text-primary)', fontWeight: 500, mb: 0.5 }}>
                         TOTP (Two-Factor Authentication)
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
@@ -1816,7 +1814,10 @@ export default function AdminDashboard() {
                       control={
                         <Checkbox
                           checked={totpEnabled}
-                          onChange={handleToggleTotpEnabled}
+                          // CHANGE THIS LINE: Wrap the async call and use the void operator
+                          onChange={() => {
+                            void handleToggleTotpEnabled();
+                          }}
                           sx={{
                             color: 'var(--text-secondary)',
                             '&.Mui-checked': { color: 'var(--accent)' },
@@ -1841,9 +1842,7 @@ export default function AdminDashboard() {
                     }}
                   >
                     <Box>
-                      <Typography
-                        sx={{ color: 'var(--text-primary)', fontWeight: 500, mb: 0.5 }}
-                      >
+                      <Typography sx={{ color: 'var(--text-primary)', fontWeight: 500, mb: 0.5 }}>
                         SSO (Single Sign-On)
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
@@ -1854,7 +1853,10 @@ export default function AdminDashboard() {
                       control={
                         <Checkbox
                           checked={ssoEnabled}
-                          onChange={handleToggleSsoEnabled}
+                          // CHANGE THIS LINE: Wrap the async call and use the void operator
+                          onChange={() => {
+                            void handleToggleSsoEnabled();
+                          }}
                           sx={{
                             color: 'var(--text-secondary)',
                             '&.Mui-checked': { color: 'var(--accent)' },

@@ -100,7 +100,7 @@ connection_operator_mapping:
   connection.tableau:
     - operator.python
 
-email_totp: false
+totp_enabled: false
 smtp:
   host: smtp.gmail.com
   port: 587

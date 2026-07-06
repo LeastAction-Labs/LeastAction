@@ -138,7 +138,7 @@ async def redirect_with_code(
         f"user={get_user_laui()} payload={query.model_dump()}",
     )
     config = load_system_config()
-    email_totp_enabled = config.get("email_totp", False)
+    totp_enabled = config.get("totp_enabled", False)
 
     oauth_flow_cookie = request.cookies.get("oauth_flow")
     if not oauth_flow_cookie:
@@ -166,7 +166,7 @@ async def redirect_with_code(
     random_code = secrets.token_hex(6)
     await auth_code_dict.insert(key=random_code, value={"user_laui": user_laui})
 
-    if email_totp_enabled:
+    if totp_enabled:
         user_email = (await user_service.find_user(laui=PydanticObjectId(user_laui))).email
 
         email_service.send_email(
@@ -180,7 +180,7 @@ async def redirect_with_code(
     redirect_url = redirect_handler.get_client_redirect_url(
         ClientRedirectParams(
             redirect_uri=auth_request_instance.redirect_uri,
-            code=random_code if not email_totp_enabled else None,
+            code=random_code if not totp_enabled else None,
             state=auth_request_instance.state,
         )
     )

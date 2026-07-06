@@ -2,13 +2,12 @@
 
 All authentication endpoints are public (no Bearer token required).
 
-## OAuth Flow Overview
-
+## Native OAuth Flow
 ```
-Client App                    LeastAction Backend                  Frontend
+Client App                     LeastAction Backend                 Frontend
     │                               │                                │
     │  GET /auth?client_id=...      │                                │
-    │──────────────────────────────►│                                │
+    │─────────────────────────────►│                                 │
     │                               │  (no session cookie)           │
     │                               │───────────────────────────────►│
     │                               │  Redirect to /public/login     │
@@ -16,7 +15,7 @@ Client App                    LeastAction Backend                  Frontend
     │                               │  POST /login (form data)       │
     │                               │◄───────────────────────────────│
     │                               │  Sets session cookie           │
-    │                               │  Redirect to /redirect-with-code│
+    │                               │  Redirect to /redirect-with-code
     │                               │                                │
     │  Redirect with ?state=        │                                │
     │  (+ ?code= if email_totp off) │                                │
@@ -30,14 +29,44 @@ Client App                    LeastAction Backend                  Frontend
     │                               │                                │
     │  {must_change_password: bool} │                                │
     │  + frontend_token cookie      │                                │
-    │◄──────────────────────────────│                                │
+    │◄──────────────────────────────│           
 ```
 
----
+## Keycloak SSO Flow
 
+```
+Client App                   LeastAction Backend                     Keycloak
+    │                               │                                   │
+    │  GET /auth?login_source=sso   │                                   │
+    │──────────────────────────────►│                                   │
+    │                               │ (no session cookie)               │
+    │                               │ Redirect to Keycloak Login UI     │
+    │                               │──────────────────────────────────►│
+    │                               │                                   │
+    │                               │           User Authenticates      │
+    │                               │◄──────────────────────────────────│
+    │                               │ Redirects with ?code= & ?state=   │
+    │                               │                                   │
+    │  Redirect with ?state=        │                                   │
+    │  & ?code= & ?provider=keycloak│                                   │
+    │◄──────────────────────────────│                                   │
+    │                               │                                   │
+    │  POST /token                  │                                   │
+    │  {provider: "keycloak",       │                                   │
+    │   credentials: {code: "..."}} │                                   │
+    │──────────────────────────────►│                                   │
+    │                               │──┐ Exchange Keycloak code         │
+    │                               │  │ for user details via OpenID    │
+    │                               │◄─┘                                │
+    │                               │                                   │
+    │    frontend_token cookie      │                                   │
+    │◄──────────────────────────────│                                   │---
+```
 ## POST `/api/v1/login`
 
 Authenticate a user with username/password and redirect with a session cookie.
+
+SSO Enforcement Rule: If sso_enabled is set to true, native authentication via this endpoint restricts access strictly to the root user. Non-root user requests will be rejected, forcing reliance on the Keycloak SSO pathway.
 
 **Authentication**: None  
 **Content-Type**: `application/x-www-form-urlencoded`
@@ -86,6 +115,7 @@ Initiate the OAuth authorization flow. Sets `oauth_flow` cookie with client deta
 | `client_id` | string | Yes | OAuth client identifier |
 | `redirect_uri` | string | Yes | Client callback URL |
 | `state` | string | Yes | State parameter for CSRF protection |
+| `login_source` | string | No | Strategy choice: "native" or "sso". Defaults to "native". |
 
 ### Request Example
 
@@ -98,9 +128,9 @@ GET /api/v1/auth?client_id=my-app&redirect_uri=/callback&state=abc123
 **Status**: 303 See Other
 
 - **With existing session cookie**: Redirects to `/api/v1/redirect-with-code?user_laui=<laui>`
-- **Without session cookie**: Redirects to `/public/login` (frontend login page)
-
-Both set the `oauth_flow` cookie with encoded `{client_id, redirect_uri, state}`.
+- **Without Active Session Cookie**:
+  - `login_source=native`: Redirects to the frontend application login page (/public/login).
+  - `login_source=sso`: Redirects to the Keycloak authentication UI on port 8082 passing /api/v1/redirect-with-code as the target redirect_uri along with the client's state.
 
 ---
 
@@ -115,6 +145,8 @@ Exchange a user session for an authorization code and redirect to the client.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `user_laui` | string | Yes | User's LAUI |
+| `code` | string | No | Keycloak authorization code (Present in SSO workflow only) |
+| `state` | string | No | State token passed back from Keycloak (Present in SSO workflow only) |
 
 ### Request Example
 
@@ -126,10 +158,19 @@ GET /api/v1/redirect-with-code?user_laui=507f1f77bcf86cd799439011
 
 **Status**: 303 See Other
 
-Redirects to `{redirect_uri}?state=<original_state>` using the `redirect_uri` and `state` from the `oauth_flow` cookie.
+**Redirection Rules**
 
-- **When `email_totp` is disabled** (default): `?code=<random_hex>&state=<original_state>` — code is included directly.
-- **When `email_totp` is enabled**: `?state=<original_state>` only — code is sent to user's email instead.
+- Native Path (user_laui present):
+  - Redirects to `{redirect_uri}?state=<original_state>` using the `redirect_uri` and `state` from the `oauth_flow` cookie.
+  - **When `totp_enabled` is disabled** (default): `?code=<random_hex>&state=<original_state>` — code is included directly.
+  - **When `totp_enabled` is enabled**: `?state=<original_state>` only — code is sent to user's email instead.
+
+- SSO Path (code and state present from Keycloak):
+  - Asserts validation matching the state against the stored oauth_flow cookie.
+  - Redirects the user onward to the client application's callback setting provider=keycloak, forwarding the third-party authorization code directly.
+  - Redirects to `{redirect_uri}?state=<original_state>&code=<code>&provider=keycloak` using the `redirect_uri` and `state` from the `oauth_flow` cookie
+  
+
 
 ### Error Responses
 
