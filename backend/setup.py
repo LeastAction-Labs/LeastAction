@@ -914,6 +914,9 @@ async def get_or_create_sales_pipeline_tasks(
     reports_folder_laui: str,
     account_laui: str,
     project_laui: str,
+    debug_reports_folder_laui: str = None,
+    ai_connection_laui: str = None,
+    ai_chat_laui: str = None,
 ) -> dict:
     """Create the 8-task dbt sales reporting pipeline (seed + contract + 3 dbt + validation + 2 reports)."""
     sql_operator_laui = all_items["operator"]["Postgresql/PostgresqlExecuteSQL"]
@@ -1210,27 +1213,54 @@ async def get_or_create_sales_pipeline_tasks(
         }
 
         depends_on = cfg.get("depends_on")
+        pre_actions = []
         if depends_on:
             if isinstance(depends_on, str):
                 depends_on = [depends_on]
-            body["actions"] = {
-                "pre_actions": [
-                    {
-                        "laui": check_parents_action_laui,
-                        "action_variables": {
-                            "parents": [
-                                {
-                                    "task_name": dep,
-                                    "project_laui": "{{ project_laui }}",
-                                    "account_laui": "{{ account_laui }}",
-                                    "partition": "{{ partition }}",
-                                }
-                                for dep in depends_on
-                            ]
+            pre_actions = [
+                {
+                    "laui": check_parents_action_laui,
+                    "action_variables": {
+                        "parents": [
+                            {
+                                "task_name": dep,
+                                "project_laui": "{{ project_laui }}",
+                                "account_laui": "{{ account_laui }}",
+                                "partition": "{{ partition }}",
+                            }
+                            for dep in depends_on
+                        ]
+                    },
+                }
+            ]
+
+        debug_action_laui = all_items["action"].get("LeastActionLabs/LeastActionAgentDebug")
+        post_actions = []
+        if debug_action_laui and debug_reports_folder_laui and ai_connection_laui and ai_chat_laui:
+            post_actions = [
+                {
+                    "laui": debug_action_laui,
+                    "name": "LeastActionAgentDebug",
+                    "action_variables": {
+                        "skill_names": [
+                            "DBT_Postgresql_Sales_Pipelines_Skill",
+                            "DBT_Postgresql_Sales_Data_Contract",
+                        ],
+                        "chat_laui": ai_chat_laui,
+                        "ai_connection": ai_connection_laui,
+                        "notify": {
+                            "asset_laui": debug_reports_folder_laui,
+                            "asset_project_laui": project_laui,
+                            "asset_account_laui": account_laui,
                         },
-                    }
-                ],
-            }
+                    },
+                }
+            ]
+
+        body["actions"] = {
+            "pre_actions": pre_actions,
+            "post_actions": post_actions,
+        }
 
         response = await create_item(body)
         task_laui = response.get("item_laui")
@@ -1420,6 +1450,24 @@ async def setup():
     sales_reports_folder_laui = sales_reports_resp.get("item_laui")
     print(f"[setup] Created sales_pipeline_reports folder: {sales_reports_folder_laui}")
 
+    print("\n--- Debug Reports Folder ---")
+    debug_reports_resp = await create_item(
+        {
+            "item_type": "folder.asset",
+            "name": "DebugReports",
+            "parent_laui": folders["asset"],
+            "project_laui": project_laui,
+            "account_laui": account_laui,
+        }
+    )
+    debug_reports_folder_laui = debug_reports_resp.get("item_laui")
+    print(f"[setup] Created DebugReports folder: {debug_reports_folder_laui}")
+
+    # Resolve Claude connection and chat LAUIs from registered items (optional — only wired if present)
+    ai_connection_laui = all_items.get("connection", {}).get("anthropic/ClaudeApi")
+    ai_chat_laui = all_items.get("agent", {}).get("agent/Anthropic/AnthropicAgent")
+    print(f"[setup] AI connection LAUI: {ai_connection_laui} | AI chat LAUI: {ai_chat_laui}")
+
     print("\n--- Sales Pipeline Tasks ---")
     await get_or_create_sales_pipeline_tasks(
         active_db,
@@ -1428,6 +1476,9 @@ async def setup():
         reports_folder_laui=sales_reports_folder_laui,
         account_laui=account_laui,
         project_laui=project_laui,
+        debug_reports_folder_laui=debug_reports_folder_laui,
+        ai_connection_laui=ai_connection_laui,
+        ai_chat_laui=ai_chat_laui,
     )
 
     print("\n--- Workflow Config ---")
