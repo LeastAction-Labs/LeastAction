@@ -38,6 +38,12 @@ x-backend-env: &backend-env
   KETO_READ_URL: http://keto:4466/relation-tuples
   KETO_WRITE_URL: http://keto:4467/admin/relation-tuples/
   MARKETPLACE_URL: ${MARKETPLACE_URL:-https://marketplace.leastactionlabs.com}
+  # Optional — empty unless set in the environment / a .env file. SMTP_* back
+  # the email action. USE_AWS_SECRETS=true makes get_secret() fall back to AWS
+  # Secrets Manager (region/credentials come from the host's default AWS chain).
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASS: ${SMTP_PASS:-}
+  USE_AWS_SECRETS: ${USE_AWS_SECRETS:-}
 
 services:
   # ── Infrastructure ────────────────────────────────────────────────────────

@@ -28,6 +28,12 @@ x-backend-env: &backend-env
   KETO_WRITE_URL: http://keto:4467/admin/relation-tuples/
   MARKETPLACE_URL: ${MARKETPLACE_URL:-https://marketplace.leastactionlabs.com}
   API_CLIENT_BASE_URL: http://leastaction-${LEASTACTION_SLOT:?set by blue-green-run.sh}-backend:8000/api/v1
+  # Optional — empty unless set in deploy/.env. SMTP_* back the email action.
+  # USE_AWS_SECRETS=true makes get_secret() fall back to AWS Secrets Manager
+  # (region/credentials come from the host's default AWS chain / instance role).
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASS: ${SMTP_PASS:-}
+  USE_AWS_SECRETS: ${USE_AWS_SECRETS:-}
 
 services:
   backend:

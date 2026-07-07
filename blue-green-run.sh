@@ -337,7 +337,7 @@ teardown_everything() {
 
     if [ "$DELETE_VOLUMES" = true ]; then
         infra_compose down --remove-orphans --volumes 2>/dev/null || true
-        docker volume rm -f leastaction_mongodb_data leastaction_postgres_data leastaction_logs leastaction_keys 2>/dev/null || true
+        docker volume rm -f leastaction_mongodb_data leastaction_postgres_data leastaction_postgres_demo_data leastaction_logs leastaction_keys 2>/dev/null || true
     else
         infra_compose down --remove-orphans 2>/dev/null || true
     fi

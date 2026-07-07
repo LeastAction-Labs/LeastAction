@@ -55,17 +55,18 @@ Browser ──► leastaction-frontend :8080   (project leastaction-edge — sta
         leastaction-green-backend :8000        leastaction-blue-backend   (old — drained, removed)
         (project leastaction-green)            (project leastaction-blue)
                  │
-        project leastaction-infra: mongodb · redis · postgres · keto · key-init
+        project leastaction-infra: mongodb · redis · postgres · keto · key-init · postgres-demo · dbt-demo
         shared: network leastaction_network, volumes leastaction_mongodb_data / leastaction_postgres_data
-                / leastaction_logs / leastaction_keys
+                / leastaction_postgres_demo_data / leastaction_logs / leastaction_keys
 ```
 
 Three kinds of compose projects share one Docker network:
 
 1. **`leastaction-infra`** ([docker-compose.infra.yml](docker-compose.infra.yml)) —
-   databases, keto, and the one-time JWT key generation. Started once,
-   untouched by redeploys. Owns the shared volumes, so slots come and go
-   without touching data.
+   databases, keto, the one-time JWT key generation, and the demo stack
+   (`postgres-demo` + `dbt-demo`) used by the onboarding demo connections.
+   Started once, untouched by redeploys. Owns the shared volumes, so slots come
+   and go without touching data.
 2. **`leastaction-blue` / `leastaction-green`** ([docker-compose.app.yml](docker-compose.app.yml)) —
    the app slots (only one active at a time, both briefly up during a swap):
    backend, three celery workers, change streamers, the one-shot setup helper,

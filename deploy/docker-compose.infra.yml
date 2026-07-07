@@ -7,6 +7,10 @@
 # Owns the shared network (leastaction_network) and all data volumes with fixed
 # names so the app slots (leastaction-blue / leastaction-green) and the edge
 # frontend can attach to them as externals.
+#
+# Services: mongodb, redis, postgres + keto (authz), key-init (JWT keypair),
+# and the demo stack (postgres-demo + dbt-demo) used by the onboarding demo
+# connections. All are shared singletons reused across both slots.
 # ============================================================================
 name: leastaction-infra
 
@@ -80,6 +84,47 @@ services:
       - POSTGRES_DB=keto
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  # Demo Postgres + dbt server used by the onboarding catalog's demo
+  # connections. Shared by both app slots, so it lives here in infra rather
+  # than in the per-slot app stack.
+  postgres-demo:
+    image: postgres:15
+    hostname: postgres-demo
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres_demo_db
+    volumes:
+      - postgres_demo_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  dbt-demo:
+    build:
+      # Context is relative to this compose file's directory (deploy/), so the
+      # dbt-server source at the repo root is one level up.
+      context: ../dbt-server
+    hostname: dbt-demo
+    restart: unless-stopped
+    environment:
+      - DBT_PG_HOST=postgres-demo
+      - DBT_PG_PORT=5432
+      - DBT_PG_USER=postgres
+      - DBT_PG_PASSWORD=postgres
+      - DBT_PG_DATABASE=postgres_demo_db
+    depends_on:
+      postgres-demo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   keto-migrate:
     image: oryd/keto:v25.4.0
@@ -233,5 +278,7 @@ volumes:
     name: leastaction_mongodb_data
   postgres_data:
     name: leastaction_postgres_data
+  postgres_demo_data:
+    name: leastaction_postgres_demo_data
   leastaction_keys:
     name: leastaction_keys
