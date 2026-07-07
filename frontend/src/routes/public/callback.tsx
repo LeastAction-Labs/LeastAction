@@ -99,7 +99,7 @@ function RouteComponent() {
             variant="h4"
             sx={{ mb: 3, fontWeight: "bold" }}
           >
-            Enter verfication code
+            Enter verification code
           </Typography>
 
           <Box sx={{ width: "100%" }}>

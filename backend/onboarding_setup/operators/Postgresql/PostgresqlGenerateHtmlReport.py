@@ -612,6 +612,16 @@ def write_report_to_database(conn, table_html, metrics_count, date_range_count, 
 
         cursor = conn.cursor()
 
+        # Serialize first-time table creation across concurrent report tasks.
+        # This check-then-CREATE is not atomic: when several reports target the
+        # same output_table and race on the initial create, each session sees
+        # table_exists=False and each then tries to create the table and its
+        # implicit sequence, colliding on pg_class ("duplicate key value
+        # violates unique constraint pg_class_relname_nsp_index"). A
+        # transaction-level advisory lock keyed on the table name lets only one
+        # creator run at a time; it is released on commit/rollback.
+        cursor.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (output_table,))
+
         cursor.execute(
             "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = %s)",
             (output_table,)

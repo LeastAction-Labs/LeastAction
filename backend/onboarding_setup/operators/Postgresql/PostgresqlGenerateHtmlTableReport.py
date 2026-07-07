@@ -616,7 +616,18 @@ def write_report_to_database(conn, pivot_table, metric_styles, output_table, rep
 
         # Write to database table
         cursor = conn.cursor()
-        
+
+        # Serialize first-time table creation across concurrent report tasks.
+        # `CREATE TABLE IF NOT EXISTS ... SERIAL` is NOT atomic: when several
+        # reports target the same output_table and race on the initial create,
+        # each session's IF NOT EXISTS check passes and each then tries to
+        # create the implicit sequence, colliding on pg_class
+        # ("duplicate key value violates unique constraint
+        # pg_class_relname_nsp_index"). A transaction-level advisory lock keyed
+        # on the table name lets only one creator run at a time; it is released
+        # on commit/rollback below.
+        cursor.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (output_table,))
+
         # Create table if not exists
         create_table_sql = f"""
         CREATE TABLE IF NOT EXISTS {output_table} (
