@@ -39,15 +39,15 @@ Client App                    LeastAction Backend                  Frontend
 
 Authenticate a user with username/password and redirect with a session cookie.
 
-**Authentication**: None  
+**Authentication**: None
 **Content-Type**: `application/x-www-form-urlencoded`
 
 ### Form Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `username` | string | Yes | Username |
-| `password` | string | Yes | Password (URL-encoded) |
+| Field      | Type   | Required | Description            |
+| ---------- | ------ | -------- | ---------------------- |
+| `username` | string | Yes      | Username               |
+| `password` | string | Yes      | Password (URL-encoded) |
 
 ### Request Example
 
@@ -67,8 +67,9 @@ Redirects to `/api/v1/redirect-with-code?user_laui=<laui>` with a `session` cook
 ### Error Responses
 
 **401 Unauthorized** — Invalid credentials
+
 ```json
-{"detail": "Invalid username or password"}
+{ "detail": "Invalid username or password" }
 ```
 
 ---
@@ -81,11 +82,11 @@ Initiate the OAuth authorization flow. Sets `oauth_flow` cookie with client deta
 
 ### Query Parameters
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `client_id` | string | Yes | OAuth client identifier |
-| `redirect_uri` | string | Yes | Client callback URL |
-| `state` | string | Yes | State parameter for CSRF protection |
+| Parameter      | Type   | Required | Description                         |
+| -------------- | ------ | -------- | ----------------------------------- |
+| `client_id`    | string | Yes      | OAuth client identifier             |
+| `redirect_uri` | string | Yes      | Client callback URL                 |
+| `state`        | string | Yes      | State parameter for CSRF protection |
 
 ### Request Example
 
@@ -112,9 +113,9 @@ Exchange a user session for an authorization code and redirect to the client.
 
 ### Query Parameters
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `user_laui` | string | Yes | User's LAUI |
+| Parameter   | Type   | Required | Description |
+| ----------- | ------ | -------- | ----------- |
+| `user_laui` | string | Yes      | User's LAUI |
 
 ### Request Example
 
@@ -160,6 +161,7 @@ Empty response body.
 ### Error Responses
 
 **422 Unprocessable Entity** — Cookie not present
+
 ```json
 {
   "detail": [
@@ -182,10 +184,10 @@ Exchange credentials for an access token. Sets `frontend_token` cookie on succes
 
 ### Request Body
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `grant_type` | string | Yes | `"authorization_code"` or `"refresh_token"` |
-| `credentials` | object | Yes | Credential details (varies by grant type) |
+| Field         | Type   | Required | Description                                 |
+| ------------- | ------ | -------- | ------------------------------------------- |
+| `grant_type`  | string | Yes      | `"authorization_code"` or `"refresh_token"` |
+| `credentials` | object | Yes      | Credential details (varies by grant type)   |
 
 ### Variation 1: Authorization Code Grant
 
@@ -227,13 +229,17 @@ Sets the `frontend_token` cookie (JWT access token, RS256-signed, 24h expiry).
 ### Error Responses
 
 **400 Bad Request** — Mismatched grant_type and credentials
+
 ```json
-{"detail": "if grant type is refresh_token: then token_string must be passed in credentials."}
+{
+  "detail": "if grant type is refresh_token: then token_string must be passed in credentials."
+}
 ```
 
 **401 Unauthorized** — Invalid authorization code or refresh token
+
 ```json
-{"detail": "Invalid authorization code"}
+{ "detail": "Invalid authorization code" }
 ```
 
 ---
@@ -263,12 +269,13 @@ GET /api/v1/get-mcp-token
 ### Error Responses
 
 **401 Unauthorized** — Cookie missing or token invalid
+
 ```json
-{"detail": "Unauthorized"}
+{ "detail": "Unauthorized" }
 ```
 
 ```json
-{"detail": "Invalid token"}
+{ "detail": "Invalid token" }
 ```
 
 ---
@@ -301,8 +308,82 @@ Deletes cookies: `frontend_token`, `oauth_flow`, `session`.
 
 ## Cookie Reference
 
-| Cookie | Set By | Purpose |
-|--------|--------|---------|
-| `session` | `POST /login` | Encoded user data for server-side session |
-| `oauth_flow` | `GET /auth` | Encoded OAuth parameters (client_id, redirect_uri, state) |
+| Cookie           | Set By        | Purpose                                                                              |
+| ---------------- | ------------- | ------------------------------------------------------------------------------------ |
+| `session`        | `POST /login` | Encoded user data for server-side session                                            |
+| `oauth_flow`     | `GET /auth`   | Encoded OAuth parameters (client_id, redirect_uri, state)                            |
 | `frontend_token` | `POST /token` | JWT access token (RS256, 24h). Used by auth middleware to identify the current user. |
+
+---
+
+## System User Authentication
+
+### X-System-Auth-Token Header
+
+**Purpose**: Authenticates internal API calls made by Celery workers and other system components.
+
+**When to use**: This header is **required** for accessing internal system endpoints that are exclusively used by background workers.
+
+**Protected Endpoints**:
+
+- `POST /api/v1/task/update/{task_laui}`
+- `POST /api/v1/task/finish/{task_laui}`
+- `GET /api/v1/catalog/get/tasks_ready_to_run/{project_laui}`
+
+### Header Format
+
+```
+X-System-Auth-Token: <system_user_jwt_token>
+```
+
+The token is a JWT containing claims for the system user (`system@leastactionlabs.com`).
+
+### Authentication Flow
+
+1. **Worker Context**: When a Celery worker executes a task, it operates on behalf of the user who triggered it (via the standard Bearer token).
+2. **System Validation**: For internal API calls, the worker also includes the `X-System-Auth-Token` to prove the request originates from trusted infrastructure.
+3. **Dual Verification**: The middleware validates both:
+   - The `X-System-Auth-Token` matches the system user's LAUI
+   - The token signature is valid
+
+### Security Model
+
+**Why Two Tokens?**
+
+| Token Type                       | Purpose               | Contains                      |
+| -------------------------------- | --------------------- | ----------------------------- |
+| `frontend_token` (Cookie/Bearer) | User context          | User who initiated the action |
+| `X-System-Auth-Token` (Header)   | System authentication | System user credentials       |
+
+This separation ensures:
+
+- User actions are properly attributed and audited
+- Internal endpoints cannot be accessed by regular users
+- Worker requests are cryptographically verified as coming from trusted infrastructure
+
+### Error Responses
+
+**401 Unauthorized** — Missing system token
+
+```json
+{
+  "message": "Unauthenticated",
+  "detail": "Missing X-System-Auth-Token"
+}
+```
+
+**401 Unauthorized** — Invalid or tampered token
+
+```json
+{
+  "message": "Authentication error",
+  "detail": "tampered celery auth token"
+}
+```
+
+### Implementation Notes
+
+- The system user is created during initial setup with email `system@leastactionlabs.com`
+- The system access token is a long-lived JWT stored in the database
+- Regular users cannot obtain or use the system token
+- System-only endpoints reject requests that lack the `X-System-Auth-Token` header

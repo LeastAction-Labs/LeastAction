@@ -132,7 +132,7 @@ async def test_update_allowed_fields_success(client: TestClient, test_context):
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -156,11 +156,10 @@ async def test_update_allowed_fields_success(client: TestClient, test_context):
     update_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
-                "item_laui": task_laui,  # Identify item by laui
                 "name": task_name,  # Primary key must remain the same
                 "description": "Updated description",
                 "priority": 5,
@@ -194,7 +193,7 @@ async def test_update_user_set_state_allowed(client: TestClient, test_context):
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -215,11 +214,10 @@ async def test_update_user_set_state_allowed(client: TestClient, test_context):
     update_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
-                "item_laui": task_laui,  # Identify item by laui
                 "name": task_name,  # Same name (primary key) to identify the item
                 "user_set_state": "cancel",
                 "project_laui": test_context["project_laui"],
@@ -251,7 +249,7 @@ async def test_update_system_fields_always_excluded(client: TestClient, test_con
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -282,11 +280,10 @@ async def test_update_system_fields_always_excluded(client: TestClient, test_con
     update_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
-                "item_laui": task_laui,  # Identify item by laui
                 "name": task_name,  # Same name (primary key) to identify the item
                 "description": "test description",  # Update an allowed field
                 "created_at": fake_date,  # Should be ignored

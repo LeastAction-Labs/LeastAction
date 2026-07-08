@@ -8,15 +8,14 @@
 // services/task.service.ts
 import { CORE_BACKEND_URL } from '@/config/urls';
 
+import { getCatalogItemById } from '.';
 import { httpJsonWithSession } from './api';
 import { preprocessItemData } from './utils';
 
 const API_ENDPOINTS = {
   task: {
-    run: `${CORE_BACKEND_URL}/api/v1/task/run`,
+    create_run: `${CORE_BACKEND_URL}/api/v1/task`,
     run_multiple: `${CORE_BACKEND_URL}/api/v1/task/multiple_tasks`,
-    finish: `${CORE_BACKEND_URL}/api/v1/task/finish`,
-    update: `${CORE_BACKEND_URL}/api/v1/task/update`,
     dangerously_reset: `${CORE_BACKEND_URL}/api/v1/task/dangerously_reset`,
     diagnose: `${CORE_BACKEND_URL}/api/v1/task/diagnose`,
   },
@@ -41,10 +40,13 @@ export async function runTask(taskData: any): Promise<TaskRunResponse> {
   //console.log('Running task with data:', taskData);
   try {
     const cleanedItemData = await preprocessItemData(taskData);
-    const { data, sessionId } = await httpJsonWithSession<TaskRunResponse>(API_ENDPOINTS.task.run, {
-      method: 'POST',
-      body: cleanedItemData,
-    });
+    const { data, sessionId } = await httpJsonWithSession<TaskRunResponse>(
+      API_ENDPOINTS.task.create_run,
+      {
+        method: 'POST',
+        body: cleanedItemData,
+      },
+    );
     //console.log('Task run response:', data, 'Session ID:', sessionId);
     return { ...data, session_id: sessionId || data.session_id || undefined };
   } catch (error) {
@@ -82,9 +84,11 @@ export async function runTasks(taskLauis: string[]): Promise<TaskRunResponse[]> 
  * @param taskLaui - The LAUI of the task to cancel
  */
 export async function cancelTask(taskLaui: string): Promise<void> {
-  await httpJsonWithSession(`${API_ENDPOINTS.task.update}/${taskLaui}`, {
+  const task = await getCatalogItemById(taskLaui);
+  task.user_set_state = 'cancel';
+  await httpJsonWithSession(`${API_ENDPOINTS.task.create_run}`, {
     method: 'POST',
-    body: { user_set_state: 'cancel' },
+    body: task,
   });
 }
 

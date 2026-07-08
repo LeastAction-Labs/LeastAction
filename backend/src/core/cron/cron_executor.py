@@ -6,7 +6,9 @@
 import asyncio
 import traceback
 from datetime import UTC, datetime
+
 from pydantic_mongo import PydanticObjectId
+
 from src.common.logger.logger import log_error, log_info
 from src.core.celery.client import APIClient
 from src.core.celery.utils import get_stale_heartbeat_threshold_seconds, is_heartbeat_stale
@@ -165,6 +167,7 @@ class CronExecutor:
                         try:
                             await self.api_client.update_item(
                                 self.system_auth_token,
+                                self.system_auth_token,
                                 task_laui,
                                 update_data=TaskUpdateData(
                                     state=TaskState.FAIL,
@@ -174,7 +177,9 @@ class CronExecutor:
                                     last_system_updated_date=datetime.now(UTC),
                                 ),
                             )
-                            await self.api_client.finish_task(self.system_auth_token, task_laui)
+                            await self.api_client.finish_task(
+                                self.system_auth_token, self.system_auth_token, task_laui
+                            )
                             log_info(
                                 "cron",
                                 "CronExecutor",

@@ -42,7 +42,40 @@ Every item type schema defines `unique_constraints` -- a set of fields that toge
 
 ### Access Control
 
-No explicit access check at the route level. Access is managed through the `access_patch` field on the item itself and inherited from the parent when `parent_laui` is provided.
+Access is validated internally within the catalog service's `create_item` method. The service checks permissions on the parent item and any referenced items during creation.
+
+**Note**: This is the only catalog endpoint where access checks remain in the service layer rather than at the router level, ensuring atomic validation during item creation.
+
+### Item Type Restrictions
+
+**⚠️ Important**: The following item types **cannot** be created via this endpoint:
+- `task`
+- `action`
+
+These item types have dedicated creation and execution endpoints:
+- Use `POST /api/v1/task` to create and run tasks
+- Use `POST /api/v1/action` to create and execute actions
+
+**Rationale**: Tasks and actions require specialized validation, permission checks, and lifecycle management that are handled by their dedicated endpoints. This restriction prevents bypassing security checks and ensures proper workflow execution.
+
+#### Error Response for Restricted Types
+
+**422 Unprocessable Entity** — Attempted to create restricted item type
+```json
+{
+  "message": "Invalid item type passed",
+  "detail": "use /api/v1/task api to create task"
+}
+```
+
+or
+
+```json
+{
+  "message": "Invalid item type passed",
+  "detail": "use /api/v1/action api to create action"
+}
+```
 
 ### Request Body
 
@@ -730,6 +763,16 @@ Returns all tasks under a project that are eligible for execution based on sched
 GET /api/v1/catalog/get/tasks_ready_to_run/{project_laui}
 ```
 
+### 🔒 System-Only Endpoint
+
+**Authentication**: Requires **both**:
+1. Bearer token (user context)
+2. `X-System-Auth-Token` header (system authentication)
+
+**Why**: This endpoint is called by cron schedulers to discover tasks eligible for execution. The system token prevents external clients from querying scheduled tasks, which could reveal infrastructure details and execution patterns.
+
+**External Access**: Attempting to call this endpoint without the system token results in a `401 Unauthorized` error.
+
 ### Description
 
 Uses a MongoDB aggregation pipeline to find tasks that meet all of the following criteria:
@@ -746,6 +789,8 @@ Uses a MongoDB aggregation pipeline to find tasks that meet all of the following
 - The parent workflow's `folder_metadata.state` is not `PAUSE`
 
 ### Access Control
+
+**Router-Level Authorization**: User must have **own** permission on the project before tasks are returned.
 
 | Check | Permission | Target |
 |-------|-----------|--------|

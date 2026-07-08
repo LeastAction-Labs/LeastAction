@@ -10,8 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic_mongo import PydanticObjectId
 
 from src.common.context_vars.user_context import get_user_laui
-from src.common.exceptions import LAException
+from src.common.exceptions import InvalidArgumentError, LAException
 from src.common.logger.logger import log_error, log_info
+from src.core.api.utils import convert_objectid_to_str
 from src.core.catalog.api_request import (
     BaseCreateItemRequest,
     CreateLinkRequest,
@@ -23,6 +24,7 @@ from src.core.catalog.api_request import (
 from src.core.catalog.bootstrap import bootstrap_project_structure
 from src.core.catalog.orchestrator import ItemOrchestrator, get_item_orchestrator
 from src.core.ee.keto.access_reader import AccessReader, get_access_reader
+from src.core.ee.keto.schema import Permission
 from src.core.validation.schema import ValidateCodeblockRequest
 from src.core.validation.service import CodeblockValidator, get_codeblock_validator
 
@@ -41,6 +43,11 @@ async def create_item(
             "create_item",
             f"user={get_user_laui()} payload={item.model_dump()}",
         )
+        if item.item_type in ["task", "action"]:
+            raise InvalidArgumentError(
+                "Invalid item type passed",
+                f"use /api/v1/{item.item_type} api to create {item.item_type}",
+            )
         return await item_orchestrator.create_item(item)
     except LAException as e:
         log_error(
@@ -194,7 +201,7 @@ async def get_item(
             "get_item",
             f"user={get_user_laui()} payload={request.model_dump()}",
         )
-        if not request.is_root and not request.only_item_laui_passed:
+        if not request.is_root:
             await access_reader.check_item_view_access(
                 item_laui=str(request.item_laui), user_laui=get_user_laui()
             )
@@ -256,11 +263,20 @@ async def get_item_revisions(
         )
 
 
+async def _verify_access_for_delete_item(
+    request: DeleteItemRequest,
+    access_reader: AccessReader = Depends(get_access_reader),
+):
+    await access_reader.check_item_delete_access(
+        item_laui=str(request.item_laui), user_laui=get_user_laui()
+    )
+    return request
+
+
 @catalog_router.post("/delete")
 async def delete_item(
-    request: DeleteItemRequest,
+    request: Annotated[DeleteItemRequest, Depends(_verify_access_for_delete_item)],
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
-    access_reader: AccessReader = Depends(get_access_reader),
 ):
     try:
         log_info(
@@ -268,9 +284,6 @@ async def delete_item(
             "catalog_router",
             "delete_item",
             f"user={get_user_laui()} payload={request.model_dump()}",
-        )
-        await access_reader.check_item_delete_access(
-            item_laui=str(request.item_laui), user_laui=get_user_laui()
         )
         await item_orchestrator.delete_item(request=request)
         return {"message": "Item deleted successfully"}
@@ -300,7 +313,6 @@ async def delete_item(
 async def restore_item(
     item_laui: PydanticObjectId,
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
-    access_reader: AccessReader = Depends(get_access_reader),
 ):
     try:
         log_info(
@@ -308,9 +320,6 @@ async def restore_item(
             "catalog_router",
             "restore_item",
             f"user={get_user_laui()} payload={{item_laui={item_laui}}}",
-        )
-        await access_reader.check_item_delete_access(
-            item_laui=str(item_laui), user_laui=get_user_laui()
         )
         await item_orchestrator.restore_item(item_laui)
         return {"message": "Item restored successfully"}
@@ -340,6 +349,7 @@ async def restore_item(
 async def search(
     request: SearchRequest,
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
+    access_reader: AccessReader = Depends(get_access_reader),
 ):
     try:
         log_info(
@@ -348,7 +358,20 @@ async def search(
             "search",
             f"user={get_user_laui()} payload={request.model_dump()}",
         )
-        return await item_orchestrator.search(request=request)
+        response = await item_orchestrator.search(request=request)
+        items = response.items
+        item_lauis_access = await access_reader.batch_check_permissions(
+            permission_to_check=Permission.VIEW,
+            item_lauis=[PydanticObjectId(item.laui) for item in items],
+            user_laui=get_user_laui(),
+        )
+        allowed_items = []
+        for item, has_item_access in zip(items, item_lauis_access):
+            if has_item_access:
+                allowed_items.append(item)
+        response.items = allowed_items
+        return convert_objectid_to_str(response.model_dump())
+
     except LAException as e:
         log_error(
             "api_traceback",
@@ -410,6 +433,7 @@ async def get_supported_types(
 async def bootstrap_project(
     project_laui: str,
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
+    access_reader: AccessReader = Depends(get_access_reader),
 ):
     try:
         log_info(
@@ -417,6 +441,9 @@ async def bootstrap_project(
             "catalog_router",
             "bootstrap_project",
             f"user={get_user_laui()} payload={{project_laui={project_laui}}}",
+        )
+        await access_reader.check_item_edit_access(
+            item_laui=project_laui, user_laui=get_user_laui()
         )
         created_folders = await bootstrap_project_structure(
             project_laui=project_laui,

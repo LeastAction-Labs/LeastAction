@@ -144,7 +144,7 @@ async def task_laui(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -457,4 +457,4 @@ async def test_update_nonexistent_task_fail(
     )
 
     # Should fail with 404
-    assert update_resp.status_code == 404
+    assert update_resp.status_code == 403

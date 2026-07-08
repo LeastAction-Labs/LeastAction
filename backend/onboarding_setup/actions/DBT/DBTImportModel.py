@@ -78,7 +78,7 @@ def task_exists_in_folder(task_name, workflow_folder_laui, project_laui, account
 
 def create_task(task_body, user_access_token):
     backend_host = os.getenv('BACKEND_HOST', 'backend')
-    api_url = f'http://{backend_host}:8000/api/v1/catalog/create'
+    api_url = f'http://{backend_host}:8000/api/v1/task'
     headers = {'Cookie': f'frontend_token={user_access_token}', 'Content-Type': 'application/json'}
 
     log_info('action', 'create_task', 'request_details',

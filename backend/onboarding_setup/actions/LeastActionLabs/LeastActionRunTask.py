@@ -48,7 +48,7 @@ codeblock = {'main.py': 'import requests\n'
                 '        log_info("action", "run", "run_target_task", f"Attempting to run target '
                 'task: {task_laui}")\n'
                 '\n'
-                '        run_url = base_api_url + "/task/run"\n'
+                '        run_url = base_api_url + "/task"\n'
                 '        run_payload = {\n'
                 '            "item_type": "task",\n'
                 '            "item_laui": task_laui\n'
@@ -91,7 +91,7 @@ connection = {'api_key': '', 'base_url': 'http://localhost:8000'}
 prompt = (
     "Trigger execution of a LeastAction task by LAUI. "
     "Action variable: task_laui (the LAUI of the task to run). "
-    "POSTs to /api/v1/task/run/{task_laui} using user_access_token. "
+    "POSTs to /api/v1/task/{task_laui} using user_access_token. "
     "Returns True on successful trigger, False on any error."
 )
 
@@ -142,4 +142,3 @@ version_details = {
     "version": "0.0.0",
     "core": ["0.*"]
 }
-

@@ -54,7 +54,7 @@ async def auth_middleware(
 
     if not token:
         return JSONResponse(
-            status_code=401, content={"message": "Unauthorized", "detail": missing_token_detail}
+            status_code=401, content={"message": "Unauthenticated", "detail": missing_token_detail}
         )
     try:
         claims = session_service.verify_jwt_token(token)
