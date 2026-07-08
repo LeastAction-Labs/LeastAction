@@ -7,7 +7,7 @@
 
 ## Endpoints
 
-- [POST /task/run](#1-post-taskrun) -- Create and/or run a task
+- [POST /task](#1-post-taskrun) -- Create and/or run a task
 - [POST /task/multiple_tasks](#2-post-taskmultiple_tasks) -- Run multiple existing tasks
 - [POST /task/update/{task_laui}](#3-post-taskupdatetask_laui) -- Update task fields
 - [POST /task/finish/{task_laui}](#4-post-taskfinishtask_laui) -- Finish/dequeue task
@@ -16,7 +16,7 @@
 
 ---
 
-## 1. POST `/task/run`
+## 1. POST `/task`
 
 Create and/or run a task. This endpoint has **dual behavior**:
 
@@ -24,6 +24,19 @@ Create and/or run a task. This endpoint has **dual behavior**:
 |----------|-----------|--------------|
 | **Create + Run** | `item_laui` is **not** provided | Creates a new task in the catalog, then runs it |
 | **Run Existing** | `item_laui` **is** provided | Fetches the existing task, then runs it |
+
+### Access Control
+
+**Router-Level Authorization**: This endpoint validates access permissions **before** reaching the service layer using FastAPI dependencies.
+
+**Permission Checks**:
+- If `item_laui` is provided (running existing task): User must have **edit** permission on the task
+- If creating a new task:
+  - User must have **edit** permission on `parent_laui`
+  - User must have **view** permission on `operator_laui`, `connection_laui`, `payload_laui` (if provided)
+  - User must have **view** permission on all action LAUIs referenced in the `actions` field
+
+**Why It Matters**: This is the **only** way to create task items. The generic `/api/v1/catalog/create` endpoint explicitly blocks `task` item types, ensuring all task creation flows through this controlled endpoint with proper permission validation.
 
 ### Request Body
 
@@ -61,7 +74,7 @@ Create and/or run a task. This endpoint has **dual behavior**:
 The simplest case -- creates a task and immediately executes it.
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/task/run \
+curl -X POST http://localhost:8000/api/v1/task \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -89,7 +102,7 @@ curl -X POST http://localhost:8000/api/v1/task/run \
 Runs a task that was already created. The server fetches the task from the catalog, validates it, and dispatches execution.
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/task/run \
+curl -X POST http://localhost:8000/api/v1/task \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -439,6 +452,18 @@ The `execution_result_id` is the Celery async result ID. Tasks that fail validat
 
 Update system-managed fields on a task. Used by the executor (Celery worker), the cron scheduler, and internal services to update task state during execution.
 
+### 🔒 System-Only Endpoint
+
+**Authentication**: Requires **both**:
+1. Bearer token (user context)
+2. `X-System-Auth-Token` header (system authentication)
+
+**Why**: This endpoint is called by Celery workers during task execution to update task state, retry counts, and execution metadata. The `X-System-Auth-Token` header ensures the request originates from trusted system infrastructure, not external clients.
+
+**Access Control**: Router-level dependency validates that the authenticated user has **edit** permission on the task before processing the update.
+
+**External Access**: Attempting to call this endpoint without the system token results in a `401 Unauthorized` error.
+
 ### Path Parameters
 
 | Parameter | Type | Description |
@@ -571,6 +596,16 @@ curl -X POST http://localhost:8000/api/v1/task/update/6650a1b2c3d4e5f6a7b8c9e0 \
 
 Dequeue a task from the connection queue and decrement the connection's `current_parallelism` counter. Called by the Celery worker after task execution completes (regardless of success or failure).
 
+### 🔒 System-Only Endpoint
+
+**Authentication**: Requires **both**:
+1. Bearer token (user context)
+2. `X-System-Auth-Token` header (system authentication)
+
+**Why**: This endpoint is called by Celery workers to clean up task execution state and free connection capacity. The system token ensures only workers can perform this critical infrastructure operation.
+
+**External Access**: Attempting to call this endpoint without the system token results in a `401 Unauthorized` error.
+
 ### Path Parameters
 
 | Parameter | Type | Description |
@@ -632,7 +667,7 @@ Tasks move through the following states during their lifecycle:
 
 ### Task Execution Pipeline
 
-When a task is submitted via `/task/run` or `/task/multiple_tasks`, it passes through the following pipeline:
+When a task is submitted via `/task` or `/task/multiple_tasks`, it passes through the following pipeline:
 
 ```
 Request
@@ -782,7 +817,7 @@ Enqueue and dequeue operations use optimistic concurrency with up to 5 retries a
 ```
 scheduled
   |
-  |  (cron picks up or /task/run called)
+  |  (cron picks up or /task called)
   v
 queued_for_connection
   |

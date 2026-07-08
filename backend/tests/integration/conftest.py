@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from main import app
 from src.common.env import ENV
 from src.core.db.types import MongoDatabase
-from tests.integration.utils import get_auth_header, get_test_database
+from tests.integration.utils import get_system_access_token, get_test_database
 
 
 @pytest.fixture(autouse=True)
@@ -48,8 +48,11 @@ async def test_database() -> AsyncGenerator[MongoDatabase, None]:
 async def client():
     os.environ["ENV"] = ENV.TEST.value
     with TestClient(app) as client:
-        auth_header = await get_auth_header()
-        client.headers = {"Cookie": auth_header}
+        access_token = await get_system_access_token()
+        client.headers = {
+            "Cookie": f"frontend_token={access_token};",
+            "X-System-Auth-Token": access_token,
+        }
         yield client
 
 

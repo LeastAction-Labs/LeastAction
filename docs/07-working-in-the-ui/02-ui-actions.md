@@ -18,12 +18,13 @@ UI actions are attached via config. Add them to the `uiActions` array in a workf
 {
   "uiActions": [
     {
-      "action": "LeastActionImportPostgres",
-      "connection": "PostgresProd",
+      "action": "LeastActionGitToTask",
+      "connection": "GitHubMain",
       "variables": {
-        "schema": "public",
-        "tables": ["all"],
-        "importViews": false
+        "git_repo_url": "https://github.com/org/repo.git",
+        "git_branch": "main",
+        "folder_path": "tasks/",
+        "workflow_folder_laui": "<workflow-folder-laui>"
       }
     }
   ]
@@ -54,19 +55,19 @@ Configure them in the `taskControlActions` array on the workflow config:
 {
   "taskControlActions": [
     {
-      "action": "LeastActionCancel",
+      "action": "LeastActionCancelTask",
       "variables": {
         "taskStatus": ["running", "scheduled"]
       }
     },
     {
-      "action": "LeastActionRerun",
+      "action": "LeastActionRunTask",
       "variables": {
         "taskStatus": ["error", "failed"]
       }
     },
     {
-      "action": "LeastActionSkipSubtree",
+      "action": "LeastActionScheduleTasks",
       "variables": {
         "taskStatus": ["scheduled", "waiting"]
       }
@@ -81,13 +82,9 @@ The `taskStatus` filter controls when each button is visible. A **Cancel** butto
 
 | Action | Effect |
 |---|---|
-| `LeastActionRun` | Start execution |
-| `LeastActionRerun` | Re-execute |
-| `LeastActionRerunSubtree` | Re-execute task and all children |
-| `LeastActionCancel` | Stop a running task |
-| `LeastActionSkip` | Mark as skipped |
-| `LeastActionSkipSubtree` | Skip task and all children |
-| `LeastActionSkipPostDoneS3` | Skip and write S3 completion marker |
+| `LeastActionRunTask` | Start or re-execute a task |
+| `LeastActionCancelTask` | Stop a running task |
+| `LeastActionScheduleTasks` | Schedule or reschedule tasks |
 
 ---
 

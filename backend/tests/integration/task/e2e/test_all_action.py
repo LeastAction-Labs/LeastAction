@@ -207,7 +207,7 @@ async def file_system_action_laui(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -332,7 +332,7 @@ async def test_task_actions_write_to_files(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -516,7 +516,7 @@ async def test_task_with_check_parents_done_pre_action(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -548,7 +548,7 @@ async def test_task_with_check_parents_done_pre_action(
         parent_resp = execute_request(
             client=client,
             request=TestRequest(
-                url="/api/v1/catalog/create",
+                url="/api/v1/task",
                 method="post",
                 json={
                     "item_type": "task",
@@ -600,7 +600,7 @@ async def test_task_with_check_parents_done_pre_action(
     child_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -708,7 +708,7 @@ async def test_action_status_for_task_execution(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -942,7 +942,7 @@ async def test_actions_status_reset_on_rerun(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",

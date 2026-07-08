@@ -278,7 +278,7 @@ def create_scheduled_task(
         data["attached_config_lauis"] = attached_config_lauis
 
     resp = execute_request(
-        client=client, request=TestRequest(url="/api/v1/catalog/create", method="post", json=data)
+        client=client, request=TestRequest(url="/api/v1/task", method="post", json=data)
     )
     assert resp.status_code == 200
     return CreateItemResponse(**resp.json()).item_laui
@@ -290,7 +290,7 @@ def create_adhoc_task(client: TestClient, ctx: TestContext, name_suffix: str = "
     resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -588,7 +588,7 @@ async def test_paused_workflow_tasks_not_ready(client: TestClient):
         resp = execute_request(
             client=client,
             request=TestRequest(
-                url="/api/v1/catalog/create",
+                url="/api/v1/task",
                 method="post",
                 json={
                     "item_type": "task",

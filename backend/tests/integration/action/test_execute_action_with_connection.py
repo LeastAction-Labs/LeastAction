@@ -226,7 +226,7 @@ def run(least_action_action_object, folder_path, file_path):
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -255,7 +255,7 @@ async def test_execute_action_with_connection_laui_pass(
     connection_laui: str,
 ):
     """
-    Test action execution with connection_laui via /api/v1/action/run.
+    Test action execution with connection_laui via /api/v1/action.
     This tests that the PreActionManager (create_actions):
     1. Fetches the connection content using catalog_manager.find_item
     2. Validates the item type starts with 'connection.'
@@ -283,7 +283,7 @@ async def test_execute_action_with_connection_laui_pass(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -342,7 +342,7 @@ async def test_execute_action_with_invalid_connection_type_fail(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -384,7 +384,7 @@ async def test_execute_action_with_nonexistent_connection_fail(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -403,6 +403,6 @@ async def test_execute_action_with_nonexistent_connection_fail(
     print(f"Action execution response: {action_resp.json()}")
     # PreActionManager.create_actions should handle nonexistent connection
     # Check that request completes (status 200) but may log error internally
-    assert action_resp.status_code in [200, 404, 422]
+    assert action_resp.status_code in [200, 404, 403, 422]
     assert execution_time < 2.0, f"Execution took {execution_time:.3f}s, expected < 2.0s"
     # Check logs to verify error was logged about connection not found

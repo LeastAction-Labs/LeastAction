@@ -69,7 +69,7 @@ Prefect has state hooks (`on_completion`, `on_failure`, `on_cancellation`) — P
 LeastAction's actions are first-class catalog items, AI-generated, shareable across workflows:
 
 - **preActions / postActions / SLA actions / interval actions** — configurable per workflow, callable from any action in the catalog
-- **Task Control Actions** — workflow-level controls visible to any user: `LeastActionRerunSubtree` (rerun a failed task and everything downstream), `LeastActionSkipSubtree` (bypass a branch), custom control logic for any imaginable operation
+- **Task Control Actions** — workflow-level controls visible to any user: `LeastActionRunTask` (run or rerun a task), `LeastActionCancelTask` (cancel a running task), `LeastActionScheduleTasks` (reschedule tasks), custom control logic for any imaginable operation
 - **UI actions** — run interactively on folder contents or individual items; variables pre-filled from folder config defaults
 
 The scope of what an action can do is entirely up to the author. Any Python code, any external API, any state manipulation.

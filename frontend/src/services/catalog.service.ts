@@ -39,10 +39,10 @@ const API_ENDPOINTS = {
     marketplaceSearch: `${MARKETPLACE_URL}/api/v1/marketplace/catalog/search`,
   },
   task: {
-    run: `${CORE_BACKEND_URL}/api/v1/task/run`,
+    create_run: `${CORE_BACKEND_URL}/api/v1/task`,
   },
   action: {
-    run: `${CORE_BACKEND_URL}/api/v1/action/run`,
+    create_run: `${CORE_BACKEND_URL}/api/v1/action`,
   },
 };
 
@@ -192,7 +192,13 @@ export async function getBreadcrumbs(
 
 export async function createCatalogItem(itemData: any, marketplace: boolean = false): Promise<any> {
   const cleanedData = await preprocessItemData(itemData);
-  const url = marketplace ? API_ENDPOINTS.catalog.marketplaceCreate : API_ENDPOINTS.catalog.create;
+  let url = marketplace ? API_ENDPOINTS.catalog.marketplaceCreate : API_ENDPOINTS.catalog.create;
+  if (['task', 'action'].includes(itemData.item_type)) {
+    url =
+      itemData.item_type === 'task'
+        ? API_ENDPOINTS.task.create_run
+        : API_ENDPOINTS.action.create_run;
+  }
   return await httpJson<any>(url, {
     method: 'POST',
     body: cleanedData,
@@ -250,7 +256,7 @@ export async function runAction(actionData: any, preSessionId?: string): Promise
   if (!actionData.item_type) actionData.item_type = 'action';
   const sessionId = preSessionId || crypto.randomUUID();
   try {
-    const { data } = await httpJsonWithSession<TaskRunResponse>(API_ENDPOINTS.action.run, {
+    const { data } = await httpJsonWithSession<TaskRunResponse>(API_ENDPOINTS.action.create_run, {
       method: 'POST',
       body: actionData,
       headers: { 'X-Session-ID': sessionId },

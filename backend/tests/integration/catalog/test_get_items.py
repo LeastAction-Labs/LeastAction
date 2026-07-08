@@ -483,7 +483,7 @@ async def test_non_existing_item_laui_passed_fail(client: TestClient):
             url="/api/v1/catalog/get", method="get", params={"item_laui": ObjectId()}
         ),
     )
-    assert response.status_code == 404
+    assert response.status_code == 403
 
 
 async def test_case_item_laui_and_item_type_folder_passed(

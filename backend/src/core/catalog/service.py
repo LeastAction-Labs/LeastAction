@@ -15,7 +15,6 @@ from pydantic_mongo import PydanticObjectId
 from src.common.context_vars.catalog_context import get_schema_manager
 from src.common.context_vars.user_context import get_user_laui, is_root_user
 from src.common.exceptions import (
-    AuthorizationError,
     ConflictError,
     InvalidArgumentError,
     LAException,
@@ -286,11 +285,6 @@ class CatalogService:
         item.permission = await self.access_reader.get_permission(
             item_laui=str(item_laui), user_laui=get_user_laui()
         )
-        if not item.permission:
-            raise AuthorizationError(
-                message="Access denied",
-                detail=f"You do not have permission to view the item with laui: {item_laui}.",
-            )
         return item
 
     async def safe_find_item(
@@ -498,18 +492,9 @@ class CatalogService:
         projections: dict[str, int],
         include_deleted: bool = False,
     ) -> list[ItemProjection]:
-        item_lauis_access = await self.access_reader.batch_check_permissions(
-            permission_to_check=Permission.VIEW, item_lauis=item_lauis, user_laui=get_user_laui()
-        )
-
-        filtered_item_lauis = []
-
-        for item_laui, has_item_access in zip(item_lauis, item_lauis_access):
-            if has_item_access:
-                filtered_item_lauis.append(item_laui)
 
         return await self.item_repo.get_multiple_items_by_laui(
-            item_lauis=filtered_item_lauis, projections=projections, include_deleted=include_deleted
+            item_lauis=item_lauis, projections=projections, include_deleted=include_deleted
         )
 
     async def search(self, request: SearchRequest):
@@ -523,23 +508,12 @@ class CatalogService:
                 filter=filter, projections=request.projections_dict, offset=offset, limit=limit
             )
 
-            item_lauis_access = await self.access_reader.batch_check_permissions(
-                permission_to_check=Permission.VIEW,
-                item_lauis=[PydanticObjectId(item.laui) for item in items],
-                user_laui=get_user_laui(),
-            )
-
-            allowed_items = []
-            for item, has_item_access in zip(items, item_lauis_access, strict=False):
-                if has_item_access:
-                    allowed_items.append(item)
-
             has_next = await self.item_repo.check_next_page_exists(
                 filter=filter, offset=offset, limit=limit
             )
 
             return SearchItemsResponse(
-                items=allowed_items,
+                items=items,
                 pagination=PaginationResponse(
                     current_page=request.pagination.page,
                     per_page=request.pagination.per_page,

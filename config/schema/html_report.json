@@ -25,7 +25,7 @@
             "name": "html",
             "datatype": "string",
             "required": false,
-            "max_length": 100000,
+            "max_length": 5000000,
             "description": "HTML report content",
             "editorType": "monaco",
             "editorMonacoFormat": "html"

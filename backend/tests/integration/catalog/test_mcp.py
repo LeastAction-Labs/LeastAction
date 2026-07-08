@@ -45,7 +45,7 @@ def base_folders_setup(client: TestClient, database_cleanup):
 @pytest.fixture()
 def mcp_ctx(client: TestClient):
     cookie = client.headers.get("Cookie", "")
-    token = cookie.replace("frontend_token=", "")
+    token = cookie.split("frontend_token=")[1].split(";")[0]
     print(token)
     claims = get_session_service().verify_jwt_token(token)
     user_laui = claims.sub
@@ -332,17 +332,6 @@ async def test_all_tools_accessible_with_full_access(
 
         # ── Task tools with nonexistent laui (expect errors, not "not enabled") ──
         data = await _call_tool(mcp, "get_task_status", {"task_laui": "nonexistent"})
-        assert "not enabled" not in json.dumps(data)
-        assert "error" in data
-
-        data = await _call_tool(
-            mcp,
-            "update_task",
-            {
-                "task_laui": "nonexistent",
-                "updates": {"priority": 1},
-            },
-        )
         assert "not enabled" not in json.dumps(data)
         assert "error" in data
 

@@ -29,7 +29,7 @@ For pipelines with many tasks, set `LeastActionCheckIfParentsAreDone` as a **def
 
 ## Visualize
 
-Every task has a **Parent-Child** tab — a list and an interactive dependency graph. Click a node to focus; expand to add more levels.
+Open your workflow folder in the catalog and click the **Graph** tab. It shows an interactive ReactFlow diagram of all tasks in the workflow — nodes colored by state, edges drawn from parent to child based on `LeastActionCheckIfParentsAreDone` pre-actions. Hover over a node to add a downstream task directly from the graph.
 
 > Deeper: [Task Dependencies guide](/path?laui=getting-started-05-building-pipelines-03-task-dependencies&itemtype=doc.file&itemname=Task%20Dependencies) and the [Workflow concept](/path?laui=getting-started-04-concepts-07-workflow&itemtype=doc.file&itemname=Workflow).
 
