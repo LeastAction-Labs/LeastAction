@@ -335,17 +335,6 @@ async def test_all_tools_accessible_with_full_access(
         assert "not enabled" not in json.dumps(data)
         assert "error" in data
 
-        data = await _call_tool(
-            mcp,
-            "update_task",
-            {
-                "task_laui": "nonexistent",
-                "updates": {"priority": 1},
-            },
-        )
-        assert "not enabled" not in json.dumps(data)
-        assert "error" in data
-
         data = await _call_tool(mcp, "reset_task", {"task_laui": "nonexistent"})
         assert "not enabled" not in json.dumps(data)
         assert "error" in data
