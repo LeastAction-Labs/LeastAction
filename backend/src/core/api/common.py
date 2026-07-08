@@ -4,14 +4,17 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 
+from typing import Optional
+
 from pydantic import BaseModel, model_validator
 
 
 class PaginationRequest(BaseModel):
     page: int = 1
     per_page: int = 10
-    offset: int | None = None
-    limit: int | None = None
+    offset: int = 0
+    limit: int = 0
+    page_token: Optional[str] = None
 
     @model_validator(mode="after")
     def add_offset_and_limit(self):
@@ -21,6 +24,7 @@ class PaginationRequest(BaseModel):
 
 
 class PaginationResponse(BaseModel):
-    current_page: int
-    per_page: int
+    current_page: Optional[int] = None
+    per_page: Optional[int] = None
     has_next: bool
+    next_page_token: Optional[str] = None

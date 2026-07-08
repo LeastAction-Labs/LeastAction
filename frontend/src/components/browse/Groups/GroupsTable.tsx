@@ -18,7 +18,8 @@ import {
 } from '@mui/material';
 
 import { FONT_SIZES, FONT_WEIGHTS } from '../../../constants';
-import type { Relation } from '../../../services/group.service';
+import type { GroupItem, Relation } from '../../../services/group.service';
+import Pagination from '../Pagination';
 import type { GroupDetailsData } from './GroupDetails';
 
 const styles = {
@@ -70,20 +71,18 @@ const styles = {
   },
 };
 
-export interface Group {
-  name: string;
-  laui: string;
-  members: string[];
-}
-
 interface GroupsTableProps {
-  groups: Group[];
+  groups: GroupItem[];
   loading?: boolean;
   userRelation: Relation;
   selectedGroupLaui: string | null;
   onSelectGroup: (laui: string) => void;
   get_group: (laui: string) => Promise<GroupDetailsData>;
   update_group: (name: string, description: string, accessPatch: any) => Promise<void>;
+  currentPage: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+  onPageChange: (page: number) => void;
 }
 
 export default function GroupsTable({
@@ -94,6 +93,10 @@ export default function GroupsTable({
   onSelectGroup,
   get_group: _get_group,
   update_group: _update_group,
+  currentPage,
+  hasNext,
+  hasPrevious,
+  onPageChange,
 }: GroupsTableProps) {
   if (loading) {
     return (
@@ -112,35 +115,43 @@ export default function GroupsTable({
   }
 
   return (
-    <TableContainer component={Paper} sx={styles.tableContainer}>
-      <Table stickyHeader>
-        <TableHead sx={styles.tableHead}>
-          <TableRow>
-            <TableCell>Group Name</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {groups.map((group) => (
-            <TableRow
-              key={group.laui}
-              sx={styles.tableRow}
-              onClick={() => onSelectGroup(group.laui)}
-            >
-              <TableCell>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontWeight: FONT_WEIGHTS.MEDIUM,
-                    color: 'var(--text-primary)',
-                  }}
-                >
-                  {group.name}
-                </Typography>
-              </TableCell>
+    <>
+      <TableContainer component={Paper} sx={styles.tableContainer}>
+        <Table stickyHeader>
+          <TableHead sx={styles.tableHead}>
+            <TableRow>
+              <TableCell>Group Name</TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+          </TableHead>
+          <TableBody>
+            {groups.map((group) => (
+              <TableRow
+                key={group.laui}
+                sx={styles.tableRow}
+                onClick={() => onSelectGroup(group.laui)}
+              >
+                <TableCell>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontWeight: FONT_WEIGHTS.MEDIUM,
+                      color: 'var(--text-primary)',
+                    }}
+                  >
+                    {group.name}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <Pagination
+        currentPage={currentPage}
+        hasNext={hasNext}
+        hasPrevious={hasPrevious}
+        onPageChange={onPageChange}
+      />
+    </>
   );
 }
