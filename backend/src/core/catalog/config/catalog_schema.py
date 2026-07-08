@@ -4,11 +4,16 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class ItemTypeMapping(BaseModel):
-    can_contain: list[str]
+    hard_children: list[str] = Field(
+        default_factory=list, validation_alias=AliasChoices("children", "hard_children")
+    )
+    soft_children: list[str] = Field(
+        default_factory=list, validation_alias=AliasChoices("children", "soft_children")
+    )
 
 
 class CatalogConfig(BaseModel):

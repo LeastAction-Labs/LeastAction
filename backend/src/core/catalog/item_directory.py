@@ -113,7 +113,12 @@ class ItemDirectory:
         def _fill_at_level(laui: ObjectId, permission: Permission, level: int):
             if level == len(self._dir):
                 return None
-            item = item_dict[laui]
+            item = item_dict.get(laui)
+            if item is None:
+                # The link points to an item that no longer exists (a dangling
+                # link, e.g. left by a hard-deleted child). Skip it rather than
+                # failing the whole listing.
+                return None
             item.permission = permission
             item_node = ItemDirectoryItemNode(item=item)
             for node in self._dir[level][laui].children:
@@ -129,9 +134,10 @@ class ItemDirectory:
         filled_root_items: list[ItemDirectoryItemNode] = []
         for laui, item_id_node in self._dir[0].items():
             filled = _fill_at_level(laui, item_id_node.permission, 0)
-            if filled is None:
-                raise Exception(f"Item {laui} not found in item_dict")
-            filled_root_items.append(filled)
+            # a missing root (dangling link) is skipped, not fatal — the rest of
+            # the page still lists.
+            if filled is not None:
+                filled_root_items.append(filled)
         return filled_root_items
 
     def __str__(self):

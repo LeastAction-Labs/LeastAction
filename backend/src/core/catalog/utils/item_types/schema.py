@@ -10,3 +10,8 @@ class ItemCategory(Enum):
     ALL = "all"
     FOLDER = "folder"
     NON_FOLDER = "non_folder"
+
+
+class ChildType(Enum):
+    HARD = "hard"
+    SOFT = "soft"

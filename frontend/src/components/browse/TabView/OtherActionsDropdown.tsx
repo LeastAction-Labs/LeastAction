@@ -130,7 +130,7 @@ export default function OtherActionsDropdown({ item }: OtherActionsDropdownProps
     if (!item) return;
     const { supported_parent_types } = await getSupportedTypes(item.item_type ?? '');
     const isCompatible = (type: string) =>
-      supported_parent_types.some((p) => type === p || type.startsWith(p + '.'));
+      supported_parent_types.soft.some((p) => type === p || type.startsWith(p + '.'));
     const availableItems = catalogState.items
       .map((node: CatalogNode) => node.item)
       .filter(
@@ -140,7 +140,7 @@ export default function OtherActionsDropdown({ item }: OtherActionsDropdownProps
       isOpen: true,
       childItem: item,
       availableItems,
-      supportedParentTypes: supported_parent_types,
+      supportedParentTypes: supported_parent_types.soft,
     });
   };
 

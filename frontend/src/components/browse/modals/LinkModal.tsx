@@ -230,7 +230,7 @@ export default function LinkModal() {
 
   if (!linkModalData || !setLinkModalData) return;
 
-  const { childItem, availableItems, itemTypeFilter, supportedParentTypes } = linkModalData;
+  const { childItem, availableItems, supportedParentTypes } = linkModalData;
   const useQuickSearch = !availableItems || availableItems.length === 0;
   const handleSave = async () => {
     setLocalError('');
@@ -246,7 +246,7 @@ export default function LinkModal() {
     }
 
     if (childItem.laui === parentLaui) {
-      setLocalError('Parent and Child cannot be the same LAUI');
+      setLocalError('Item cannot be linked to itself');
       return;
     }
 
@@ -299,7 +299,13 @@ export default function LinkModal() {
         onClick={() => void handleSave()}
         size="small"
         variant="contained"
-        disabled={!parentLaui.trim() || !childItem || loading}
+        disabled={
+          !parentLaui.trim() ||
+          !childItem ||
+          loading ||
+          !supportedParentTypes ||
+          supportedParentTypes.length === 0
+        }
       >
         {loading ? 'Creating...' : 'Create Link'}
       </Button>
@@ -349,23 +355,31 @@ export default function LinkModal() {
 
           <Box sx={styles.section}>
             <Typography sx={styles.sectionTitle}>Parent Item</Typography>
-
-            {useQuickSearch ? (
+            {!supportedParentTypes || supportedParentTypes.length === 0 ? (
+              <Typography
+                sx={{
+                  fontSize: '12px',
+                  color: 'var(--text-secondary)',
+                  fontStyle: 'italic',
+                }}
+              >
+                No item type is supported to be parent of this item for link creation
+              </Typography>
+            ) : useQuickSearch ? (
               <QuickSearch
                 label="Select Parent Item"
                 placeholder="Search…"
                 value={parentLaui}
-                filters={
-                  supportedParentTypes?.length
-                    ? { item_types: supportedParentTypes }
-                    : itemTypeFilter
-                      ? { item_type: itemTypeFilter }
-                      : undefined
-                }
+                filters={{ item_types: supportedParentTypes }}
                 onSelect={(raw: any) => {
                   const laui = raw._laui ?? raw.laui ?? '';
-                  setParentLaui(laui);
-                  setLocalError('');
+                  if (childItem && laui === childItem.laui) {
+                    setParentLaui('');
+                    setLocalError('Item cannot be linked to itself');
+                  } else {
+                    setParentLaui(laui);
+                    setLocalError('');
+                  }
                 }}
                 disabled={loading}
               />

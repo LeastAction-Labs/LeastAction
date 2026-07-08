@@ -6,7 +6,7 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 
-from src.core.catalog.config.catalog_schema import CatalogConfig
+from src.core.catalog.config.catalog_schema import CatalogConfig, ItemTypeMapping
 from src.core.catalog.config.schema.schema_manager import SchemaManager
 
 catalog_config_var: ContextVar[CatalogConfig] = ContextVar("catalog_config", default=None)
@@ -16,12 +16,12 @@ def get_catalog_config() -> CatalogConfig:
     return catalog_config_var.get()
 
 
-supported_item_types_cache_var: ContextVar[dict[str, list[str]]] = ContextVar(
+supported_item_types_cache_var: ContextVar[dict[str, ItemTypeMapping]] = ContextVar(
     "supported_item_types_cache", default=None
 )
 
 
-def get_supported_item_tpyes_cache() -> dict[str, list[str]]:
+def get_supported_item_types_cache() -> dict[str, ItemTypeMapping]:
     return supported_item_types_cache_var.get()
 
 

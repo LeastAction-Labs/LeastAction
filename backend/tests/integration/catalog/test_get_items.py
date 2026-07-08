@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
+from deepdiff import DeepDiff
 from fastapi.testclient import TestClient
 
 from src.core.catalog.api_request import CreateItemResponse
@@ -257,90 +258,90 @@ async def test_get_root_items(client: TestClient, setup_catalog: dict[str, dict[
     )
     assert response.status_code == 200
     cleaned_response_items = [clean_response_tree(item) for item in response.json()["items"]]
-    sorted_response_items = sorted(cleaned_response_items, key=lambda x: x["item"]["name"])
-    sorted_expected_items = sorted(
-        [
-            {
-                "item": {
-                    "name": "account_folder",
-                    "laui": setup_catalog["account_folder"]["laui"],
-                    "description": "",
-                    "deleted_at": None,
-                    "item_type": "folder.account",
-                    "permission": "own",
-                    "supported_types": ["folder.project", "folder.trash", "folder.users"],
-                    "folder_metadata": None,
-                    "parent_laui": None,
-                    "content": None,
+    expected_items = [
+        {
+            "item": {
+                "name": "account_folder",
+                "laui": setup_catalog["account_folder"]["laui"],
+                "description": "",
+                "deleted_at": None,
+                "item_type": "folder.account",
+                "permission": "own",
+                "supported_types": ["folder.project", "folder.trash", "folder.users"],
+                "folder_metadata": None,
+                "parent_laui": None,
+                "content": None,
+            },
+            "children": [
+                {
+                    "item": {
+                        "name": "project_folder",
+                        "laui": setup_catalog["project_folder"]["laui"],
+                        "description": "",
+                        "deleted_at": None,
+                        "item_type": "folder.project",
+                        "permission": "own",
+                        "supported_types": [
+                            "folder.action",
+                            "folder.asset",
+                            "folder.workflow",
+                            "folder.operator",
+                            "folder.payload",
+                            "folder.connection",
+                            "folder.bootstrap",
+                            "folder.action",
+                            "folder.config",
+                            "folder.ai",
+                        ],
+                        "folder_metadata": None,
+                        "parent_laui": setup_catalog["account_folder"]["laui"],
+                        "content": None,
+                    },
+                    "children": [],
+                    "parents": [],
                 },
-                "children": [
-                    {
-                        "item": {
-                            "name": "project_folder",
-                            "laui": setup_catalog["project_folder"]["laui"],
-                            "description": "",
-                            "deleted_at": None,
-                            "item_type": "folder.project",
-                            "permission": "own",
-                            "supported_types": [
-                                "folder.action",
-                                "folder.asset",
-                                "folder.workflow",
-                                "folder.operator",
-                                "folder.payload",
-                                "folder.connection",
-                                "folder.bootstrap",
-                                "folder.action",
-                                "folder.config",
-                                "folder.ai",
-                            ],
-                            "folder_metadata": None,
-                            "parent_laui": setup_catalog["account_folder"]["laui"],
-                            "content": None,
-                        },
-                        "children": [],
-                        "parents": [],
+                {
+                    "item": {
+                        "name": "trash",
+                        "laui": setup_catalog["trash"]["laui"],
+                        "description": "",
+                        "deleted_at": None,
+                        "item_type": "folder.trash",
+                        "permission": "own",
+                        "supported_types": [
+                            "task",
+                            "connection",
+                            "config",
+                            "action",
+                            "operator",
+                            "payload",
+                            "html_report",
+                            "powerbi_report",
+                            "looker_report",
+                            "looker_studio_report",
+                            "quicksight_report",
+                            "tableau_report",
+                            "table",
+                            "agent",
+                            "skill",
+                            "usecase",
+                        ],
+                        "folder_metadata": None,
+                        "parent_laui": setup_catalog["account_folder"]["laui"],
+                        "content": None,
                     },
-                    {
-                        "item": {
-                            "name": "trash",
-                            "laui": setup_catalog["trash"]["laui"],
-                            "description": "",
-                            "deleted_at": None,
-                            "item_type": "folder.trash",
-                            "permission": "own",
-                            "supported_types": [
-                                "task",
-                                "connection",
-                                "config",
-                                "action",
-                                "operator",
-                                "payload",
-                                "html_report",
-                                "powerbi_report",
-                                "looker_report",
-                                "looker_studio_report",
-                                "quicksight_report",
-                                "tableau_report",
-                                "table",
-                                "agent",
-                                "skill",
-                                "usecase",
-                            ],
-                            "folder_metadata": None,
-                            "parent_laui": setup_catalog["account_folder"]["laui"],
-                            "content": None,
-                        },
-                        "children": [],
-                        "parents": [],
-                    },
-                ],
-                "parents": [],
-            }
-        ],
-        key=lambda x: x["item"]["name"],
-    )
-    assert sorted_expected_items == sorted_response_items
+                    "children": [],
+                    "parents": [],
+                },
+            ],
+            "parents": [],
+        }
+    ]
+    # Compare expected vs actual directly, completely ignoring list ordering
+    diff = DeepDiff(expected_items, cleaned_response_items, ignore_order=True)
+
+    # If they match, diff will be an empty dictionary
+    assert not diff, f"Mismatched items found: {diff}"
 
 
 async def test_get_root_items_depth_2(client: TestClient, setup_catalog: dict[str, dict[str, str]]):
@@ -353,107 +354,104 @@ async def test_get_root_items_depth_2(client: TestClient, setup_catalog: dict[st
     assert response.status_code == 200
     print(response.json())
     cleaned_response_items = [clean_response_tree(item) for item in response.json()["items"]]
-    sorted_response_items = sorted(cleaned_response_items, key=lambda x: x["item"]["name"])
-    sorted_expected_items = sorted(
-        [
-            {
-                "item": {
-                    "name": "account_folder",
-                    "laui": setup_catalog["account_folder"]["laui"],
-                    "description": "",
-                    "deleted_at": None,
-                    "item_type": "folder.account",
-                    "permission": "own",
-                    "supported_types": ["folder.project", "folder.trash", "folder.users"],
-                    "folder_metadata": None,
-                    "parent_laui": None,
-                    "content": None,
-                },
-                "children": [
-                    {
-                        "item": {
-                            "name": "project_folder",
-                            "laui": setup_catalog["project_folder"]["laui"],
-                            "description": "",
-                            "deleted_at": None,
-                            "item_type": "folder.project",
-                            "permission": "own",
-                            "supported_types": [
-                                "folder.action",
-                                "folder.asset",
-                                "folder.workflow",
-                                "folder.operator",
-                                "folder.payload",
-                                "folder.connection",
-                                "folder.bootstrap",
-                                "folder.action",
-                                "folder.config",
-                                "folder.ai",
-                            ],
-                            "folder_metadata": None,
-                            "parent_laui": setup_catalog["account_folder"]["laui"],
-                            "content": None,
-                        },
-                        "children": [
-                            {
-                                "item": {
-                                    "name": "root_config_folder",
-                                    "laui": setup_catalog["root_config_folder"]["laui"],
-                                    "description": "",
-                                    "deleted_at": None,
-                                    "item_type": "folder.config",
-                                    "permission": "own",
-                                    "supported_types": ["folder.config", "config"],
-                                    "folder_metadata": None,
-                                    "parent_laui": setup_catalog["project_folder"]["laui"],
-                                    "content": None,
-                                },
-                                "children": [],
-                                "parents": [],
-                            }
+    expected_items = [
+        {
+            "item": {
+                "name": "account_folder",
+                "laui": setup_catalog["account_folder"]["laui"],
+                "description": "",
+                "deleted_at": None,
+                "item_type": "folder.account",
+                "permission": "own",
+                "supported_types": ["folder.project", "folder.trash", "folder.users"],
+                "folder_metadata": None,
+                "parent_laui": None,
+                "content": None,
+            },
+            "children": [
+                {
+                    "item": {
+                        "name": "project_folder",
+                        "laui": setup_catalog["project_folder"]["laui"],
+                        "description": "",
+                        "deleted_at": None,
+                        "item_type": "folder.project",
+                        "permission": "own",
+                        "supported_types": [
+                            "folder.action",
+                            "folder.asset",
+                            "folder.workflow",
+                            "folder.operator",
+                            "folder.payload",
+                            "folder.connection",
+                            "folder.bootstrap",
+                            "folder.action",
+                            "folder.config",
+                            "folder.ai",
                         ],
-                        "parents": [],
+                        "folder_metadata": None,
+                        "parent_laui": setup_catalog["account_folder"]["laui"],
+                        "content": None,
                     },
-                    {
-                        "item": {
-                            "name": "trash",
-                            "laui": setup_catalog["trash"]["laui"],
-                            "description": "",
-                            "deleted_at": None,
-                            "item_type": "folder.trash",
-                            "permission": "own",
-                            "supported_types": [
-                                "task",
-                                "connection",
-                                "config",
-                                "action",
-                                "operator",
-                                "payload",
-                                "html_report",
-                                "powerbi_report",
-                                "looker_report",
-                                "looker_studio_report",
-                                "quicksight_report",
-                                "tableau_report",
-                                "table",
-                                "agent",
-                                "skill",
-                                "usecase",
-                            ],
-                            "folder_metadata": None,
-                            "parent_laui": setup_catalog["account_folder"]["laui"],
-                            "content": None,
-                        },
-                        "children": [],
-                        "parents": [],
+                    "children": [
+                        {
+                            "item": {
+                                "name": "root_config_folder",
+                                "laui": setup_catalog["root_config_folder"]["laui"],
+                                "description": "",
+                                "deleted_at": None,
+                                "item_type": "folder.config",
+                                "permission": "own",
+                                "supported_types": ["folder.config", "config"],
+                                "folder_metadata": None,
+                                "parent_laui": setup_catalog["project_folder"]["laui"],
+                                "content": None,
+                            },
+                            "children": [],
+                            "parents": [],
+                        }
+                    ],
+                    "parents": [],
+                },
+                {
+                    "item": {
+                        "name": "trash",
+                        "laui": setup_catalog["trash"]["laui"],
+                        "description": "",
+                        "deleted_at": None,
+                        "item_type": "folder.trash",
+                        "permission": "own",
+                        "supported_types": [
+                            "task",
+                            "connection",
+                            "config",
+                            "action",
+                            "operator",
+                            "payload",
+                            "html_report",
+                            "powerbi_report",
+                            "looker_report",
+                            "looker_studio_report",
+                            "quicksight_report",
+                            "tableau_report",
+                            "table",
+                            "agent",
+                            "skill",
+                            "usecase",
+                        ],
+                        "folder_metadata": None,
+                        "parent_laui": setup_catalog["account_folder"]["laui"],
+                        "content": None,
                     },
-                ],
-                "parents": [],
-            }
-        ],
-        key=lambda x: x["item"]["name"],
-    )
-    assert sorted_response_items == sorted_expected_items
+                    "children": [],
+                    "parents": [],
+                },
+            ],
+            "parents": [],
+        }
+    ]
+    diff = DeepDiff(expected_items, cleaned_response_items, ignore_order=True)
+    assert not diff, f"Mismatched items found: {diff}"
 
 
 async def test_only_item_laui_passed(client: TestClient, setup_catalog: dict[str, dict[str, str]]):
@@ -473,7 +471,12 @@ async def test_only_item_laui_passed(client: TestClient, setup_catalog: dict[str
     assert item["parent_laui"] == setup_catalog["root_config_folder"]["laui"]
     assert not item["is_root"]
     assert item["item_type"] == "folder.config"
-    assert item["supported_types"] == ["folder.config", "config"]
+    diff = DeepDiff(
+        item["supported_types"],
+        ["folder.config", "config"],
+        ignore_order=True,
+    )
+    assert not diff, f"Mismatched item found: {diff}"
 
 
 async def test_non_existing_item_laui_passed_fail(client: TestClient):
@@ -523,7 +526,8 @@ async def test_case_item_laui_and_item_type_folder_passed(
             "parents": [],
         }
     ]
-    assert cleaned_response_items == expected_items
+    diff = DeepDiff(expected_items, cleaned_response_items, ignore_order=True)
+    assert not diff, f"Mismatched items found: {diff}"
 
 
 async def test_case_item_laui_and_item_type_config_passed(
@@ -578,7 +582,8 @@ async def test_case_item_laui_and_item_type_config_passed(
             "parents": [],
         },
     ]
-    assert cleaned_response_items == expected_items
+    diff = DeepDiff(expected_items, cleaned_response_items, ignore_order=True)
+    assert not diff, f"Mismatched items found: {diff}"
 
 
 async def test_case_item_laui_parent_or_child_is_parent(
@@ -680,7 +685,8 @@ async def test_case_item_laui_parent_or_child_is_parent(
             ],
         }
     ]
-    assert cleaned_response_items == expected_items
+    diff = DeepDiff(expected_items, cleaned_response_items, ignore_order=True)
+    assert not diff, f"Mismatched items found: {diff}"
 
 
 async def test_is_deleted_param_check(client: TestClient, setup_catalog: dict[str, dict[str, str]]):

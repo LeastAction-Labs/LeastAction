@@ -45,7 +45,7 @@ from src.core.catalog.item_revision.repo import ItemRevisionRepository
 from src.core.catalog.item_revision.schema import CreateItemRevision
 from src.core.catalog.link.repo import LinkRepository
 from src.core.catalog.link.schema import CreateLink, Link, LinkWithPermission
-from src.core.catalog.utils.item_types.schema import ItemCategory
+from src.core.catalog.utils.item_types.schema import ChildType, ItemCategory
 from src.core.catalog.utils.item_types.service import ItemTypesManager
 from src.core.catalog.utils.permissions import PermissionManager
 from src.core.db.transaction import transactional
@@ -176,7 +176,9 @@ class CatalogService:
 
     async def _ensure_parent_supports_item_type(self, item_type: str, parent_item_type: str):
 
-        allowed_item_types = self.item_types_manager.get_supported_item_types(parent_item_type)
+        allowed_item_types = self.item_types_manager.get_supported_item_types(
+            item_type=parent_item_type, child_type=ChildType.HARD
+        )
         for supported_item_type in allowed_item_types:
             if item_type == supported_item_type or item_type.startswith(supported_item_type + "."):
                 return
@@ -188,6 +190,38 @@ class CatalogService:
         }
 
         raise UnprocessableEntityError(message="Invalid item type for parent", detail=error)
+
+    # Blanket rule: every non-folder item must be created inside a ``folder.*``
+    # (its true parent — the one in the pk — has to be a folder). The only
+    # exceptions are the types that legitimately nest under a non-folder parent
+    # (data-catalog + task/dependency nesting in catalog.json): task under
+    # operator/connection/task/payload/config, column under table, schema under
+    # database, table under schema, connection_queue under connection, and memory
+    # under an agent_task. Everything else — skills, skill_refinements, agents,
+    # generates, usecases, operators, connections, configs, payloads, reports —
+    # must live in a folder so it is always browsable + addressable, never orphaned.
+    _MAY_NEST_UNDER_NON_FOLDER = {
+        "task",
+        "column",
+        "schema",
+        "table",
+        "connection_queue",
+        "memory",
+    }
+
+    def _ensure_folder_parent(self, item_type: str, parent_item_type: str):
+        if parent_item_type.startswith("folder."):
+            return
+        if item_type.split(".")[0] in self._MAY_NEST_UNDER_NON_FOLDER:
+            return
+        raise UnprocessableEntityError(
+            message=f"A '{item_type}' must be created inside a folder.",
+            detail=(
+                f"Parent is a '{parent_item_type}'. A '{item_type}' must be created under a "
+                "folder.* parent so it is always browsable and addressable in a folder. "
+                "Create it in a folder, then reference it (e.g. from the agent)."
+            ),
+        )
 
     @transactional
     async def update_existing_item(
@@ -721,6 +755,12 @@ class CatalogService:
         parent_laui = link.parent_laui
         child_laui = link.child_laui
 
+        if parent_laui == child_laui:
+            raise InvalidArgumentError(
+                message="Item cannot be linked to itself",
+                detail="The parent_laui and child_laui cannot be the same.",
+            )
+
         trash_folder_laui = await self.item_repo.get_trash_folder_laui()
         if parent_laui == trash_folder_laui:
             raise InvalidArgumentError(
@@ -737,7 +777,7 @@ class CatalogService:
 
         try:
             parent_item_supported_types = self.item_types_manager.get_supported_item_types(
-                item_type=parent_type, category=ItemCategory.NON_FOLDER
+                item_type=parent_type, category=ItemCategory.NON_FOLDER, child_type=ChildType.SOFT
             )
 
             if not self.item_types_manager.check_item_type_compatible(
@@ -816,11 +856,25 @@ class CatalogService:
             )
         )
 
-    def get_supported_children_types(self, item_type: str) -> list[str]:
-        return self.item_types_manager.get_supported_item_types(item_type)
+    def get_supported_children_types(self, item_type: str) -> dict[str, list[str]]:
+        return {
+            "hard": self.item_types_manager.get_supported_item_types(
+                item_type, child_type=ChildType.HARD
+            ),
+            "soft": self.item_types_manager.get_supported_item_types(
+                item_type, child_type=ChildType.SOFT
+            ),
+        }
 
-    def get_supported_parent_types(self, item_type: str) -> list[str]:
-        return self.item_types_manager.get_supported_parent_types(item_type)
+    def get_supported_parent_types(self, item_type: str) -> dict[str, list[str]]:
+        return {
+            "hard": self.item_types_manager.get_supported_parent_types(
+                item_type, child_type=ChildType.HARD
+            ),
+            "soft": self.item_types_manager.get_supported_parent_types(
+                item_type, child_type=ChildType.SOFT
+            ),
+        }
 
     @staticmethod
     def _empty_response() -> GetItemsResponse:

@@ -1,25 +1,16 @@
 {
   "item_type_link_mapping": {
     "folder.account": {
-      "can_contain": [
-        "folder.project",
-        "folder.trash",
-        "folder.users"
-      ]
+      "hard_children": ["folder.project", "folder.trash", "folder.users"]
     },
     "folder.users": {
-      "can_contain": [
-        "folder.user"
-      ]
+      "hard_children": ["folder.user"]
     },
     "folder.user": {
-      "can_contain": [
-        "chat_history",
-        "generate_history"
-      ]
+      "hard_children": ["chat_history", "generate_history"]
     },
     "folder.project": {
-      "can_contain": [
+      "hard_children": [
         "folder.action",
         "folder.asset",
         "folder.workflow",
@@ -33,17 +24,20 @@
       ]
     },
     "folder.ai": {
-      "can_contain": [
-        "folder.ai",
-        "agent",
-        "generate",
-        "skill",
-        "usecase"
-      ]
+      "hard_children": ["folder.ai", "agent", "generate", "skill", "usecase"],
+      "soft_children": ["agent", "generate", "skill", "usecase"]
     },
     "folder.workflow": {
-      "can_contain": [
+      "hard_children": [
         "folder.workflow",
+        "task",
+        "config",
+        "connection",
+        "payload",
+        "operator",
+        "action"
+      ],
+      "soft_children": [
         "task",
         "config",
         "connection",
@@ -53,13 +47,11 @@
       ]
     },
     "folder.config": {
-      "can_contain": [
-        "folder.config",
-        "config"
-      ]
+      "hard_children": ["folder.config", "config"],
+      "soft_children": ["config"]
     },
     "folder.asset": {
-      "can_contain": [
+      "hard_children": [
         "folder.asset",
         "folder.report",
         "folder.table",
@@ -71,10 +63,20 @@
         "tableau_report",
         "table",
         "config"
+      ],
+      "soft_children": [
+        "html_report",
+        "powerbi_report",
+        "looker_report",
+        "looker_studio_report",
+        "quicksight_report",
+        "tableau_report",
+        "table",
+        "config"
       ]
     },
     "folder.report": {
-      "can_contain": [
+      "hard_children": [
         "folder.report",
         "html_report",
         "powerbi_report",
@@ -83,73 +85,83 @@
         "quicksight_report",
         "tableau_report",
         "config"
-      ]
-    },
-    "folder.table": {
-      "can_contain": [
-        "folder.table",
+      ],
+      "soft_children": [
+        "html_report",
+        "powerbi_report",
+        "looker_report",
+        "looker_studio_report",
+        "quicksight_report",
+        "tableau_report",
         "table",
         "config"
       ]
     },
+    "folder.table": {
+      "hard_children": ["folder.table", "table", "config"],
+      "soft_children": ["table", "config"]
+    },
     "folder.operator": {
-      "can_contain": [
-        "folder.operator",
-        "operator"
-      ]
+      "hard_children": ["folder.operator", "operator"],
+      "soft_children": ["operator"]
     },
     "folder.action": {
-      "can_contain": [
-        "folder.action",
-        "action"
-      ]
+      "hard_children": ["folder.action", "action"],
+      "soft_children": ["action"]
     },
     "folder.payload": {
-      "can_contain": [
-        "folder.payload",
+      "hard_children": ["folder.payload", "payload", "usecase"],
+      "soft_children": ["payload", "usecase"]
+    },
+    "folder.connection": {
+      "hard_children": ["folder.connection", "connection"],
+      "soft_children": ["connection"]
+    },
+    "folder.trash": {
+      "hard_children": [
+        "task",
+        "connection",
+        "config",
+        "action",
+        "operator",
         "payload",
+        "html_report",
+        "powerbi_report",
+        "looker_report",
+        "looker_studio_report",
+        "quicksight_report",
+        "tableau_report",
+        "table",
+        "agent",
+        "skill",
         "usecase"
       ]
     },
-    "folder.connection": {
-      "can_contain": [
-        "folder.connection",
-        "connection"
-      ]
+    "connection": {
+      "hard_children": ["connection_queue"],
+      "soft_children": ["task"]
     },
-    "folder.trash":{
-      "can_contain": ["task","connection","config","action","operator","payload","html_report","powerbi_report","looker_report","looker_studio_report","quicksight_report","tableau_report","table","agent","skill","usecase"]
+    "operator": {
+      "soft_children": ["task"]
     },
-    "connection":{
-      "can_contain":["connection_queue","task"]
+    "task": {
+      "soft_children": ["task"]
     },
-    "operator":{
-      "can_contain":["task"]
+    "payload": {
+      "soft_children": ["task"]
     },
-    "task":{
-      "can_contain":["task"]
-    },
-    "payload":{
-      "can_contain":["task"]
-    },
-    "config":{
-      "can_contain":["task"]
+    "config": {
+      "soft_children": ["task"]
     },
     "table": {
-      "can_contain": [
-        "column"
-      ]
+      "hard_children": ["column"]
     },
     "database": {
-      "can_contain": [
-        "schema"
-      ]
+      "hard_children": ["schema"]
     },
     "schema": {
-      "can_contain": [
-        "table"
-      ]
-    } 
+      "hard_children": ["table"]
+    }
   },
   "hierarchy_items_limit": 10
 }
