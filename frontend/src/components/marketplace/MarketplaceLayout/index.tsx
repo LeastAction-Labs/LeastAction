@@ -34,6 +34,9 @@ const TOP_TYPES_LIMIT = Infinity;
 const TOP_CATEGORIES_LIMIT = 10;
 const TOP_TAGS_LIMIT = 20;
 
+const FACET_PROJECTION = ['item_type', 'category', 'tags'];
+const FACET_PAGE_SIZE = 1000;
+
 interface MarketplaceLayoutProps {
   initialQuery?: string;
   initialLaui?: string;
@@ -149,7 +152,7 @@ export default function MarketplaceLayout({
     const filters: Record<string, string | string[]> = {};
     if (nameQuery.trim()) filters.name = nameQuery.trim();
     for (const [field, values] of Object.entries(fieldFilters)) {
-      filters[field] = field === 'tags' ? values : values[0];
+      filters[field] = values;
     }
     return filters;
   };
@@ -170,9 +173,6 @@ export default function MarketplaceLayout({
         const items: CatalogItem[] = (data?.items ?? []).map((i: any) => i.item ?? i);
         setSearchResults(items);
         setHasNextPage(data?.pagination?.has_next ?? false);
-        if (Object.keys(filters).length === 0) {
-          setFacetSourceItems(items);
-        }
 
         // On initial load: restore URL-specified item (browse landing page shows no selection by default)
         if (autoSelectLaui && !hasAutoSelected.current) {
@@ -212,6 +212,31 @@ export default function MarketplaceLayout({
     }
   }, [hasNextPage, isLoadingMore, showError]);
 
+  // Fetches the full set of distinct item_type/category/tags values across the whole
+  // marketplace catalog, independent of the current search/filter/pagination state, so the
+  // sidebar facets aren't limited to whatever happens to be on the currently loaded page.
+  const fetchFacets = useCallback(async () => {
+    try {
+      const items: CatalogItem[] = [];
+      let page = 1;
+      let hasNext = true;
+      while (hasNext) {
+        const data = await searchCatalogItems(undefined, true, {
+          perPage: FACET_PAGE_SIZE,
+          page,
+          projection: FACET_PROJECTION,
+        });
+        const pageItems: CatalogItem[] = (data?.items ?? []).map((i: any) => i.item ?? i);
+        items.push(...pageItems);
+        hasNext = data?.pagination?.has_next ?? false;
+        page += 1;
+      }
+      setFacetSourceItems(items);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   // Fetch and cache core version from backend on marketplace open
   useEffect(() => {
     httpJson<{ core_version: string }>(`${CORE_BACKEND_URL}/api/v1/system/info`)
@@ -224,6 +249,7 @@ export default function MarketplaceLayout({
   // Initial load — restore URL state if present
   useEffect(() => {
     void runSearch(initialQuery, initialLaui);
+    void fetchFacets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
