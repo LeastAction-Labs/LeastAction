@@ -155,7 +155,7 @@ async def cancel_action_laui(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -226,7 +226,7 @@ def run(least_action_action_object, item_type, task_laui, name, project_laui, ac
         # Use backend-test for test environment, backend for production
         import os
         backend_host = os.getenv("BACKEND_HOST", "backend-test")
-        api_url = f"http://{backend_host}:8000/api/v1/task/run"
+        api_url = f"http://{backend_host}:8000/api/v1/task"
 
         headers = {
             "Cookie": f"frontend_token={user_access_token}",
@@ -292,7 +292,7 @@ def create_task(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -362,7 +362,7 @@ async def test_cancel_action_updates_task_user_set_state(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -434,7 +434,7 @@ async def test_cancel_action_with_invalid_task_laui_fail(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",

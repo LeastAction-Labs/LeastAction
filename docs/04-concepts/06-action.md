@@ -747,7 +747,7 @@ Many actions require connection resources to be configured. Here are common conn
 **Execute Action**
 
 ```
-POST /api/v1/action/run
+POST /api/v1/action
 ```
 Body:
 ```json

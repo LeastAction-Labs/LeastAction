@@ -226,7 +226,7 @@ def run(least_action_action_object, folder_path, file_path):
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -255,7 +255,7 @@ async def test_execute_action_with_connection_laui_pass(
     connection_laui: str,
 ):
     """
-    Test action execution with connection_laui via /api/v1/action/run.
+    Test action execution with connection_laui via /api/v1/action.
     This tests that the PreActionManager (create_actions):
     1. Fetches the connection content using catalog_manager.find_item
     2. Validates the item type starts with 'connection.'
@@ -283,7 +283,7 @@ async def test_execute_action_with_connection_laui_pass(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -342,7 +342,7 @@ async def test_execute_action_with_invalid_connection_type_fail(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -384,7 +384,7 @@ async def test_execute_action_with_nonexistent_connection_fail(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",

@@ -29,7 +29,7 @@ from src.core.task.action.schema import Actions
 task_router = APIRouter()
 
 
-@task_router.post("/run")
+@task_router.post("")
 async def create_run_task(
     request: Annotated[BaseCreateItemRequest, Depends(validate_access_for_create_run)],
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),

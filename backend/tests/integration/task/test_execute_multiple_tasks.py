@@ -171,7 +171,7 @@ async def create_task(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",

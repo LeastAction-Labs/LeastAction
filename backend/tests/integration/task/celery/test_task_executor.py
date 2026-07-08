@@ -359,7 +359,7 @@ async def test_task_executor_natural_finish(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             headers={"Cookie": auth_header},
             json={
@@ -467,7 +467,7 @@ async def test_task_executor_cancellation(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             headers={"Cookie": auth_header},
             json={
@@ -512,7 +512,7 @@ async def test_task_executor_cancellation(
         cancel_resp = execute_request(
             client=client,
             request=TestRequest(
-                url="/api/v1/task/run",
+                url="/api/v1/task",
                 method="post",
                 headers={"Cookie": auth_header},
                 json={
@@ -599,7 +599,7 @@ async def test_task_executor_error(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             headers={"Cookie": auth_header},
             json={

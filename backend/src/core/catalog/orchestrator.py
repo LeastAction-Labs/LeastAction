@@ -202,7 +202,7 @@ class ItemOrchestrator:
         task_results = await self.task_manager.execute_tasks(tasks)
         return MultipleTaskResponse(task_results=task_results["task_results"])
 
-    async def execute_action(self, request: BaseCreateItemRequest) -> dict[str, Any]:
+    async def create_run_action(self, request: BaseCreateItemRequest) -> dict[str, Any]:
         action_item = None
         action_laui = None
         action_variables = getattr(request, "action_variables", None)
@@ -242,7 +242,7 @@ class ItemOrchestrator:
         if request.item_type.split(".")[0] != "action":
             raise UnprocessableEntityError(
                 message="Cannot run this item",
-                detail=f"The type '{request.item_type}' cannot be run. Only 'action' items are supported.",
+                detail=f"The type '{request.item_type}' cannot be created using this endpoint. Only 'action' items are supported.",
             )
         create_response = await self.create_item(request)
         action_laui = create_response.item_laui

@@ -358,7 +358,7 @@ async def test_user_set_state_cancel_excluded(client: TestClient):
         resp = execute_request(
             client=client,
             request=TestRequest(
-                url="/api/v1/task/run",
+                url="/api/v1/task",
                 method="post",
                 json={
                     "item_type": "task",
@@ -386,7 +386,7 @@ async def test_user_set_state_cancel_excluded(client: TestClient):
         resp = execute_request(
             client=client,
             request=TestRequest(
-                url="/api/v1/task/run",
+                url="/api/v1/task",
                 method="post",
                 json={
                     "item_type": "task",
@@ -448,7 +448,7 @@ async def test_deleted_tasks_not_returned(client: TestClient):
         resp = execute_request(
             client=client,
             request=TestRequest(
-                url="/api/v1/task/run",
+                url="/api/v1/task",
                 method="post",
                 json={
                     "item_type": "task",
@@ -476,7 +476,7 @@ async def test_deleted_tasks_not_returned(client: TestClient):
         resp = execute_request(
             client=client,
             request=TestRequest(
-                url="/api/v1/task/run",
+                url="/api/v1/task",
                 method="post",
                 json={
                     "item_type": "task",
@@ -625,7 +625,7 @@ async def test_future_start_date_not_returned(client: TestClient):
         resp = execute_request(
             client=client,
             request=TestRequest(
-                url="/api/v1/task/run",
+                url="/api/v1/task",
                 method="post",
                 json={
                     "item_type": "task",
@@ -653,7 +653,7 @@ async def test_future_start_date_not_returned(client: TestClient):
         resp = execute_request(
             client=client,
             request=TestRequest(
-                url="/api/v1/task/run",
+                url="/api/v1/task",
                 method="post",
                 json={
                     "item_type": "task",

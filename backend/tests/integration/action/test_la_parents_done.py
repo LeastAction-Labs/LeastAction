@@ -82,7 +82,7 @@
 #     resp = execute_request(
 #         client=client,
 #         request=TestRequest(
-#             url="/api/v1/task/run",
+#             url="/api/v1/task",
 #             method="post",
 #             json=task_data,
 #         ),
@@ -98,7 +98,7 @@
 #         client: TestClient,
 #         task_laui: str,
 # ) -> tuple[int, object]:
-#     """Run a task via /api/v1/task/run and return (status_code, response).
+#     """Run a task via /api/v1/task and return (status_code, response).
 #
 #     The pre-action will be executed during task execution, and we can check
 #     if the task execution succeeded or failed based on the pre-action result.
@@ -106,7 +106,7 @@
 #     resp = execute_request(
 #         client=client,
 #         request=TestRequest(
-#             url=f"/api/v1/task/run",
+#             url=f"/api/v1/task",
 #             method="post",
 #             json={"item_laui": task_laui},
 #         ),
@@ -156,7 +156,7 @@
 #     resp = execute_request(
 #         client=client,
 #         request=TestRequest(
-#             url="/api/v1/task/run",
+#             url="/api/v1/task",
 #             method="post",
 #             json=task_data,
 #         ),

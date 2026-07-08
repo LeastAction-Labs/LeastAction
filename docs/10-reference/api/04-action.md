@@ -5,7 +5,7 @@
 
 ---
 
-## POST `/api/v1/action/run`
+## POST `/api/v1/action`
 
 Execute an action. Can either execute an existing action by LAUI or create and execute a new action.
 

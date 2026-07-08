@@ -64,7 +64,7 @@ def run(
         import os
 
         backend_host = os.getenv("BACKEND_HOST", "backend-test")
-        api_url = f"http://{backend_host}:8000/api/v1/task/run"
+        api_url = f"http://{backend_host}:8000/api/v1/task"
 
         headers = {
             "Cookie": f"frontend_token={user_access_token}",

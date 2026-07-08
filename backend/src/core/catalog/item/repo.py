@@ -116,8 +116,6 @@ class ItemRepository:
         projections: dict[str, int] = {},
         include_deleted: bool = False,
     ) -> Item:
-        if projections is None:
-            projections = {}
         try:
             session = session_context.get()
             # Normalize laui to ObjectId to ensure consistent type matching

@@ -7,7 +7,7 @@
 
 ## Endpoints
 
-- [POST /task/run](#1-post-taskrun) -- Create and/or run a task
+- [POST /task](#1-post-taskrun) -- Create and/or run a task
 - [POST /task/multiple_tasks](#2-post-taskmultiple_tasks) -- Run multiple existing tasks
 - [POST /task/update/{task_laui}](#3-post-taskupdatetask_laui) -- Update task fields
 - [POST /task/finish/{task_laui}](#4-post-taskfinishtask_laui) -- Finish/dequeue task
@@ -16,7 +16,7 @@
 
 ---
 
-## 1. POST `/task/run`
+## 1. POST `/task`
 
 Create and/or run a task. This endpoint has **dual behavior**:
 
@@ -74,7 +74,7 @@ Create and/or run a task. This endpoint has **dual behavior**:
 The simplest case -- creates a task and immediately executes it.
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/task/run \
+curl -X POST http://localhost:8000/api/v1/task \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -102,7 +102,7 @@ curl -X POST http://localhost:8000/api/v1/task/run \
 Runs a task that was already created. The server fetches the task from the catalog, validates it, and dispatches execution.
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/task/run \
+curl -X POST http://localhost:8000/api/v1/task \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -667,7 +667,7 @@ Tasks move through the following states during their lifecycle:
 
 ### Task Execution Pipeline
 
-When a task is submitted via `/task/run` or `/task/multiple_tasks`, it passes through the following pipeline:
+When a task is submitted via `/task` or `/task/multiple_tasks`, it passes through the following pipeline:
 
 ```
 Request
@@ -817,7 +817,7 @@ Enqueue and dequeue operations use optimistic concurrency with up to 5 retries a
 ```
 scheduled
   |
-  |  (cron picks up or /task/run called)
+  |  (cron picks up or /task called)
   v
 queued_for_connection
   |

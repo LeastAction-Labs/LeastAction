@@ -172,8 +172,8 @@ The following item types **cannot** be created via `/api/v1/catalog/create`:
 
 **How to Create**:
 
-- Tasks: `POST /api/v1/task/run`
-- Actions: `POST /api/v1/action/run`
+- Tasks: `POST /api/v1/task`
+- Actions: `POST /api/v1/action`
 
 **Validation**:
 
@@ -182,7 +182,7 @@ The following item types **cannot** be created via `/api/v1/catalog/create`:
 if item.item_type in ["task", "action"]:
     raise InvalidArgumentError(
         "Invalid item type passed",
-        f"use /api/v1/{item.item_type}/run api to create {item.item_type}"
+        f"use /api/v1/{item.item_type} api to create {item.item_type}"
     )
 ```
 
@@ -190,7 +190,7 @@ if item.item_type in ["task", "action"]:
 
 ### Dedicated Endpoints
 
-#### `/api/v1/task/run`
+#### `/api/v1/task`
 
 **Access Checks**:
 
@@ -202,7 +202,7 @@ if item.item_type in ["task", "action"]:
 
 **Why**: Tasks can reference multiple resources (operators, connections, payloads, actions). The endpoint validates access to **all** referenced items before creating the task.
 
-#### `/api/v1/action/run`
+#### `/api/v1/action`
 
 **Access Checks**:
 
@@ -233,7 +233,7 @@ if item.item_type in ["task", "action"]:
 **Example**:
 
 ```python
-@task_router.post("/run")
+@task_router.post("")
 async def create_run_task(
     request: Annotated[BaseCreateItemRequest, Depends(validate_access_for_create_run)],
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
@@ -295,7 +295,7 @@ async def create_item(self, request):
 
 1. **Always include the Bearer token** for user-facing endpoints
 2. **Never expose the `X-System-Auth-Token`** - it's for internal use only
-3. **Use `/task/run` and `/action/run`** - don't attempt to create tasks/actions via `/catalog/create`
+3. **Use `/task` and `/action`** - don't attempt to create tasks/actions via `/catalog/create`
 4. **Check permissions before operations** - use `/access/get/permission` to validate access
 
 ### For Developers

@@ -31,7 +31,7 @@ class TaskTestContext:
 
 
 def _create_item(client: TestClient, json: dict) -> str:
-    url = "/api/v1/task/run" if json["item_type"] == "task" else "/api/v1/catalog/create"
+    url = "/api/v1/task" if json["item_type"] == "task" else "/api/v1/catalog/create"
     resp = execute_request(
         client=client,
         request=TestRequest(url=url, method="post", json=json),

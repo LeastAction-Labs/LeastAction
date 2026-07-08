@@ -67,7 +67,7 @@ task = {
 Actions executed standalone via REST API, not tied to any task:
 
 ```bash
-POST /api/action/run
+POST /api/action
 {
     "item_type": "action",
     "item_laui": "existing_action_id",  # Optional
@@ -170,7 +170,7 @@ Actions can be executed independently via the REST API without being attached to
 
 ### API Endpoint
 
-**URL**: `POST /api/action/run`
+**URL**: `POST /api/action`
 
 **Purpose**: Execute an action independently, either by referencing an existing action item or creating a new one inline.
 
@@ -304,7 +304,7 @@ The response contains the LAUI of the executed action. The action runs asynchron
 #### 1. Manual Data Validation
 
 ```bash
-curl -X POST /api/action/run \
+curl -X POST /api/action \
   -H "Content-Type: application/json" \
   -d '{
     "item_type": "action",
@@ -321,7 +321,7 @@ curl -X POST /api/action/run \
 #### 2. Send Ad-hoc Notification
 
 ```bash
-curl -X POST /api/action/run \
+curl -X POST /api/action \
   -H "Content-Type: application/json" \
   -d '{
     "item_type": "action",
@@ -339,7 +339,7 @@ curl -X POST /api/action/run \
 
 ```bash
 # Test an action operator with sample data
-curl -X POST /api/action/run \
+curl -X POST /api/action \
   -H "Content-Type: application/json" \
   -d '{
     "item_type": "action",
@@ -354,7 +354,7 @@ curl -X POST /api/action/run \
 #### 4. Cleanup Utility
 
 ```bash
-curl -X POST /api/action/run \
+curl -X POST /api/action \
   -H "Content-Type: application/json" \
   -d '{
     "item_type": "action",
@@ -927,7 +927,7 @@ actions = {
 Execute a pre-configured validation action with different parameters:
 
 ```bash
-curl -X POST http://localhost:8000/api/action/run \
+curl -X POST http://localhost:8000/api/action \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
@@ -957,7 +957,7 @@ curl -X POST http://localhost:8000/api/action/run \
 Create a new notification action and execute it immediately:
 
 ```bash
-curl -X POST http://localhost:8000/api/action/run \
+curl -X POST http://localhost:8000/api/action \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
@@ -990,7 +990,7 @@ curl -X POST http://localhost:8000/api/action/run \
 Execute a cleanup action to delete old temporary files:
 
 ```bash
-curl -X POST http://localhost:8000/api/action/run \
+curl -X POST http://localhost:8000/api/action \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
@@ -1024,7 +1024,7 @@ test_cases = [
 
 for test in test_cases:
     response = requests.post(
-        "http://localhost:8000/api/action/run",
+        "http://localhost:8000/api/action",
         headers={"Cookie":f"frontend_token={token}"},
         json={
             "item_type": "action",
@@ -1218,7 +1218,7 @@ def test_pre_action_failure_aborts_task():
 
 ```bash
 # Good: Explicit parameters, clear purpose
-curl -X POST /api/action/run -d '{
+curl -X POST /api/action -d '{
   "item_type": "action",
   "item_laui": "cleanup_action_laui",
   "connection_laui": "s3_connection_laui",
@@ -1230,7 +1230,7 @@ curl -X POST /api/action/run -d '{
 }'
 
 # Bad: Unclear parameters, missing context
-curl -X POST /api/action/run -d '{
+curl -X POST /api/action -d '{
   "item_type": "action",
   "item_laui": "some_action",
   "action_variables": {

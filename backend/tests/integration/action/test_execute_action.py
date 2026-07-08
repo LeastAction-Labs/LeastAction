@@ -208,7 +208,7 @@ def run(least_action_action_object, folder_path, file_path, file_content):
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -247,7 +247,7 @@ async def test_execute_action_with_essential_fields_only_pass(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -301,7 +301,7 @@ async def test_execute_action_with_file_system_operation_pass(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -353,7 +353,7 @@ async def test_execute_action_with_minimal_fields_pass(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -401,7 +401,7 @@ async def test_execute_action_with_nonexistent_action_fail(client: TestClient):
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -445,7 +445,7 @@ async def test_execute_action_with_invalid_item_type_fail(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "task",  # Wrong item type
@@ -483,7 +483,7 @@ async def test_execute_action_with_missing_action_variables_pass(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -512,7 +512,7 @@ async def test_execute_action_with_invalid_paths_fail(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -548,7 +548,7 @@ async def test_execute_action_without_laui_fail(client: TestClient):
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",

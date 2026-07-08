@@ -259,7 +259,7 @@ async def create_item(item_body: dict) -> dict:
     item_response = None
     url = f"{BACKEND_URL}/api/v1/catalog/create"
     if item_body.get("item_type") in ["task", "action"]:
-        url = f"{BACKEND_URL}/api/v1/{item_body['item_type']}/run"
+        url = f"{BACKEND_URL}/api/v1/{item_body['item_type']}"
     try:
         item_response = requests.post(
             url,

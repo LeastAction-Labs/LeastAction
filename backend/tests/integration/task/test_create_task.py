@@ -417,7 +417,7 @@ async def test_create_task_with_frequency_adhoc_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -452,7 +452,7 @@ async def test_create_task_with_cron_expression_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -489,7 +489,7 @@ async def test_create_task_with_payload_as_input_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -527,7 +527,7 @@ async def test_create_task_with_payload_laui_and_create_link_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -605,7 +605,7 @@ async def test_create_task_with_attached_configs_and_create_link_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -740,7 +740,7 @@ async def test_create_task_with_existing_references(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -775,7 +775,7 @@ async def test_create_task_with_end_date_before_start_date_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -812,7 +812,7 @@ async def test_create_task_with_nonexistent_operator_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -841,7 +841,7 @@ async def test_create_task_with_nonexistent_connection_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -876,7 +876,7 @@ async def test_create_task_with_both_payload_and_payload_laui_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -913,7 +913,7 @@ async def test_create_task_with_nonexistent_parent_laui_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -946,7 +946,7 @@ async def test_create_task_with_invalid_cron_expression_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -982,7 +982,7 @@ async def test_create_task_with_missing_all_required_items_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1033,7 +1033,7 @@ async def test_create_task_with_parent_not_workflow_folder_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1088,7 +1088,7 @@ async def test_create_task_with_operator_item_type_mismatch_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1138,7 +1138,7 @@ async def test_create_task_with_connection_item_type_mismatch_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1193,7 +1193,7 @@ async def test_create_task_with_config_item_type_mismatch_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1231,7 +1231,7 @@ async def test_task_with_multiple_configs_merge_parameters(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1268,7 +1268,7 @@ async def test_task_spark_connection_with_spark_operator_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1335,7 +1335,7 @@ async def test_task_databricks_connection_with_spark_operator_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1372,7 +1372,7 @@ async def test_task_with_every_minute_cron_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1411,7 +1411,7 @@ async def test_task_with_complex_cron_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1450,7 +1450,7 @@ async def test_task_with_same_start_and_end_date_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1491,7 +1491,7 @@ async def test_task_with_past_dates_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1532,7 +1532,7 @@ async def test_task_with_all_valid_states(
         task_resp = execute_request(
             client=client,
             request=TestRequest(
-                url="/api/v1/task/run",
+                url="/api/v1/task",
                 method="post",
                 json={
                     "item_type": "task",
@@ -1577,7 +1577,7 @@ async def test_task_with_complex_json_payload_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1614,7 +1614,7 @@ async def test_task_with_empty_string_payload_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1656,7 +1656,7 @@ async def test_create_task_with_invalid_state_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1689,7 +1689,7 @@ async def test_create_task_with_all_nonexistent_item_lauis_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1722,7 +1722,7 @@ async def test_create_task_missing_account_laui_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1759,7 +1759,7 @@ async def test_create_task_missing_project_laui_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1797,7 +1797,7 @@ async def test_create_task_cron_without_start_date_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1834,7 +1834,7 @@ async def test_create_task_cron_without_end_date_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1869,7 +1869,7 @@ async def test_create_task_cron_without_both_dates_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1903,7 +1903,7 @@ async def test_create_task_missing_frequency_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1938,7 +1938,7 @@ async def test_create_task_with_attached_config_empty_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1975,7 +1975,7 @@ async def test_create_task_with_no_payload_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -2015,7 +2015,7 @@ async def test_create_task_python_connection_with_spark_operator_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",

@@ -186,7 +186,7 @@ async def test_payload_is_none_after_creation(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -261,7 +261,7 @@ async def test_payload_passed_directly(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -390,7 +390,7 @@ async def test_task_system_params_not_replaced_in_db_after_execution(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",

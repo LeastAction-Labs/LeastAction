@@ -4,7 +4,7 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 """
-Integration tests for the task run API endpoint (/api/v1/task/run).
+Integration tests for the task run API endpoint (/api/v1/task).
 
 These tests verify that:
 1. Valid tasks can be executed successfully
@@ -170,7 +170,7 @@ def _create_task(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",

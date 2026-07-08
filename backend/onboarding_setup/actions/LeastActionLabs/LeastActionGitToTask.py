@@ -121,7 +121,7 @@ def create_catalog_item(body, headers):
     backend_host = os.getenv("BACKEND_HOST", "backend")
     api_url = f"http://{backend_host}:8000/api/v1/catalog/create"
     if body.get("item_type") in ("task", "action"):
-        api_url = f"http://{backend_host}:8000/api/v1/{body.get('item_type')}/run"
+        api_url = f"http://{backend_host}:8000/api/v1/{body.get('item_type')}"
 
     try:
         response = requests.post(api_url, json=body, headers=headers, timeout=30)

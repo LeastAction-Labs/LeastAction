@@ -46,7 +46,7 @@ async def create_item(
         if item.item_type in ["task", "action"]:
             raise InvalidArgumentError(
                 "Invalid item type passed",
-                f"use /api/v1/{item.item_type}/run api to create {item.item_type}",
+                f"use /api/v1/{item.item_type} api to create {item.item_type}",
             )
         return await item_orchestrator.create_item(item)
     except LAException as e:

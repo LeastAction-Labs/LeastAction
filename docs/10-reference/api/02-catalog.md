@@ -53,8 +53,8 @@ Access is validated internally within the catalog service's `create_item` method
 - `action`
 
 These item types have dedicated creation and execution endpoints:
-- Use `POST /api/v1/task/run` to create and run tasks
-- Use `POST /api/v1/action/run` to create and execute actions
+- Use `POST /api/v1/task` to create and run tasks
+- Use `POST /api/v1/action` to create and execute actions
 
 **Rationale**: Tasks and actions require specialized validation, permission checks, and lifecycle management that are handled by their dedicated endpoints. This restriction prevents bypassing security checks and ensures proper workflow execution.
 
@@ -64,7 +64,7 @@ These item types have dedicated creation and execution endpoints:
 ```json
 {
   "message": "Invalid item type passed",
-  "detail": "use /api/v1/task/run api to create task"
+  "detail": "use /api/v1/task api to create task"
 }
 ```
 
@@ -73,7 +73,7 @@ or
 ```json
 {
   "message": "Invalid item type passed",
-  "detail": "use /api/v1/action/run api to create action"
+  "detail": "use /api/v1/action api to create action"
 }
 ```
 

@@ -57,8 +57,8 @@ def run(least_action_action_object, task_lauis, start_date=None, end_date=None, 
         backend_host = os.getenv("BACKEND_HOST", "backend")
         base_api_url = f"http://{backend_host}:8000/api/v1"
         get_api_url = base_api_url + "/catalog/get"
-        task_create_url = base_api_url + "/task/run"
-        task_update_url = base_api_url + "/task/run"
+        task_create_url = base_api_url + "/task"
+        task_update_url = base_api_url + "/task"
 
         log_info("action", "run", "urls", f"base_api_url={base_api_url}")
 

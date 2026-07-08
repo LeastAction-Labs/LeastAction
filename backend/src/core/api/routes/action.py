@@ -18,8 +18,8 @@ from src.core.catalog.orchestrator import ItemOrchestrator, get_item_orchestrato
 action_router = APIRouter()
 
 
-@action_router.post("/run")
-async def execute_action(
+@action_router.post("")
+async def create_run_action(
     request: Annotated[BaseCreateItemRequest, Depends(validate_access_for_create_run)],
     item_orchestrator: ItemOrchestrator = Depends(get_item_orchestrator),
 ):
@@ -27,15 +27,15 @@ async def execute_action(
         log_info(
             "api",
             "action_router",
-            "execute_action",
+            "create_run_action",
             f"user={get_user_laui()} payload={request.model_dump()}",
         )
-        return await item_orchestrator.execute_action(request)
+        return await item_orchestrator.create_run_action(request)
     except LAException as e:
         log_error(
             "api_traceback",
             "action_router",
-            "execute_action",
+            "create_run_action",
             f"LAException: {e.detail if e.detail else e.message}\n{traceback.format_exc()}",
         )
         raise HTTPException(
@@ -45,7 +45,7 @@ async def execute_action(
         log_error(
             "api_traceback",
             "action_router",
-            "execute_action",
+            "create_run_action",
             f"Unexpected error: {str(e)}\n{traceback.format_exc()}",
         )
         raise HTTPException(

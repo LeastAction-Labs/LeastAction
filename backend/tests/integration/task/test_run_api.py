@@ -4,7 +4,7 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 """
-Integration tests for the task run API endpoint (/api/v1/task/run).
+Integration tests for the task run API endpoint (/api/v1/task).
 
 These tests verify that:
 1. Valid tasks can be executed successfully
@@ -174,7 +174,7 @@ async def file_system_action_laui(
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -261,7 +261,7 @@ async def test_create_action_for_task_execution(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -307,7 +307,7 @@ async def test_run_task_with_adhoc_frequency_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -346,7 +346,7 @@ async def test_run_task_with_cron_expression_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -383,7 +383,7 @@ async def test_run_task_with_payload_as_input_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -420,7 +420,7 @@ async def test_run_task_with_payload_laui_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -466,7 +466,7 @@ async def test_run_task_with_complex_json_payload_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -504,7 +504,7 @@ async def test_run_existing_task_with_item_laui_adhoc_pass(
     create_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -527,7 +527,7 @@ async def test_run_existing_task_with_item_laui_adhoc_pass(
     run_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -559,7 +559,7 @@ async def test_run_existing_task_with_item_laui_cron_pass(
     create_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -584,7 +584,7 @@ async def test_run_existing_task_with_item_laui_cron_pass(
     run_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -615,7 +615,7 @@ async def test_run_existing_task_with_logical_date_pass(
     create_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -641,7 +641,7 @@ async def test_run_existing_task_with_logical_date_pass(
     run_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -684,7 +684,7 @@ async def test_run_non_task_item_type_fail(
     response = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "operator.python",
@@ -714,7 +714,7 @@ async def test_run_existing_non_task_item_with_item_laui_fail(
     response = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "operator.python",
@@ -743,7 +743,7 @@ async def test_run_task_with_missing_operator_fail(
     response = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -770,7 +770,7 @@ async def test_run_task_with_missing_connection_fail(
     response = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -802,7 +802,7 @@ async def test_run_task_with_nonexistent_operator_fail(
     response = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -831,7 +831,7 @@ async def test_run_task_with_nonexistent_connection_fail(
     response = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -863,7 +863,7 @@ async def test_run_task_with_missing_account_laui_fail(
     response = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -894,7 +894,7 @@ async def test_run_task_with_missing_project_laui_fail(
     response = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -927,7 +927,7 @@ async def test_run_task_with_cron_missing_start_date_fail(
     response = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -962,7 +962,7 @@ async def test_run_task_with_invalid_cron_expression_fail(
     response = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1001,7 +1001,7 @@ async def test_run_task_with_end_date_before_start_date_fail(
     response = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1037,7 +1037,7 @@ async def test_run_task_with_nonexistent_payload_laui_fail(
     response = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1062,7 +1062,7 @@ async def test_run_task_with_empty_request_body_fail(client: TestClient):
     Test that task execution fails with empty request body.
     """
     response = execute_request(
-        client=client, request=TestRequest(url="/api/v1/task/run", method="post", json={})
+        client=client, request=TestRequest(url="/api/v1/task", method="post", json={})
     )
 
     assert response.status_code == 422  # Validation error - missing item_type
@@ -1082,7 +1082,7 @@ async def test_run_task_with_missing_item_type_fail(
     response = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "name": f"task_no_type_{datetime.now().timestamp()}",
@@ -1122,7 +1122,7 @@ def run(least_action_action_object, message):
     action_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/action/run",
+            url="/api/v1/action",
             method="post",
             json={
                 "item_type": "action",
@@ -1157,7 +1157,7 @@ async def test_run_task_with_pre_action_pass(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -1248,7 +1248,7 @@ async def test_create_action_for_task_execution_fail(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/task/run",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
