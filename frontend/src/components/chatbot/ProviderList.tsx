@@ -158,11 +158,7 @@ export function buildProviderConfigFromSelection(
   return {
     aiChatLaui: selectedAiChat._laui || selectedAiChat.laui,
     aiChatName: selectedAiChat.name || 'Unnamed AI Chat',
-    aiProvider:
-      merged.provider ||
-      (selectedAiChat.item_type?.startsWith('chat.')
-        ? selectedAiChat.item_type.replace('chat.', '')
-        : 'anthropic'),
+    aiProvider: merged.provider || providerOf(selectedAiChat) || providerOf(selectedConn),
     connectionLaui: selectedConn._laui || selectedConn.laui,
     ...(messages?.length ? { initialMessages: messages } : {}),
   };

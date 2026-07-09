@@ -1189,9 +1189,10 @@ export default function ImportModal() {
                         isParentField
                           ? {
                               item_type:
-                                itemData.item_type === 'skill' || itemData.item_type === 'agent'
+                                (itemData.item_type ?? '').split('.')[0] === 'skill' ||
+                                (itemData.item_type ?? '').split('.')[0] === 'agent'
                                   ? 'folder.skill'
-                                  : `folder.${itemData.item_type}`,
+                                  : `folder.${(itemData.item_type ?? '').split('.')[0]}`,
                               ...(importProjectLaui ? { project_laui: importProjectLaui } : {}),
                             }
                           : { item_type: getItemType(field) }
