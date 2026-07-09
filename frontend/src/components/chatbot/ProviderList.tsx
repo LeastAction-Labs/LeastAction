@@ -5,7 +5,7 @@
  * marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
  * Use of this file outside those terms is not permitted.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import CloudIcon from '@mui/icons-material/Cloud';
 import HistoryIcon from '@mui/icons-material/History';
@@ -58,8 +58,17 @@ export const listboxSx = {
   border: '1px solid var(--border)',
   borderRadius: BORDER_RADIUS.MD,
   mt: 0.5,
-  maxHeight: 200,
   p: 0,
+  '& .MuiAutocomplete-listbox': { maxHeight: 200 },
+  '& .MuiAutocomplete-groupLabel': {
+    fontSize: '0.6rem',
+    fontWeight: FONT_WEIGHTS.WEIGHT_500,
+    color: 'var(--text-secondary)',
+    bgcolor: 'var(--bg-secondary)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    lineHeight: 2,
+  },
   '& .MuiAutocomplete-option': {
     fontSize: FONT_SIZES.XS,
     color: 'var(--text-primary)',
@@ -73,6 +82,39 @@ export const listboxSx = {
     },
   },
 };
+
+export function providerOf(item: any): string | null {
+  const t: unknown = item?.item_type;
+  if (typeof t === 'string' && t.includes('.')) {
+    return t.slice(t.indexOf('.') + 1);
+  }
+  const content =
+    typeof item?.content === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(item.content || '{}');
+          } catch {
+            return {};
+          }
+        })()
+      : item?.content;
+  return content?.provider ?? null;
+}
+
+export function orderByProvider(items: any[], provider: string | null): any[] {
+  if (!provider) return items;
+  const matching: any[] = [];
+  const rest: any[] = [];
+  for (const it of items) {
+    (providerOf(it) === provider ? matching : rest).push(it);
+  }
+  return [...matching, ...rest];
+}
+
+export function providerGroupBy(provider: string | null) {
+  if (!provider) return undefined;
+  return (opt: any) => (providerOf(opt) === provider ? 'Recommended' : 'Other');
+}
 
 export function formatSessionLabel(name: string) {
   const match = name.match(/chat_session_(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})/);
@@ -159,7 +201,7 @@ export default function ProviderList({ onSelect, prefill }: ProviderListProps) {
           }),
           searchCatalogItems('connection', false, {
             perPage: 20,
-            projection: ['name', 'content'],
+            projection: ['name', 'content', 'item_type'],
           }),
           searchCatalogItems('chat_history', false, {
             perPage: 30,
@@ -224,6 +266,17 @@ export default function ProviderList({ onSelect, prefill }: ProviderListProps) {
     onSelect(buildProviderConfigFromSelection(selectedAiChat, selectedConn, selectedHistory));
   };
 
+  const agentProvider = selectedAiChat ? providerOf(selectedAiChat) : null;
+  const connProvider = selectedConn ? providerOf(selectedConn) : null;
+  const orderedAgents = useMemo(
+    () => orderByProvider(providers, connProvider),
+    [providers, connProvider],
+  );
+  const orderedConnections = useMemo(
+    () => orderByProvider(connections, agentProvider),
+    [connections, agentProvider],
+  );
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flex: 1 }}>
@@ -260,7 +313,8 @@ export default function ProviderList({ onSelect, prefill }: ProviderListProps) {
       <Box>
         <Typography sx={labelSx}>AI Agent</Typography>
         <Autocomplete
-          options={providers}
+          options={orderedAgents}
+          groupBy={providerGroupBy(connProvider)}
           getOptionLabel={(opt: any) => opt.name || 'Unnamed'}
           value={selectedAiChat}
           onChange={(_, val) => {
@@ -289,7 +343,8 @@ export default function ProviderList({ onSelect, prefill }: ProviderListProps) {
       <Box>
         <Typography sx={labelSx}>Connection</Typography>
         <Autocomplete
-          options={connections}
+          options={orderedConnections}
+          groupBy={providerGroupBy(agentProvider)}
           getOptionLabel={(opt: any) => opt.name || 'Unnamed'}
           value={selectedConn}
           onChange={(_, val) => {

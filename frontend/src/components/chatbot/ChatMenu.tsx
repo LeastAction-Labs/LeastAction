@@ -5,7 +5,7 @@
  * marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
  * Use of this file outside those terms is not permitted.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import AddIcon from '@mui/icons-material/Add';
 import CloudIcon from '@mui/icons-material/Cloud';
@@ -31,6 +31,9 @@ import {
   buildProviderConfigFromSelection,
   formatSessionLabel,
   listboxSx,
+  orderByProvider,
+  providerGroupBy,
+  providerOf,
 } from './ProviderList';
 
 interface ChatMenuProps {
@@ -72,7 +75,7 @@ export default function ChatMenu({
           }),
           searchCatalogItems('connection', false, {
             perPage: 20,
-            projection: ['name', 'content'],
+            projection: ['name', 'content', 'item_type'],
           }),
           searchCatalogItems('chat_history', false, {
             perPage: 30,
@@ -129,6 +132,17 @@ export default function ChatMenu({
     onClose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAiChat, selectedConn]);
+
+  const agentProvider = selectedAiChat ? providerOf(selectedAiChat) : null;
+  const connProvider = selectedConn ? providerOf(selectedConn) : null;
+  const orderedAgents = useMemo(
+    () => orderByProvider(agents, connProvider),
+    [agents, connProvider],
+  );
+  const orderedConnections = useMemo(
+    () => orderByProvider(connections, agentProvider),
+    [connections, agentProvider],
+  );
 
   if (!open) return null;
 
@@ -206,7 +220,8 @@ export default function ChatMenu({
             <Divider sx={{ borderColor: 'var(--border)' }} />
             <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
               <Autocomplete
-                options={agents}
+                options={orderedAgents}
+                groupBy={providerGroupBy(connProvider)}
                 getOptionLabel={(opt: any) => opt.name || 'Unnamed'}
                 value={selectedAiChat}
                 onChange={(_, val) => setSelectedAiChat(val)}
@@ -227,7 +242,8 @@ export default function ChatMenu({
                 )}
               />
               <Autocomplete
-                options={connections}
+                options={orderedConnections}
+                groupBy={providerGroupBy(agentProvider)}
                 getOptionLabel={(opt: any) => opt.name || 'Unnamed'}
                 value={selectedConn}
                 onChange={(_, val) => setSelectedConn(val)}
