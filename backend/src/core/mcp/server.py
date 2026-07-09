@@ -209,7 +209,7 @@ def create_mcp_server(orchestrator, proxy: McpProxyManager | None = None) -> Fas
     ) -> dict:
         """Search for catalog items by type and optionally by name or parent.
 
-        item_type: e.g. task, operator, action, connection, payload, config, folder.workflow, ai_skill, html_report
+        item_type: e.g. task, operator, action, connection, payload, config, folder.workflow, skill, html_report
         name: optional name filter (partial match)
         parent_laui: optional parent item LAUI to scope search
         page: page number (default 1)
@@ -350,7 +350,7 @@ def create_mcp_server(orchestrator, proxy: McpProxyManager | None = None) -> Fas
         Also call get_item_schema(item_type) to see all available fields.
 
         name: item name — operators must end with .operator, actions with .action, usecases with .usecase
-        item_type: e.g. task, operator, operator.python, action, connection, payload, config, folder.workflow, ai_skill
+        item_type: e.g. task, operator, operator.python, action, connection, payload, config, folder.workflow, skill
         parent_laui: LAUI of the parent folder/item
         extra_fields: additional fields as a flat dict (codeblock, bashblock, description, operator_laui, etc.)
 
@@ -943,7 +943,7 @@ def create_mcp_server(orchestrator, proxy: McpProxyManager | None = None) -> Fas
         per_page: int = 10,
         sort_order: str = "asc",
     ) -> dict:
-        """Search the marketplace for reusable operators, actions, payloads, ai_skills, and usecases.
+        """Search the marketplace for reusable operators, actions, payloads, skills, and usecases.
 
         page: page number (default 1)
         per_page: results per page (default 10)
