@@ -112,13 +112,6 @@ export function parseSemver(v: string | null | undefined): VersionTuple | null {
   return parts as VersionTuple;
 }
 
-export function compareSemver(a: string, b: string): number {
-  const pa = parseSemver(a);
-  const pb = parseSemver(b);
-  if (!pa || !pb) return 0;
-  return compareTuples(pa, pb);
-}
-
 export function incrementSemver(current: string, level: SemverLevel): string {
   const v = parseSemver(current) ?? ([0, 0, 0] as VersionTuple);
   if (level === 'major') return `${v[0] + 1}.0.0`;
@@ -153,15 +146,6 @@ export function nextVersionOptions(current: string | null | undefined): VersionB
   ];
 }
 
-export function isSingleStepIncrement(
-  current: string | null | undefined,
-  next: string | null | undefined,
-): boolean {
-  const c = current && parseSemver(current) ? current : '0.0.0';
-  const n = parseSemver(next);
-  if (!n) return false;
-  return nextVersionOptions(c).some((opt) => opt.version === next);
-}
 export function formatCorePattern(pattern: string): string {
   const p = pattern.trim();
   if (p.endsWith('.*')) return `${p.slice(0, -2)}.x`;
