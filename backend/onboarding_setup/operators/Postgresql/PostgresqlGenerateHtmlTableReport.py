@@ -417,67 +417,69 @@ def generate_styled_html_table(pivot_table, metric_styles, report_style):
             )
             return "<p>No data to display</p>"
 
-        html_parts = ['<table>']
+        rs = report_style or {}
+        border = rs.get('border_color', '#dddddd')
+        even = rs.get('row_bg_color_even', '#f9f9f9')
+        odd = rs.get('row_bg_color_odd', '#ffffff')
 
-        # Header row
-        html_parts.append('<thead><tr>')
-        html_parts.append('<th style="text-align: left;">Metric</th>')
+        # Emit ONE CSS class per distinct per-metric style (deduped) instead of
+        # stamping a full inline style on every cell — a big table went from a
+        # ~150-char <td style="…"> per cell to a ~10-char <td class="sN">, ~10x
+        # smaller, which is what pushed the report over the catalog html cap.
+        sig_to_class = {}
+        metric_class = {}
+        css_rules = []
+        for m_name, st in (metric_styles or {}).items():
+            props = []
+            if st.get('cell_bg_color'):
+                props.append(f"background-color:{st['cell_bg_color']}")
+            if st.get('cell_text_color'):
+                props.append(f"color:{st['cell_text_color']}")
+            if st.get('text_bold'):
+                props.append("font-weight:bold")
+            if st.get('text_italic'):
+                props.append("font-style:italic")
+            if st.get('text_size'):
+                props.append(f"font-size:{st['text_size']}")
+            if not props:
+                continue
+            sig = ';'.join(props)
+            cls = sig_to_class.get(sig)
+            if cls is None:
+                cls = f"s{len(sig_to_class)}"
+                sig_to_class[sig] = cls
+                css_rules.append(f".{cls}{{{sig}}}")
+            metric_class[m_name] = cls
+
+        style_block = (
+            "<style>"
+            f"td{{border:1px solid {border};padding:8px;text-align:right}}"
+            "td.k{text-align:left;font-weight:bold}"
+            f"tbody tr:nth-child(even){{background-color:{even}}}"
+            f"tbody tr:nth-child(odd){{background-color:{odd}}}"
+            + ''.join(css_rules)
+            + "</style>"
+        )
+
+        parts = [style_block, '<table><thead><tr><th>Metric</th>']
         for col in pivot_table.columns:
-            html_parts.append(f'<th>{col}</th>')
-        html_parts.append('</tr></thead>')
+            parts.append(f'<th>{col}</th>')
+        parts.append('</tr></thead><tbody>')
 
-        # Body rows
-        html_parts.append('<tbody>')
-        for idx, (metric_name, row) in enumerate(pivot_table.iterrows()):
-            row_style = metric_styles.get(metric_name, {})
-
-            is_even = idx % 2 == 0
-            default_bg = report_style.get('row_bg_color_even' if is_even else 'row_bg_color_odd', '#ffffff')
-
-            html_parts.append('<tr>')
-
-            # Metric name cell
-            html_parts.append(f'<td style="text-align: left; font-weight: bold;">{metric_name}</td>')
-
-            # Value cells
+        for metric_name, row in pivot_table.iterrows():
+            fmt = (metric_styles or {}).get(metric_name, {}).get('cell_format', '{value:,.2f}')
+            cls = metric_class.get(metric_name)
+            cattr = f' class="{cls}"' if cls else ''
+            parts.append('<tr>')
+            parts.append(f'<td class="k">{metric_name}</td>')
             for value in row:
-                cell_format = row_style.get('cell_format', '{value:,.2f}')
-                formatted_value = format_cell_value(value, cell_format)
-
-                cell_style_parts = []
-
-                bg_color = row_style.get('cell_bg_color', default_bg)
-                if bg_color:
-                    cell_style_parts.append(f'background-color: {bg_color}')
-
-                text_color = row_style.get('cell_text_color')
-                if text_color:
-                    cell_style_parts.append(f'color: {text_color}')
-
-                if row_style.get('text_bold'):
-                    cell_style_parts.append('font-weight: bold')
-
-                if row_style.get('text_italic'):
-                    cell_style_parts.append('font-style: italic')
-
-                text_size = row_style.get('text_size')
-                if text_size:
-                    cell_style_parts.append(f'font-size: {text_size}')
-
-                cell_style_parts.append('text-align: right')
-                cell_style_parts.append('padding: 10px')
-                cell_style_parts.append(f'border: 1px solid {report_style.get("border_color", "#ddd")}')
-
-                cell_style_str = '; '.join(cell_style_parts)
-                html_parts.append(f'<td style="{cell_style_str}">{formatted_value}</td>')
-
-            html_parts.append('</tr>')
-        html_parts.append('</tbody>')
-        html_parts.append('</table>')
+                parts.append(f'<td{cattr}>{format_cell_value(value, fmt)}</td>')
+            parts.append('</tr>')
+        parts.append('</tbody></table>')
 
         log_info("task", "run", "html_table_generated", "HTML table generated")
 
-        return ''.join(html_parts)
+        return ''.join(parts)
 
     except Exception as e:
         log_error(
@@ -657,6 +659,15 @@ def write_report_to_database(conn, pivot_table, metric_styles, output_table, rep
             f"HTML report saved to database table: {output_table}"
         )
 
+        # Guard: the catalog `html_report.html` field is capped. Fail with guidance
+        # rather than sending a doomed request that returns a raw 422.
+        HTML_MAX = 5_000_000
+        if len(html_content) > HTML_MAX:
+            log_error("task", "run", "html_too_large",
+                      f"Report HTML is {len(html_content)} chars (> {HTML_MAX}); narrow it with a metric_template or a tighter date_filter")
+            raise ValueError(
+                f"Report HTML {len(html_content)} chars exceeds {HTML_MAX}; narrow via metric_template or date_filter")
+
         # Send report to catalog API
         user_access_token = least_action_task_object.get('user_access_token')
 
@@ -683,7 +694,9 @@ def write_report_to_database(conn, pivot_table, metric_styles, output_table, rep
             "name": report_name,
             "description": report_title,
             "html": html_content,
-            "parent_laui": output_parent_laui
+            "parent_laui": output_parent_laui,
+            "project_laui": str(least_action_task_object.get('project_laui')),
+            "account_laui": str(least_action_task_object.get('account_laui')),
         }
 
         log_info("task", "run", "send_request", f"Sending POST request to {api_url}")
@@ -700,9 +713,11 @@ def write_report_to_database(conn, pivot_table, metric_styles, output_table, rep
                 log_info("task", "run", "api_success", f"Successfully sent report to catalog API: {report_name}")
             else:
                 log_error("task", "run", "api_error", f"Catalog API returned status {response.status_code}: {response.text}")
+                raise RuntimeError(f"Catalog create failed with status {response.status_code}: {response.text}")
 
         except requests.exceptions.RequestException as e:
             log_error("task", "run", "api_request_error", f"Error sending report to catalog API: {str(e)}")
+            raise
 
         return output_table
 

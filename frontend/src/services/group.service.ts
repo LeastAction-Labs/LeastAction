@@ -28,13 +28,14 @@ interface GroupData {
 }
 
 export interface GroupItem {
-  id: string;
+  laui: string;
   name: string;
 }
 
 export interface GroupsResponse {
   groups: GroupItem[];
-  next_page_token: string;
+  next_page_token?: string | null;
+  has_next: boolean;
 }
 
 export interface UserInfo {
@@ -52,6 +53,13 @@ export interface GroupDetails {
 }
 
 export type Relation = 'owners' | 'editors' | 'viewers';
+
+export interface GetGroupsParams {
+  relation: Relation;
+  per_page?: number;
+  page?: number; // For root users
+  page_token?: string; // For non-root users
+}
 
 export async function createGroup(groupData: GroupData): Promise<any> {
   const backendPayload: Record<string, unknown> = {
@@ -89,8 +97,25 @@ export async function createGroup(groupData: GroupData): Promise<any> {
   });
 }
 
-export async function getGroups(relation: Relation): Promise<GroupsResponse> {
-  return await httpJson<GroupsResponse>(`${API_ENDPOINTS.group.get}?relation=${relation}`, {
+export async function getGroups(params: GetGroupsParams): Promise<GroupsResponse> {
+  const queryParams = new URLSearchParams();
+  queryParams.append('relation', params.relation);
+
+  if (params.per_page !== undefined) {
+    queryParams.append('per_page', params.per_page.toString());
+  }
+
+  // For root users - page number based pagination
+  if (params.page !== undefined) {
+    queryParams.append('page', params.page.toString());
+  }
+
+  // For non-root users - token based pagination
+  if (params.page_token !== undefined) {
+    queryParams.append('page_token', params.page_token);
+  }
+
+  return await httpJson<GroupsResponse>(`${API_ENDPOINTS.group.get}?${queryParams.toString()}`, {
     method: 'GET',
   });
 }

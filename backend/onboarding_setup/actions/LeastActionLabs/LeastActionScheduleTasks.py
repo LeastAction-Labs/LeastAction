@@ -57,8 +57,8 @@ def run(least_action_action_object, task_lauis, start_date=None, end_date=None, 
         backend_host = os.getenv("BACKEND_HOST", "backend")
         base_api_url = f"http://{backend_host}:8000/api/v1"
         get_api_url = base_api_url + "/catalog/get"
-        catalog_create_url = base_api_url + "/catalog/create"
-        task_update_url = base_api_url + "/task/update"
+        task_create_url = base_api_url + "/task"
+        task_update_url = base_api_url + "/task"
 
         log_info("action", "run", "urls", f"base_api_url={base_api_url}")
 
@@ -117,7 +117,7 @@ def run(least_action_action_object, task_lauis, start_date=None, end_date=None, 
             # ── 3. Upsert task definition ────────────────────────────────
             log_info("action", "run", "catalog_create", f"Upserting task via catalog/create for '{task['name']}'...")
             create_resp = requests.post(
-                catalog_create_url,
+                task_create_url,
                 json=body,
                 headers=headers,
                 timeout=30,
@@ -131,10 +131,11 @@ def run(least_action_action_object, task_lauis, start_date=None, end_date=None, 
                 "state": "scheduled",
                 "retry_number": 0,
             }
+            body.update(update_body)
             log_info("action", "run", "task_update", f"Resetting task state to 'scheduled' for {task_laui}...")
             task_post_response = requests.post(
-                f"{task_update_url}/{task_laui}",
-                json=update_body,
+                task_update_url,
+                json=body,
                 headers=headers,
                 timeout=30,
             )
@@ -225,4 +226,3 @@ version_details = {
     "version": "0.0.0",
     "core": ["0.*"]
 }
-

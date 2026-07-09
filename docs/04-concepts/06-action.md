@@ -40,13 +40,9 @@ Task Control Actions manage task execution metadata and state. These are typical
 
 **Available Control Actions:**
 
-* **LeastActionRun** \- Start task execution
-* **LeastActionRerun** \- Re-execute a task
-* **LeastActionRerunSubtree** \- Re-execute task and all children
-* **LeastActionCancel** \- Stop a running task
-* **LeastActionSkip** \- Mark task as skipped
-* **LeastActionSkipSubtree** \- Skip task and all children
-* **LeastActionSkipPostDoneS3** \- Skip and write completion marker
+* **LeastActionRunTask** \- Start task execution
+* **LeastActionCancelTask** \- Stop a running task
+* **LeastActionScheduleTasks** \- Schedule or reschedule tasks
 
 **Characteristics:**
 
@@ -70,12 +66,9 @@ Task Lifecycle Actions are automatically invoked at specific points during a tas
 
 **Common Lifecycle Actions:**
 
-* **LeastActionLinkParents** (CreateAction) \- Connect parent dependencies
-* **LeastActionAutoLinkParents** (CreateAction) \- Parse SQL to auto-detect dependencies
 * **LeastActionCheckIfParentsAreDone** (PreAction) \- Validate parent completion
-* **LeastActionGitSync** (PreAction) \- Sync code from Git
-* **LeastActionSlackWebhook** (RunningAction/RunningIntervalAction/PostAction) \- Send notifications
-* **LeastActionFindTasksReadyToRun** \- Identify tasks ready for execution (can be invoked by cron or as PostAction)
+* **LeastActionGitToTask** (PreAction) \- Sync code from Git
+* **LeastActionWebhookNotify** (RunningAction/RunningIntervalAction/PostAction) \- Send notifications
 
 **Characteristics:**
 
@@ -113,11 +106,9 @@ Via Config lets users set defaults and these will be used in any task created in
     "taskActions": {
       "preAction": [
         {
-          "action": "LeastActionGitSync",
-          "connection": "GitHubMain",
+          "action": "LeastActionCheckIfLocalFileExists",
           "variables": {
-            "repository": "org/repo",
-            "branch": "main"
+            "file_path": "/data/input/{{ds}}/ready.flag"
           }
         },
         {
@@ -134,24 +125,9 @@ Via Config lets users set defaults and these will be used in any task created in
           }
         }
       ],
-      "createAction": [
-        {
-          "action": "LeastActionLinkParents",
-          "variables": {
-            "parents": [
-              {
-                "task_name": "parent_task_name",
-                "project_laui": "{{project_laui}}",
-                "account_laui": "{{account_laui}}",
-                "partition": "{{partition}}"
-              }
-            ]
-          }
-        }
-      ],
       "RunningAction": [
         {
-          "action": "LeastActionSlackWebhook",
+          "action": "LeastActionWebhookNotify",
           "sla": 10,
           "connection": "SlackProd",
           "variables": {
@@ -162,45 +138,48 @@ Via Config lets users set defaults and these will be used in any task created in
       ],
       "runningIntervalAction": [
         {
-          "action": "LeastActionAWSEC2UpdateUtilization",
+          "action": "AWSS3KeyExists",
           "interval": 10,
           "connection": "AWSProd",
           "variables": {
-            "instanceId": "{{instanceId}}",
-            "metricName": "CPUUtilization"
+            "bucket_name": "data-lake",
+            "key": "output/{{ds}}/done.flag"
           }
         }
       ],
       "postAction": [
         {
-          "action": "LeastActionAWSS3PostDoneFile",
-          "connection": "S3IAMLaui",
+          "action": "LeastActionTaskToTableAsset",
           "variables": {
-            "s3Prefix": "s3://bucket/folder/{{yyyymmdd}}",
-            "fileName": "{{taskId}}.done"
+            "parent_laui": "<asset-folder-laui>"
           }
         },
         {
-          "action": "LeastActionFindTasksReadyToRun",
-          "variables": {}
+          "action": "LeastActionSMTPEmail",
+          "connection": "SMTPProd",
+          "variables": {
+            "to": "team@company.com",
+            "subject": "Task {{name}} completed for {{ds}}",
+            "body": "Pipeline finished successfully."
+          }
         }
       ]
     },
     "taskControlActions": [
       {
-        "action": "LeastActionCancel",
+        "action": "LeastActionCancelTask",
         "variables": {
           "taskStatus": ["running", "scheduled"]
         }
       },
       {
-        "action": "LeastActionRerun",
+        "action": "LeastActionRunTask",
         "variables": {
           "taskStatus": ["error", "failed"]
         }
       },
       {
-        "action": "LeastActionSkipSubtree",
+        "action": "LeastActionScheduleTasks",
         "variables": {
           "taskStatus": ["scheduled", "waiting"]
         }
@@ -208,12 +187,11 @@ Via Config lets users set defaults and these will be used in any task created in
     ],
     "uiActions": [
       {
-        "action": "LeastActionImportPostgres",
-        "connection": "PostgresProd",
+        "action": "LeastActionGitToTask",
+        "connection": "GitHubMain",
         "variables": {
-          "schema": "public",
-          "tables": ["all"],
-          "importViews": false
+          "git_repo_url": "https://github.com/org/repo.git",
+          "git_branch": "main"
         }
       }
     ]
@@ -227,11 +205,11 @@ Via Config lets users set defaults and these will be used in any task created in
 {
   "preAction": [
     {
-      "action": "LeastActionGitSync",
-      "connection": "GitHubMain",
+      "action": "AWSS3KeyExists",
+      "connection": "AWSProd",
       "variables": {
-        "repository": "org/repo",
-        "branch": "main"
+        "bucket_name": "data-lake-prod",
+        "key": "raw/{{ds}}/input.csv"
       }
     },
     {
@@ -248,24 +226,9 @@ Via Config lets users set defaults and these will be used in any task created in
       }
     }
   ],
-  "createAction": [
-    {
-      "action": "LeastActionLinkParents",
-      "variables": {
-        "parents": [
-          {
-            "task_name": "parent_task_name",
-            "project_laui": "{{project_laui}}",
-            "account_laui": "{{account_laui}}",
-            "partition": "{{partition}}"
-          }
-        ]
-      }
-    }
-  ],
   "RunningAction": [
     {
-      "action": "LeastActionSlackWebhook",
+      "action": "LeastActionWebhookNotify",
       "sla": 10,
       "connection": "SlackProd",
       "variables": {
@@ -276,21 +239,30 @@ Via Config lets users set defaults and these will be used in any task created in
   ],
   "runningIntervalAction": [
     {
-      "action": "LeastActionAWSEC2UpdateUtilization",
+      "action": "AWSS3KeyExists",
       "interval": 5,
       "connection": "AWSProd",
       "variables": {
-        "instanceId": "i-1234567890"
+        "bucket_name": "data-lake",
+        "key": "output/{{ds}}/done.flag"
       }
     }
   ],
   "postAction": [
     {
-      "action": "LeastActionPostDoneS3",
-      "connection": "S3IAMLaui",
+      "action": "LeastActionTaskToTableAsset",
       "variables": {
-        "s3Prefix": "s3://bucket/folder/",
-        "fileName": "task.done"
+        "parent_laui": "<asset-folder-laui>",
+        "table_name": "daily_sales_{{ds}}"
+      }
+    },
+    {
+      "action": "LeastActionSMTPEmail",
+      "connection": "SMTPProd",
+      "variables": {
+        "to": "team@company.com",
+        "subject": "Task {{name}} completed",
+        "body": "Pipeline finished for {{ds}}"
       }
     }
   ]
@@ -310,79 +282,106 @@ Via Config lets users set defaults and these will be used in any task created in
 
 Using Task Lifecycle Actions to manage dependencies:
 
-**CreateAction \+ PreAction \+ PostAction Pattern:**
+**PreAction \+ PostAction Pattern:**
 
-1. **LeastActionLinkParents** (CreateAction) \- Connects parent tasks to child tasks
-    * LeastActionLinkParents takes data from LeastActionCheckIfParentsAreDone to avoid duplicate entries
-2. **LeastActionCheckIfParentsAreDone** (PreAction) \- Validates parent completion before execution
-3. **LeastActionFindTasksReadyToRun** (PostAction) \- Identifies which tasks can execute
-
-**Note:** LeastActionFindTasksReadyToRun is also invoked by cron at regular intervals. For immediate invocation after a parent is done, using LeastActionFindTasksReadyToRun in post action can speed things up, but is optional.
+1. **LeastActionCheckIfParentsAreDone** (PreAction) \- Validates parent completion before execution
+2. **LeastActionTaskToTableAsset** (PostAction) \- Registers task output as a catalog asset for lineage tracking
+3. **LeastActionWebhookNotify** (PostAction) \- Notifies on completion so teams know downstream tasks can proceed
 
 **Example flow of using above actions:**
 
 1. Create workflow (config auto-created/attached)
-2. Create task
-3. Default actions are attached from config(sample below):
-4. On create/update:
-    * Lists current parents
-    * Compares with specified parents
-    * Deletes missing dependencies
-    * Adds new dependencies
-5. Before execution, LeastActionCheckIfParentsAreDone validates all parents have completed
-6. After execution, LeastActionFindTasksReadyToRun is run to trigger child tasks
+2. Create task with dependency preAction and post-execution actions
+3. Default actions are attached from config (sample below)
+4. Before execution, LeastActionCheckIfParentsAreDone validates all parents have completed
+5. After execution, LeastActionTaskToTableAsset registers output and LeastActionWebhookNotify sends a notification
+6. The cron scheduler picks up downstream tasks that are ready to run at regular intervals
 
 **Sample**
 
 ```json
 {
-  "createAction": [{"action": "LeastActionLinkParents"}],
-  "preAction": [{"action": "LeastActionCheckIfParentsAreDone", "variables": {"parents": [{"task_name": "parent_task", "project_laui": "{{project_laui}}", "account_laui": "{{account_laui}}", "partition": "{{partition}}"}]}}]
-}
-```
-
-### **Auto-Linking for SQL Tasks**
-
-Automatically parse SQL and link parent dependencies:
-
-**Configuration:**
-
-```json
-{
-  "createAction": [
-    {
-      "action": "LeastActionAutoLinkParents",
-      "variables": {
-        "sqlQuery": "{{payload.sql}}"
-      }
-    },
-    {
-      "action": "LeastActionLinkParents",
-      "variables": {
-        "parents": []
-      }
-    }
-  ],
   "preAction": [
     {
       "action": "LeastActionCheckIfParentsAreDone",
       "variables": {
-        "mode": "auto"
+        "parents": [
+          {
+            "task_name": "parent_task",
+            "project_laui": "{{project_laui}}",
+            "account_laui": "{{account_laui}}",
+            "partition": "{{partition}}"
+          }
+        ]
+      }
+    }
+  ],
+  "postAction": [
+    {
+      "action": "LeastActionTaskToTableAsset",
+      "variables": {
+        "parent_laui": "<asset-folder-laui>"
+      }
+    },
+    {
+      "action": "LeastActionWebhookNotify",
+      "connection": "SlackProd",
+      "variables": {
+        "channel": "#pipeline-status",
+        "message": "Task {{name}} completed for {{ds}}"
       }
     }
   ]
 }
 ```
 
-* **LeastActionAutoLinkParents** analyzes SQL to identify table dependencies
-* **LeastActionCheckIfParentsAreDone** with mode "auto" validates auto-detected dependencies
-* Falls back to manual LeastActionLinkParents if needed
+### **Pre-Execution File Sensor**
+
+Wait for a file to exist before starting the task. Use `AWSS3KeyExists` for S3 files or `LeastActionCheckIfLocalFileExists` for local files:
+
+**S3 file sensor:**
+
+```json
+{
+  "preAction": [
+    {
+      "action": "AWSS3KeyExists",
+      "connection": "AWSProd",
+      "variables": {
+        "bucket_name": "data-lake-prod",
+        "key": "raw/{{ds}}/input.csv"
+      }
+    },
+    {
+      "action": "LeastActionCheckIfParentsAreDone",
+      "variables": {
+        "parents": [{"task_name": "extract_data", "project_laui": "{{project_laui}}", "account_laui": "{{account_laui}}", "partition": "{{partition}}"}]
+      }
+    }
+  ]
+}
+```
+
+**Local file sensor:**
+
+```json
+{
+  "preAction": [
+    {
+      "action": "LeastActionCheckIfLocalFileExists",
+      "variables": {
+        "file_path": "/data/input/{{ds}}/ready.flag"
+      }
+    }
+  ]
+}
+```
 
 ### **CI/CD Integration**
 
-LeastAction supports two complementary CI/CD patterns:
+LeastAction supports CI/CD via the `LeastActionGitToTask` action:
 
-**Pattern 1: Task Catalog Sync (LeastActionGitToTask)**
+**Task Catalog Sync (LeastActionGitToTask)**
 
 Deploy task definitions from a Git repo into LeastAction. Task files in Git contain both the metadata (operator, connection, schedule) and the payload (code/SQL). The action reads the repo and creates/updates tasks in your workflow.
 
@@ -408,36 +407,6 @@ Can be used as a **UI action** (manual deploy button on a workflow) or as a **pr
 
 See the [CI/CD guide](/path?laui=getting-started-08-cicd-01-git-to-task&itemtype=doc.file&itemname=Cicd) for the full setup, task file format, and examples.
 
-**Pattern 2: Code Sync (LeastActionGitSync)**
-
-Sync operator or payload code files from Git to the worker before each task execution. Useful when your task's operator code lives in Git and needs to be pulled fresh at runtime:
-
-```json
-{
-  "preAction": [
-    {
-      "action": "LeastActionGitSync",
-      "connection": "GitHubMain",
-      "variables": {
-        "repository": "org/repo",
-        "branch": "main",
-        "syncPath": "/payload"
-      }
-    },
-    {
-      "action": "LeastActionCheckIfParentsAreDone",
-      "variables": {
-        "parents": []
-      }
-    }
-  ]
-}
-```
-
-* Tasks contain schedule details
-* Payload, compute, config, and operators are CI/CD-enabled
-* Code syncs before each execution
-
 ### **SLA Monitoring with Notifications**
 
 Monitor task execution time and send alerts:
@@ -446,7 +415,7 @@ Monitor task execution time and send alerts:
 {
   "RunningAction": [
     {
-      "action": "LeastActionSlackWebhook",
+      "action": "LeastActionWebhookNotify",
       "sla": 60,
       "connection": "SlackProd",
       "variables": {
@@ -459,21 +428,47 @@ Monitor task execution time and send alerts:
 }
 ```
 
-### **Resource Utilization Tracking**
+### **S3 File Monitoring During Execution**
 
-Monitor resource usage during task execution:
+Monitor S3 for a file at regular intervals during task execution:
 
 ```json
 {
   "runningIntervalAction": [
     {
-      "action": "LeastActionAWSEC2UpdateUtilization",
+      "action": "AWSS3KeyExists",
       "interval": 5,
       "connection": "AWSProd",
       "variables": {
-        "instanceId": "{{compute.instanceId}}",
-        "metrics": ["CPUUtilization", "MemoryUtilization"],
-        "namespace": "LeastAction/Tasks"
+        "bucket_name": "data-lake-prod",
+        "key": "output/{{ds}}/results.parquet"
+      }
+    }
+  ]
+}
+```
+
+### **Post-Execution: Register Output & Notify**
+
+After a task completes, register its output as a catalog asset and send a notification:
+
+```json
+{
+  "postAction": [
+    {
+      "action": "LeastActionTaskToTableAsset",
+      "variables": {
+        "parent_laui": "<asset-folder-laui>",
+        "table_name": "daily_sales_{{ds}}"
+      }
+    },
+    {
+      "action": "LeastActionSMTPEmail",
+      "connection": "SMTPProd",
+      "variables": {
+        "to": "team@company.com",
+        "subject": "Task {{name}} completed for {{ds}}",
+        "body": "Pipeline finished successfully."
       }
     }
   ]
@@ -488,31 +483,19 @@ Configure task control actions with status filters for UI:
 {
   "taskControlActions": [
     {
-      "action": "LeastActionCancel",
+      "action": "LeastActionCancelTask",
       "variables": {
         "taskStatus": ["running", "scheduled"]
       }
     },
     {
-      "action": "LeastActionRerun",
+      "action": "LeastActionRunTask",
       "variables": {
         "taskStatus": ["error", "failed", "canceled"]
       }
     },
     {
-      "action": "LeastActionRerunSubtree",
-      "variables": {
-        "taskStatus": ["error", "failed"]
-      }
-    },
-    {
-      "action": "LeastActionSkip",
-      "variables": {
-        "taskStatus": ["scheduled", "waiting"]
-      }
-    },
-    {
-      "action": "LeastActionSkipSubtree",
+      "action": "LeastActionScheduleTasks",
       "variables": {
         "taskStatus": ["scheduled", "waiting"]
       }
@@ -545,64 +528,64 @@ Configure task control actions with status filters for UI:
 
 When saving actions via AI:
 
-Actions/LeastAction-labs/LeastAction/\[ActionName\]/  
-\- actionname.py  
-\- actionname.prompt  
-\- actionname.bash (if needed)  
+Actions/LeastAction-labs/LeastAction/\[ActionName\]/
+\- actionname.py
+\- actionname.prompt
+\- actionname.bash (if needed)
 \- actionname.sample.json (sample variables and connections)
 
 ### **Sample AI Prompts**
 
-**Rerun Action:**
+**Run Task Action:**
 
-Generate a Task Control Action to rerun tasks.
+Generate a Task Control Action to run or rerun tasks.
 
-API: PUT http://localhost:8000/tasks/update/{task_id}  
-Body: {"last_run_status": "scheduled"}
+API: POST http://localhost:8080/api/v1/task/update/{task_laui}
+Body: {"state": "scheduled"}
 
 Action format:
 ```json
 {
-  "action": "LeastActionRerun",
+  "action": "LeastActionRunTask",
   "variables": {
     "task_status": ["error", "failed"],
-    "task_ids": ["list of task_ids"]
+    "task_ids": ["list of task_lauis"]
   }
 }
 ```
 
-Reference API: GET http://localhost:8000/tasks/by-id/{task_id}
+Reference API: POST http://localhost:8080/api/v1/task/update/{task_laui}
 
 Logic:
 - Iterate through task_ids
-- For each task, check if last_run_status is in task_status array
-- If match, update task to set last_run_status to "scheduled"
-- Return list of updated task IDs
+- For each task, check if current state is in task_status array
+- If match, update task to set state to "scheduled"
+- Return list of updated task LAUIs
 
 **Cancel Action:**
 
 Generate a Task Control Action to cancel running tasks.
 
-API: PUT http://localhost:8000/tasks/update/{task_id}  
-Body: {"status_user_action": "cancel"}
+API: POST http://localhost:8080/api/v1/task/update/{task_laui}
+Body: {"user_set_state": "cancel"}
 
 Action format:
 ```json
 {
-  "action": "LeastActionCancel",
+  "action": "LeastActionCancelTask",
   "variables": {
     "task_status": ["running", "scheduled"],
-    "task_ids": ["list of task_ids"]
+    "task_ids": ["list of task_lauis"]
   }
 }
 ```
 
-Reference API: GET http://localhost:8000/tasks/by-id/{task_id}
+Reference API: POST http://localhost:8080/api/v1/task/update/{task_laui}
 
 Logic:
-- Only update if "last_run_status" matches one of the statuses in "task_status" array
-- Set status_user_action to "cancel"
-- Return list of canceled task IDs
+- Only update if current state matches one of the statuses in "task_status" array
+- Set user_set_state to "cancel"
+- Return list of canceled task LAUIs
 
 **Custom Slack Webhook Action:**
 
@@ -613,7 +596,7 @@ Connection: SlackWebhook (provides webhook URL)
 Action format:
 ```json
 {
-  "action": "LeastActionSlackWebhook",
+  "action": "LeastActionWebhookNotify",
   "sla": 60,
   "connection": "SlackProd",
   "variables": {
@@ -630,61 +613,47 @@ Logic:
 - Post to Slack webhook
 - Return success/failure boolean
 
-## **Available Actions (MVP)**
+## **Available Actions**
 
 ### **Task Control Actions**
 
-* **LeastActionRun** \- Uses API: sendToExecution, UpdateTask
-* **LeastActionRerun** \- Uses API: sendToExecution, UpdateTask
-* **LeastActionRerunSubtree** \- Uses API: RecursiveListChildren, UpdateTask
-* **LeastActionCancel** \- Uses API: UpdateTask
-* **LeastActionSkip** \- Uses API: UpdateTask
-* **LeastActionSkipSubtree** \- Uses API: RecursiveListChildren, UpdateTask
-* **LeastActionSkipPostDoneS3** \- Uses API: UpdateTask \+ S3 write (requires S3 connection)
-* **LeastActionRunWithoutSensorsCompletion** \- Adds done file
-* **LeastActionRunWithoutParentsCompletion** \- Adds done file
+* **LeastActionRunTask** \- Start task execution. Uses API: sendToExecution, UpdateTask
+* **LeastActionCancelTask** \- Stop a running task. Uses API: UpdateTask
+* **LeastActionScheduleTasks** \- Schedule or reschedule tasks by updating frequency and dates
 
 ### **Task Lifecycle Actions**
 
-**CreateActions:**
-
-* **LeastActionLinkParents** \- Uses API: LinkItem
-* **LeastActionAutoLinkParents** \- Uses API: AnalyzeSQL, LinkItem
-
 **PreActions:**
 
-* **LeastActionCheckIfParentsAreDone** \- Uses API: ListParents
-* **LeastActionGitSync** \- Sync repository (requires Git connection)
-* **LeastActionGitSyncPayload** \- Sync task payload (requires Git connection)
-* **LeastActionFindTasksReadyToRun** \- Uses API: FindTasksReadyToRun
+* **LeastActionCheckIfParentsAreDone** \- Validate parent task completion before execution
+* **LeastActionCheckIfLocalFileExists** \- Check if a local file exists before execution
+* **AWSS3KeyExists** \- Check if an S3 key exists before execution (requires AWS connection)
+* **LeastActionGitToTask** \- Deploy task definitions from Git before execution (requires Git connection)
 
 **RunningActions / RunningIntervalActions:**
 
-* **LeastActionCheckForS3** \- Monitor S3 file availability (requires S3 connection)
-* **LeastActionCheckForSQS** \- Monitor SQS queue (requires SQS connection)
-* **LeastActionCheckForLAUI** \- Monitor LeastAction UI status
-* **LeastActionSlackWebhook** \- Send Slack notifications (requires Slack connection)
-* **LeastActionAWSEC2UpdateUtilization** \- Track EC2 utilization (requires AWS connection)
+* **LeastActionWebhookNotify** \- Send Slack/webhook notifications (requires webhook connection)
+* **AWSS3KeyExists** \- Monitor S3 key availability at intervals (requires AWS connection)
 
 **PostActions:**
 
-* **LeastActionPostDoneS3** \- Write completion marker to S3 (requires S3 connection)
-* **LeastActionPostDoneSNS** \- Send SNS notification (requires SNS connection)
-* **LeastActionPostWebhook** \- Send HTTP webhook (requires Webhook connection)
-* **LeastActionFindTasksReadyToRun** \- Trigger downstream tasks
-
-**Operator Actions:**
-
-* **LeastActionSetSessionAuthUser** \- Set authentication context
-* **LeastActionPipInstall** \- Install Python packages
-* **LeastActionCloudFormation** \- Deploy CloudFormation stacks (requires AWS connection)
+* **LeastActionWebhookNotify** \- Send completion notifications
+* **LeastActionTaskToTableAsset** \- Register task output as a table asset in the catalog
+* **LeastActionSMTPEmail** \- Send email notifications (requires SMTP connection)
 
 ### **UI Actions**
 
 * **LeastActionGitToTask** \- Deploy task definitions from a Git repo into LeastAction (requires Git connection). Can also be used as a PreAction for automatic CI/CD. See [CI/CD guide](/path?laui=getting-started-08-cicd-01-git-to-task&itemtype=doc.file&itemname=Cicd).
-* **LeastActionImportPostgres** \- Import Postgres schemas (requires Postgres connection)
-* **LeastActionImportPostgresTables** \- Import specific Postgres tables (requires Postgres connection)
+* **PostgresqlTestConnection** \- Test a PostgreSQL connection (requires Postgres connection)
+* **PostgresqlToClaudeChatToHtmlReportToAsset** \- Query PostgreSQL, generate an AI report, and save as an HTML asset
+* **DBTImportModel** \- Import dbt models into the catalog
+* **LeastActionDeleteItems** \- Delete catalog items
 * Custom actions created via AI
+
+### **AWS Actions**
+
+* **AWSS3KeyExists** \- Check if an S3 key exists (requires AWS connection)
+* **AWSEC2GitPullAndInstall** \- Pull a Git repository onto an EC2 instance and install dependencies (requires AWS + Git connection)
 
 ## **Connection Requirements**
 
@@ -692,14 +661,12 @@ Many actions require connection resources to be configured. Here are common conn
 
 | Connection Type | Used By | Purpose |
 | ----- | ----- | ----- |
-| Git (GitHub/GitLab) | LeastActionGitSync, LeastActionGitSyncPayload | Repository sync |
-| Slack | LeastActionSlackWebhook | Notifications |
-| AWS S3 | LeastActionPostDoneS3, LeastActionCheckForS3, LeastActionSkipPostDoneS3 | File operations |
-| AWS SNS | LeastActionPostDoneSNS | Notifications |
-| AWS EC2 | LeastActionAWSEC2UpdateUtilization | Monitoring |
-| SQS | LeastActionCheckForSQS | Queue monitoring |
-| Postgres | LeastActionImportPostgres | Database import |
-| Generic Webhook | LeastActionPostWebhook | HTTP notifications |
+| Git (GitHub/GitLab) | LeastActionGitToTask, AWSEC2GitPullAndInstall | Deploy tasks from Git, Git pull on EC2 |
+| Slack / Webhook | LeastActionWebhookNotify | Notifications |
+| AWS S3 | AWSS3KeyExists | File monitoring |
+| AWS EC2 | AWSEC2GitPullAndInstall | Git pull and install on EC2 |
+| PostgreSQL | PostgresqlTestConnection, PostgresqlToClaudeChatToHtmlReportToAsset | DB testing, AI reports |
+| SMTP | LeastActionSMTPEmail | Email notifications |
 
 ## **Best Practices**
 
@@ -722,7 +689,7 @@ Many actions require connection resources to be configured. Here are common conn
 
 * Filter task control actions by appropriate statuses to avoid invalid operations
 * Use caution when invoking programmatically to avoid cascading effects
-* Test subtree operations (RerunSubtree, SkipSubtree) in non-production first
+* Test control actions in non-production first
 
 ### **Error Handling**
 
@@ -759,7 +726,7 @@ Many actions require connection resources to be configured. Here are common conn
 * Check if task runtime exceeds SLA threshold
 * Ensure action is properly configured with required variables
 
-**GitSync Fails**
+**GitToTask Fails**
 
 * Verify Git connection has correct repository URL
 * Check branch name is correct
@@ -777,64 +744,58 @@ Many actions require connection resources to be configured. Here are common conn
 
 ### **Action Execution APIs**
 
-**Execute UI Action**
+**Execute Action**
 
 ```
-POST /actions/ui/execute
+POST /api/v1/action
 ```
 Body:
 ```json
 {
-  "action": "LeastActionImport",
-  "connection": "Cloud",
-  "variables": {
-    "projectId": "12345"
+  "action_laui": "<laui of the action>",
+  "connection_laui": "<laui of the connection>",
+  "action_variables": {
+    "git_repo_url": "https://github.com/org/repo.git",
+    "git_branch": "main"
   }
 }
 ```
 
-**Execute Task Control Action**
+**Update Task State**
 
 ```
-POST /actions/control/execute
+POST /api/v1/task/update/{task_laui}
 ```
 Body:
 ```json
 {
-  "action": "LeastActionRerun",
-  "variables": {
-    "task_ids": [1, 2, 3],
-    "task_status": ["error"]
-  }
+  "state": "scheduled"
 }
 ```
 
-**Get Action Definition**
+**Get Action Item**
 
 ```
-GET /actions/{action_name}
+GET /api/v1/catalog/get/{action_laui}
 ```
 Response:
 ```json
 {
-  "name": "LeastActionGitSync",
-  "type": "PreAction",
-  "requiredVariables": ["repository", "branch"],
-  "optionalVariables": ["syncPath"],
-  "requiresConnection": true,
-  "connectionTypes": ["git"]
+  "name": "LeastActionCheckIfParentsAreDone",
+  "item_type": "action",
+  "codeblock": { "main.py": "..." },
+  "action_variables": { "parents": [] }
 }
 ```
 
-**List Available Actions**
+**Search Actions in Catalog**
 
 ```
-GET /actions?type={UI|Control|Lifecycle}
+GET /api/v1/catalog/search?item_type=action&name={action_name}
 ```
 Response:
 ```json
 {
-  "actions": [...]
+  "items": [...]
 }
 ```
-

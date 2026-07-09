@@ -31,9 +31,10 @@ class TaskTestContext:
 
 
 def _create_item(client: TestClient, json: dict) -> str:
+    url = "/api/v1/task" if json["item_type"] == "task" else "/api/v1/catalog/create"
     resp = execute_request(
         client=client,
-        request=TestRequest(url="/api/v1/catalog/create", method="post", json=json),
+        request=TestRequest(url=url, method="post", json=json),
     )
     assert resp.status_code == 200
     return CreateItemResponse(**resp.json()).item_laui

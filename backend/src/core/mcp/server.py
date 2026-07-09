@@ -7,6 +7,7 @@ import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from fastmcp import FastMCP
 
@@ -76,7 +77,9 @@ _LEASTACTION_TOOLS = [
     "delete_item",
     "restore_item",
     "update_task",
+    "create_task",
     "run_task",
+    "create_action",
     "run_action",
     "reset_task",
     "get_task_status",
@@ -206,7 +209,7 @@ def create_mcp_server(orchestrator, proxy: McpProxyManager | None = None) -> Fas
     ) -> dict:
         """Search for catalog items by type and optionally by name or parent.
 
-        item_type: e.g. task, operator, action, connection, payload, config, folder.workflow, ai_skill, html_report
+        item_type: e.g. task, operator, action, connection, payload, config, folder.workflow, skill, html_report
         name: optional name filter (partial match)
         parent_laui: optional parent item LAUI to scope search
         page: page number (default 1)
@@ -347,7 +350,7 @@ def create_mcp_server(orchestrator, proxy: McpProxyManager | None = None) -> Fas
         Also call get_item_schema(item_type) to see all available fields.
 
         name: item name — operators must end with .operator, actions with .action, usecases with .usecase
-        item_type: e.g. task, operator, operator.python, action, connection, payload, config, folder.workflow, ai_skill
+        item_type: e.g. task, operator, operator.python, action, connection, payload, config, folder.workflow, skill
         parent_laui: LAUI of the parent folder/item
         extra_fields: additional fields as a flat dict (codeblock, bashblock, description, operator_laui, etc.)
 
@@ -408,7 +411,17 @@ def create_mcp_server(orchestrator, proxy: McpProxyManager | None = None) -> Fas
             return err
         return await mcp_api("POST", f"catalog/restore/{item_laui}")
 
-    # ── Task execution & management ────────────────────────────────────
+    # ── Task creation, execution & management ────────────────────────────────────
+    @mcp.tool()
+    async def create_task(task_data: dict[str, Any]) -> dict:
+        """Create a task"""
+        if err := _check_tool_access("create_task"):
+            return err
+        return await mcp_api(
+            "POST",
+            "task",
+            json=task_data,
+        )
 
     @mcp.tool()
     async def run_task(task_laui: str) -> dict:
@@ -417,7 +430,7 @@ def create_mcp_server(orchestrator, proxy: McpProxyManager | None = None) -> Fas
             return err
         return await mcp_api(
             "POST",
-            "task/run",
+            "task",
             json={
                 "item_type": "task",
                 "item_laui": task_laui,
@@ -857,17 +870,6 @@ def create_mcp_server(orchestrator, proxy: McpProxyManager | None = None) -> Fas
         }
 
     @mcp.tool()
-    async def update_task(task_laui: str, updates: dict) -> dict:
-        """Update task fields (state, user_set_state, logical_date, priority, etc.).
-
-        task_laui: LAUI of the task to update
-        updates: dict of field names and values to update (allowed: state, user_set_state, logical_date, duration, priority, etc.)
-        """
-        if err := _check_tool_access("update_task"):
-            return err
-        return await mcp_api("POST", f"task/update/{task_laui}", json=updates)
-
-    @mcp.tool()
     async def reset_task(task_laui: str) -> dict:
         """Reset a task back to 'scheduled' state, clearing run output and actions status. Use with caution."""
         if err := _check_tool_access("reset_task"):
@@ -875,6 +877,16 @@ def create_mcp_server(orchestrator, proxy: McpProxyManager | None = None) -> Fas
         return await mcp_api("POST", f"task/dangerously_reset/{task_laui}")
 
     # ── Action tools ───────────────────────────────────────────────────
+    @mcp.tool()
+    async def create_action(action_data: dict[str, Any]) -> dict:
+        """Create an action"""
+        if err := _check_tool_access("create_action"):
+            return err
+        return await mcp_api(
+            "POST",
+            "action",
+            json=action_data,
+        )
 
     @mcp.tool()
     async def run_action(
@@ -912,9 +924,7 @@ def create_mcp_server(orchestrator, proxy: McpProxyManager | None = None) -> Fas
             payload["connection_laui"] = connection_laui
         if action_variables is not None:
             payload["action_variables"] = action_variables
-        result = await mcp_api(
-            "POST", "action/run", json=payload, headers={"X-Session-ID": session_id}
-        )
+        result = await mcp_api("POST", "action", json=payload, headers={"X-Session-ID": session_id})
         response = dict(result) if isinstance(result, dict) else {"result": result}
         response["session_id"] = session_id
         return response
@@ -933,7 +943,7 @@ def create_mcp_server(orchestrator, proxy: McpProxyManager | None = None) -> Fas
         per_page: int = 10,
         sort_order: str = "asc",
     ) -> dict:
-        """Search the marketplace for reusable operators, actions, payloads, ai_skills, and usecases.
+        """Search the marketplace for reusable operators, actions, payloads, skills, and usecases.
 
         page: page number (default 1)
         per_page: results per page (default 10)

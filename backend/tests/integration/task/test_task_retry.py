@@ -209,7 +209,7 @@ async def get_test_context(client: TestClient) -> TestContext:
         task_resp = execute_request(
             client=client,
             request=TestRequest(
-                url="/api/v1/catalog/create",
+                url="/api/v1/task",
                 method="post",
                 json={
                     "item_type": "task",
@@ -461,7 +461,7 @@ async def test_retry_config_defaults_task_shape(
     task_resp = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",
@@ -490,7 +490,7 @@ async def test_retry_config_defaults_task_shape(
     task_resp2 = execute_request(
         client=client,
         request=TestRequest(
-            url="/api/v1/catalog/create",
+            url="/api/v1/task",
             method="post",
             json={
                 "item_type": "task",

@@ -257,9 +257,12 @@ async def grant_owners_group_item_access(active_db: MongoDatabase, owners_group_
 
 async def create_item(item_body: dict) -> dict:
     item_response = None
+    url = f"{BACKEND_URL}/api/v1/catalog/create"
+    if item_body.get("item_type") in ["task", "action"]:
+        url = f"{BACKEND_URL}/api/v1/{item_body['item_type']}"
     try:
         item_response = requests.post(
-            f"{BACKEND_URL}/api/v1/catalog/create",
+            url,
             json=item_body,
             headers={"Cookie": f"frontend_token={ACCESS_TOKEN}"},
         )
@@ -907,203 +910,254 @@ async def get_or_create_postgres_tasks(
     return created
 
 
-async def get_or_create_badge_attendance_reports_folder(
-    asset_folder_laui: str, project_laui: str, account_laui: str
-) -> str:
-    """Create a single asset folder for badge attendance reports."""
-    resp = await create_item(
-        {
-            "item_type": "folder.asset",
-            "name": "badge_attendance_reports",
-            "parent_laui": asset_folder_laui,
-            "project_laui": project_laui,
-            "account_laui": account_laui,
-        }
-    )
-    laui = resp.get("item_laui")
-    print(f"[setup] Created badge_attendance_reports folder: {laui}")
-    return laui
-
-
-async def get_or_create_dbt_badge_attendance_tasks(
+async def get_or_create_sales_pipeline_tasks(
     db,
     all_items: dict,
     workflow_folder_laui: str,
     reports_folder_laui: str,
     account_laui: str,
     project_laui: str,
+    debug_reports_folder_laui: str = None,
+    ai_connection_laui: str = None,
+    ai_chat_laui: str = None,
 ) -> dict:
-    """Create the 13-task DBT Badge Attendance pipeline."""
+    """Create the 8-task dbt sales reporting pipeline (seed + contract + 3 dbt + validation + 2 reports)."""
+    sql_operator_laui = all_items["operator"]["Postgresql/PostgresqlExecuteSQL"]
     dbt_operator_laui = all_items["operator"]["DBT/DBTRunModel"]
-    report_operator_laui = all_items["operator"]["Postgresql/PostgresqlGenerateHtmlReport"]
+    report_operator_laui = all_items["operator"]["Postgresql/PostgresqlGenerateHtmlTableReport"]
     validator_operator_laui = all_items["operator"]["Postgresql/PostgresqlValidatorSQL"]
-    dbt_connection_laui = all_items["connection"]["DBT/dbt_server"]
     pg_connection_laui = all_items["connection"]["Postgresql/dbt_postgresql"]
+    dbt_connection_laui = all_items["connection"]["DBT/DbtServer"]
     check_parents_action_laui = all_items["action"][
         "LeastActionLabs/LeastActionCheckIfParentsAreDone"
     ]
 
     task_configs = [
         {
-            "name": "00_dbt_seed",
-            "operator_laui": dbt_operator_laui,
-            "connection_laui": dbt_connection_laui,
-            "payload": '{"model": "seed"}',
+            "name": "00_fact_sales_daily",
+            "operator_laui": sql_operator_laui,
+            "connection_laui": pg_connection_laui,
+            "payload": (
+                "DROP TABLE IF EXISTS fact_sales_daily CASCADE;\n"
+                "CREATE TABLE fact_sales_daily (\n"
+                "    sale_id BIGSERIAL, sale_date DATE NOT NULL, sale_timestamp TIMESTAMP NOT NULL,\n"
+                "    product_id VARCHAR(50) NOT NULL, product_name VARCHAR(100) NOT NULL,\n"
+                "    category_id VARCHAR(50) NOT NULL, category_name VARCHAR(100) NOT NULL,\n"
+                "    region_id VARCHAR(50) NOT NULL, region_name VARCHAR(100) NOT NULL,\n"
+                "    sub_region_name VARCHAR(100), store_id VARCHAR(50) NOT NULL, store_name VARCHAR(100) NOT NULL,\n"
+                "    sales_channel VARCHAR(50),\n"
+                "    revenue DECIMAL(15,2) NOT NULL, units_sold INTEGER NOT NULL, cost DECIMAL(15,2) NOT NULL,\n"
+                "    discount_amount DECIMAL(15,2) DEFAULT 0, shipping_cost DECIMAL(15,2) DEFAULT 0,\n"
+                "    tax_amount DECIMAL(15,2) DEFAULT 0,\n"
+                "    PRIMARY KEY (sale_id)\n"
+                ");\n"
+                "INSERT INTO fact_sales_daily (\n"
+                "    sale_date, sale_timestamp, product_id, product_name,\n"
+                "    category_id, category_name, region_id, region_name, sub_region_name,\n"
+                "    store_id, store_name, sales_channel,\n"
+                "    revenue, units_sold, cost, discount_amount, shipping_cost, tax_amount\n"
+                ")\n"
+                "SELECT\n"
+                "    (DATE '2023-01-01' + (i % 730) * INTERVAL '1 day')::DATE,\n"
+                "    TIMESTAMP '2023-01-01' + (i % 730) * INTERVAL '1 day' + (i % 86400) * INTERVAL '1 second',\n"
+                "    'P' || LPAD((i % 10 + 1)::TEXT, 3, '0'),\n"
+                "    (ARRAY['Laptop Pro','Wireless Mouse','Mechanical Keyboard','4K Monitor','USB-C Hub',\n"
+                "           'Webcam HD','Gaming Headset','Desk Lamp','Chair Ergonomic','Standing Desk'])[i % 10 + 1],\n"
+                "    'CAT-' || LPAD((i % 5 + 1)::TEXT, 2, '0'),\n"
+                "    (ARRAY['Electronics','Peripherals','Audio','Lighting','Furniture'])[i % 5 + 1],\n"
+                "    'R' || LPAD((i % 5 + 1)::TEXT, 2, '0'),\n"
+                "    (ARRAY['North America','Europe','Asia Pacific','Latin America','Middle East'])[i % 5 + 1],\n"
+                "    (ARRAY['Northeast','Southeast','Midwest','West Coast','Southwest',\n"
+                "           'Western Europe','Eastern Europe','East Asia','Southeast Asia',\n"
+                "           'South Asia','Northern SA','Southern SA','GCC','Levant'])[i % 14 + 1],\n"
+                "    'S' || LPAD((i % 50 + 1)::TEXT, 3, '0'),\n"
+                "    'Store ' || (i % 50 + 1)::TEXT,\n"
+                "    (ARRAY['online','retail','wholesale','direct'])[i % 4 + 1],\n"
+                "    (50.00 + (i % 2451))::DECIMAL(15,2),\n"
+                "    (1 + i % 50)::INTEGER,\n"
+                "    ((50.00 + (i % 2451)) * (0.40 + (i % 31) * 0.01))::DECIMAL(15,2),\n"
+                "    CASE WHEN i % 5 = 0 THEN (2.00 + (i % 99))::DECIMAL(15,2) ELSE 0.00 END,\n"
+                "    (i % 31)::DECIMAL(15,2),\n"
+                "    ((50.00 + (i % 2451)) * 0.08)::DECIMAL(15,2)\n"
+                "FROM generate_series(0, 499999) AS g(i);\n"
+            ),
         },
         {
-            "name": "00b_contract_check",
+            "name": "00b_sales_contract",
             "operator_laui": validator_operator_laui,
             "connection_laui": pg_connection_laui,
             "payload": (
-                "report_title: 'Data Contract — Seed Reference Tables'\n"
-                "output_table: 'badge_attendance_contracts'\n"
+                "report_title: 'Data Contract — fact_sales_daily'\n"
+                "output_table: 'sales_contract_reports'\n"
                 "\nqueries:\n"
-                "  - name: 'Schema — students columns'\n"
-                "    sql: \"SELECT COUNT(*) AS missing FROM (VALUES ('badge_id','character varying'),('name','character varying'),('department','character varying'),('year_or_sem','bigint')) AS c(col, typ) LEFT JOIN information_schema.columns ic ON ic.table_name='students' AND ic.column_name=c.col AND ic.udt_name=c.typ WHERE ic.column_name IS NULL\"\n"
+                "  - name: 'Schema — required columns'\n"
+                "    sql: \"SELECT COUNT(*) AS missing FROM (VALUES ('sale_id','bigint'),('sale_date','date'),('revenue','numeric'),('units_sold','integer'),('cost','numeric')) AS c(col, typ) LEFT JOIN information_schema.columns ic ON ic.table_name='fact_sales_daily' AND ic.column_name=c.col AND ic.data_type=c.typ WHERE ic.column_name IS NULL\"\n"
                 "    severity: critical\n"
                 "    pass_condition: 'missing == 0'\n"
                 "    display: scalar\n"
-                "\n  - name: 'PK — students badge_id unique'\n"
-                '    sql: "SELECT badge_id, COUNT(*) AS dupes FROM students GROUP BY badge_id HAVING COUNT(*) > 1"\n'
+                "\n  - name: 'PK — sale_id unique'\n"
+                '    sql: "SELECT sale_id, COUNT(*) AS dupes FROM fact_sales_daily GROUP BY sale_id HAVING COUNT(*) > 1 LIMIT 5"\n'
                 "    severity: critical\n"
                 "    pass_condition: 'row_count == 0'\n"
                 "    display: table\n"
-                "\n  - name: 'Volume — students count'\n"
-                '    sql: "SELECT COUNT(*) AS row_count FROM students"\n'
+                "\n  - name: 'Nullability — required NOT NULL'\n"
+                '    sql: "SELECT COUNT(*) AS null_rows FROM fact_sales_daily WHERE sale_date IS NULL OR revenue IS NULL OR units_sold IS NULL OR cost IS NULL"\n'
                 "    severity: critical\n"
-                "    pass_condition: 'row_count == 20'\n"
+                "    pass_condition: 'null_rows == 0'\n"
                 "    display: scalar\n"
-                "\n  - name: 'Volume — teachers count'\n"
-                '    sql: "SELECT COUNT(*) AS row_count FROM teachers"\n'
+                "\n  - name: 'Domain — revenue non-negative'\n"
+                '    sql: "SELECT COUNT(*) AS neg FROM fact_sales_daily WHERE revenue < 0"\n'
+                "    severity: warning\n"
+                "    pass_condition: 'neg == 0'\n"
+                "    display: scalar\n"
+                "\n  - name: 'Volume — row count'\n"
+                '    sql: "SELECT COUNT(*) AS row_count FROM fact_sales_daily"\n'
                 "    severity: critical\n"
-                "    pass_condition: 'row_count == 10'\n"
+                "    pass_condition: 'row_count >= 100000'\n"
                 "    display: scalar\n"
             ),
-            "depends_on": "00_dbt_seed",
+            "depends_on": "00_fact_sales_daily",
         },
         {
-            "name": "01_stg_badge_events",
+            "name": "01_cube_aggregation",
             "operator_laui": dbt_operator_laui,
             "connection_laui": dbt_connection_laui,
-            "payload": '{"model": "stg_badge_events"}',
-            "depends_on": "00_dbt_seed",
+            "payload": '{"model": "fact_product_agg_daily_stage1"}',
+            "depends_on": "00_fact_sales_daily",
         },
         {
-            "name": "02_int_badge_sessions",
+            "name": "02_rolling_metrics",
             "operator_laui": dbt_operator_laui,
             "connection_laui": dbt_connection_laui,
-            "payload": '{"model": "int_badge_sessions"}',
-            "depends_on": "01_stg_badge_events",
+            "payload": '{"model": "fact_product_agg_daily_stage2"}',
+            "depends_on": "01_cube_aggregation",
         },
         {
-            "name": "03_int_multiday_sessions",
+            "name": "03_final_metrics",
             "operator_laui": dbt_operator_laui,
             "connection_laui": dbt_connection_laui,
-            "payload": '{"model": "int_multiday_sessions"}',
-            "depends_on": "01_stg_badge_events",
+            "payload": '{"model": "fact_product_agg_daily"}',
+            "depends_on": "02_rolling_metrics",
         },
         {
-            "name": "04_int_absent_badges",
-            "operator_laui": dbt_operator_laui,
-            "connection_laui": dbt_connection_laui,
-            "payload": '{"model": "int_absent_badges"}',
-            "depends_on": "01_stg_badge_events",
-        },
-        {
-            "name": "05_fct_attendance_daily",
-            "operator_laui": dbt_operator_laui,
-            "connection_laui": dbt_connection_laui,
-            "payload": '{"model": "fct_attendance_daily"}',
-            "depends_on": ["02_int_badge_sessions", "03_int_multiday_sessions"],
-        },
-        {
-            "name": "06_fct_attendance_weekly",
-            "operator_laui": dbt_operator_laui,
-            "connection_laui": dbt_connection_laui,
-            "payload": '{"model": "fct_attendance_weekly"}',
-            "depends_on": "05_fct_attendance_daily",
-        },
-        {
-            "name": "07_mart_attendance_summary",
-            "operator_laui": dbt_operator_laui,
-            "connection_laui": dbt_connection_laui,
-            "payload": '{"model": "mart_attendance_summary"}',
-            "depends_on": "05_fct_attendance_daily",
-        },
-        {
-            "name": "07b_validate_attendance",
+            "name": "03b_sales_validation",
             "operator_laui": validator_operator_laui,
             "connection_laui": pg_connection_laui,
             "payload": (
-                "report_title: 'Badge Attendance Pipeline Validation'\n"
-                "output_table: 'badge_attendance_validation'\n"
+                "report_title: 'Sales Pipeline Validation'\n"
+                "output_table: 'sales_validation_reports'\n"
                 f"output_parent_laui: '{reports_folder_laui}'\n"
                 "\nqueries:\n"
-                "  - name: 'Event types valid'\n"
-                "    sql: \"SELECT DISTINCT event_type FROM stg_badge_events WHERE event_type NOT IN ('IN', 'OUT')\"\n"
+                "  - name: 'Stage1 non-empty'\n"
+                '    sql: "SELECT COUNT(*) AS row_count FROM fact_product_agg_daily_stage1"\n'
                 "    severity: critical\n"
-                "    pass_condition: 'row_count == 0'\n"
-                "    display: table\n"
-                "\n  - name: 'No orphan badge_ids'\n"
-                '    sql: "SELECT DISTINCT s.badge_id FROM int_badge_sessions s WHERE s.badge_id NOT IN (SELECT badge_id FROM students UNION SELECT badge_id FROM teachers)"\n'
-                "    severity: critical\n"
-                "    pass_condition: 'row_count == 0'\n"
-                "    display: table\n"
-                "\n  - name: 'Session hours non-negative'\n"
-                '    sql: "SELECT COUNT(*) AS negative_count FROM int_badge_sessions WHERE session_hours < 0"\n'
-                "    severity: critical\n"
-                "    pass_condition: 'negative_count == 0'\n"
+                "    pass_condition: 'row_count > 0'\n"
                 "    display: scalar\n"
-                "\n  - name: 'Mart has all 30 people'\n"
-                '    sql: "SELECT COUNT(*) AS person_count FROM mart_attendance_summary"\n'
+                "\n  - name: 'Final table non-empty'\n"
+                '    sql: "SELECT COUNT(*) AS row_count FROM fact_product_agg_daily"\n'
                 "    severity: critical\n"
-                "    pass_condition: 'person_count == 30'\n"
+                "    pass_condition: 'row_count > 0'\n"
                 "    display: scalar\n"
-                "\n  - name: 'Attendance status valid'\n"
-                "    sql: \"SELECT DISTINCT attendance_status FROM mart_attendance_summary WHERE attendance_status NOT IN ('present', 'absent')\"\n"
+                "\n  - name: 'Metric types count'\n"
+                '    sql: "SELECT COUNT(DISTINCT metric_key) AS metric_count FROM fact_product_agg_daily"\n'
+                "    severity: warning\n"
+                "    pass_condition: 'metric_count >= 20'\n"
+                "    display: scalar\n"
+                "\n  - name: 'No NULL metric values'\n"
+                '    sql: "SELECT COUNT(*) AS null_count FROM fact_product_agg_daily WHERE metric_value IS NULL"\n'
                 "    severity: critical\n"
-                "    pass_condition: 'row_count == 0'\n"
-                "    display: table\n"
+                "    pass_condition: 'null_count == 0'\n"
+                "    display: scalar\n"
             ),
-            "depends_on": "07_mart_attendance_summary",
+            "depends_on": "03_final_metrics",
+        },
+    ]
+
+    import json as _json
+
+    # Curated metric_templates keep each report a compact, styled dashboard (a
+    # bounded set of dim×metric slices) instead of a raw pivot over all 239
+    # groupings × 31 metrics — which balloons past the catalog html field cap.
+    # dim_key = product::category::region::subregion; '*' expands one row per value.
+    _last3 = "date >= (SELECT MAX(date) FROM fact_product_agg_daily) - INTERVAL '3 days'"
+    perf_template = [
+        {
+            "display_name": "Revenue by Product",
+            "dim_key_grouping": "*::dim_category::dim_region::dim_subregion",
+            "metric_key": "revenue",
+            "cell_format": "${value:,.0f}",
+            "cell_bg_color": "#E8F5E9",
+        },
+        {
+            "display_name": "Profit by Product",
+            "dim_key_grouping": "*::dim_category::dim_region::dim_subregion",
+            "metric_key": "profit",
+            "cell_format": "${value:,.0f}",
+            "cell_bg_color": "#E3F2FD",
+        },
+        {
+            "display_name": "Units by Product",
+            "dim_key_grouping": "*::dim_category::dim_region::dim_subregion",
+            "metric_key": "units_sold",
+            "cell_format": "{value:,.0f}",
+        },
+        {
+            "display_name": "Revenue YoY %",
+            "dim_key_grouping": "*::dim_category::dim_region::dim_subregion",
+            "metric_key": "revenue_yoy",
+            "cell_format": "{value:,.1f}%",
+        },
+    ]
+    category_template = [
+        {
+            "display_name": "Revenue by Category",
+            "dim_key_grouping": "dim_product::*::dim_region::dim_subregion",
+            "metric_key": "revenue",
+            "cell_format": "${value:,.0f}",
+            "cell_bg_color": "#E8F5E9",
+        },
+        {
+            "display_name": "Profit by Category",
+            "dim_key_grouping": "dim_product::*::dim_region::dim_subregion",
+            "metric_key": "profit",
+            "cell_format": "${value:,.0f}",
+            "cell_bg_color": "#E3F2FD",
+        },
+        {
+            "display_name": "Revenue % of Total",
+            "dim_key_grouping": "dim_product::*::dim_region::dim_subregion",
+            "metric_key": "revenue_pct_of_total",
+            "cell_format": "{value:,.1f}%",
         },
     ]
 
     report_configs = [
         (
-            "08_report_attendance_overview",
-            "Attendance Overview — Present, Absent & Flags",
-            "mart_attendance_summary",
-            "1=1",
-            "#1A237E",
-            "corporate_navy",
-        ),
-        (
-            "09_report_daily_trends",
-            "Daily Attendance Trends — Hours & Sessions",
-            "fct_attendance_daily",
-            "full_date >= CURRENT_DATE - INTERVAL '3 days'",
+            "04_sales_performance_report",
+            "Sales Performance Dashboard",
+            "fact_product_agg_daily",
+            _last3,
             "#1565C0",
             "corporate_blue",
+            perf_template,
         ),
         (
-            "10_report_department_absence",
-            "Department Absence Report",
-            "int_absent_badges",
-            "event_date >= CURRENT_DATE - INTERVAL '3 days'",
-            "#C62828",
-            "alert_red",
+            "05_category_performance_report",
+            "Category Performance",
+            "fact_product_agg_daily",
+            _last3,
+            "#2E7D32",
+            "modern_green",
+            category_template,
         ),
     ]
 
-    import json as _json
-
-    for name, title, table, date_filter, header_color, theme in report_configs:
+    for name, title, table, date_filter, header_color, theme, metric_template in report_configs:
         payload = _json.dumps(
             {
                 "data": {
                     "report_title": title,
-                    "output_table": "badge_attendance_reports",
+                    "output_table": "sales_pipeline_reports",
                     "output_parent_laui": reports_folder_laui,
                     "report_style": {
                         "theme": theme,
@@ -1127,6 +1181,7 @@ async def get_or_create_dbt_badge_attendance_tasks(
                         "date_filter": date_filter,
                         "limit": None,
                     },
+                    "metric_template": metric_template,
                 }
             }
         )
@@ -1136,15 +1191,15 @@ async def get_or_create_dbt_badge_attendance_tasks(
                 "operator_laui": report_operator_laui,
                 "connection_laui": pg_connection_laui,
                 "payload": payload,
-                "depends_on": "07_mart_attendance_summary",
+                "depends_on": "03_final_metrics",
             }
         )
 
+    now = datetime.now(UTC)
     created = {}
     for cfg in task_configs:
         task_name = cfg["name"]
 
-        now = datetime.now(UTC)
         body = {
             "item_type": "task",
             "name": task_name,
@@ -1153,7 +1208,7 @@ async def get_or_create_dbt_badge_attendance_tasks(
             "parent_laui": workflow_folder_laui,
             "operator_laui": cfg["operator_laui"],
             "connection_laui": cfg["connection_laui"],
-            "frequency": "0 6 * * *",
+            "frequency": "0 2 * * *",
             "start_date": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "end_date": (now + timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "partition": "ALL",
@@ -1161,32 +1216,59 @@ async def get_or_create_dbt_badge_attendance_tasks(
         }
 
         depends_on = cfg.get("depends_on")
+        pre_actions = []
         if depends_on:
             if isinstance(depends_on, str):
                 depends_on = [depends_on]
-            body["actions"] = {
-                "pre_actions": [
-                    {
-                        "laui": check_parents_action_laui,
-                        "action_variables": {
-                            "parents": [
-                                {
-                                    "task_name": dep,
-                                    "project_laui": "{{ project_laui }}",
-                                    "account_laui": "{{ account_laui }}",
-                                    "partition": "{{ partition }}",
-                                }
-                                for dep in depends_on
-                            ]
+            pre_actions = [
+                {
+                    "laui": check_parents_action_laui,
+                    "action_variables": {
+                        "parents": [
+                            {
+                                "task_name": dep,
+                                "project_laui": "{{ project_laui }}",
+                                "account_laui": "{{ account_laui }}",
+                                "partition": "{{ partition }}",
+                            }
+                            for dep in depends_on
+                        ]
+                    },
+                }
+            ]
+
+        debug_action_laui = all_items["action"].get("LeastActionLabs/LeastActionAgentDebug")
+        post_actions = []
+        if debug_action_laui and debug_reports_folder_laui and ai_connection_laui and ai_chat_laui:
+            post_actions = [
+                {
+                    "laui": debug_action_laui,
+                    "name": "LeastActionAgentDebug",
+                    "action_variables": {
+                        "skill_names": [
+                            "DBT_Postgresql_Sales_Pipelines_Skill",
+                            "DBT_Postgresql_Sales_Data_Contract",
+                        ],
+                        "chat_laui": ai_chat_laui,
+                        "ai_connection": ai_connection_laui,
+                        "notify": {
+                            "asset_laui": debug_reports_folder_laui,
+                            "asset_project_laui": project_laui,
+                            "asset_account_laui": account_laui,
                         },
-                    }
-                ],
-            }
+                    },
+                }
+            ]
+
+        body["actions"] = {
+            "pre_actions": pre_actions,
+            "post_actions": post_actions,
+        }
 
         response = await create_item(body)
         task_laui = response.get("item_laui")
         created[task_name] = task_laui
-        print(f"[setup] Created dbt task '{task_name}' with LAUI: {task_laui}")
+        print(f"[setup] Created sales task '{task_name}' with LAUI: {task_laui}")
 
     return created
 
@@ -1335,18 +1417,6 @@ async def setup():
     pg_demo_folder_laui = pg_demo_workflow.get("item_laui")
     print(f"[setup] Created postgresql_demo workflow folder: {pg_demo_folder_laui}")
 
-    dbt_workflow = await create_item(
-        {
-            "item_type": "folder.workflow",
-            "name": "dbt_badge_attendance",
-            "parent_laui": folders["workflow"],
-            "project_laui": project_laui,
-            "account_laui": account_laui,
-        }
-    )
-    dbt_workflow_folder_laui = dbt_workflow.get("item_laui")
-    print(f"[setup] Created dbt_badge_attendance workflow folder: {dbt_workflow_folder_laui}")
-
     print("\n--- PostgreSQL Demo Tasks ---")
     await get_or_create_postgres_tasks(
         active_db,
@@ -1356,21 +1426,62 @@ async def setup():
         project_laui=project_laui,
     )
 
-    print("\n--- Badge Attendance Reports Folder ---")
-    badge_reports_folder_laui = await get_or_create_badge_attendance_reports_folder(
-        asset_folder_laui=folders["asset"],
-        project_laui=project_laui,
-        account_laui=account_laui,
+    # --- Sales Pipeline ---
+    print("\n--- Sales Pipeline Workflow Folder ---")
+    sales_workflow = await create_item(
+        {
+            "item_type": "folder.workflow",
+            "name": "dbt_sales_reporting",
+            "parent_laui": folders["workflow"],
+            "project_laui": project_laui,
+            "account_laui": account_laui,
+        }
     )
+    sales_workflow_folder_laui = sales_workflow.get("item_laui")
+    print(f"[setup] Created dbt_sales_reporting workflow folder: {sales_workflow_folder_laui}")
 
-    print("\n--- DBT Badge Attendance Tasks ---")
-    await get_or_create_dbt_badge_attendance_tasks(
+    print("\n--- Sales Reports Folder ---")
+    sales_reports_resp = await create_item(
+        {
+            "item_type": "folder.asset",
+            "name": "sales_pipeline_reports",
+            "parent_laui": folders["asset"],
+            "project_laui": project_laui,
+            "account_laui": account_laui,
+        }
+    )
+    sales_reports_folder_laui = sales_reports_resp.get("item_laui")
+    print(f"[setup] Created sales_pipeline_reports folder: {sales_reports_folder_laui}")
+
+    print("\n--- Debug Reports Folder ---")
+    debug_reports_resp = await create_item(
+        {
+            "item_type": "folder.asset",
+            "name": "DebugReports",
+            "parent_laui": folders["asset"],
+            "project_laui": project_laui,
+            "account_laui": account_laui,
+        }
+    )
+    debug_reports_folder_laui = debug_reports_resp.get("item_laui")
+    print(f"[setup] Created DebugReports folder: {debug_reports_folder_laui}")
+
+    # Resolve Claude connection and chat LAUIs from registered items (optional — only wired if present)
+    ai_connection_laui = all_items.get("connection", {}).get("anthropic/ClaudeApi")
+    ai_chat_laui = all_items.get("agent", {}).get("agent/Anthropic/AnthropicAgent")
+    print(f"[setup] AI connection LAUI: {ai_connection_laui} | AI chat LAUI: {ai_chat_laui}")
+
+    print("\n--- Sales Pipeline Tasks ---")
+    await get_or_create_sales_pipeline_tasks(
         active_db,
         all_items=all_items,
-        workflow_folder_laui=dbt_workflow_folder_laui,
-        reports_folder_laui=badge_reports_folder_laui,
+        workflow_folder_laui=sales_workflow_folder_laui,
+        reports_folder_laui=sales_reports_folder_laui,
         account_laui=account_laui,
         project_laui=project_laui,
+        debug_reports_folder_laui=debug_reports_folder_laui,
+        ai_connection_laui=ai_connection_laui,
+        ai_chat_laui=ai_chat_laui,
     )
 
     print("\n--- Workflow Config ---")

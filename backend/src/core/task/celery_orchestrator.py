@@ -64,6 +64,8 @@ class CeleryOrchestrator:
 
     async def run_task(self, task: Task) -> AsyncResult:
         try:
+            if not self.system_token:
+                self.system_token = await self._get_system_access_token()
             user_laui = str(getattr(task, "updated_by", None) or getattr(task, "created_by", None))
             user_access_token = await self._generate_access_token(user_laui)
 
@@ -71,7 +73,7 @@ class CeleryOrchestrator:
             task_data["user_access_token"] = user_access_token
 
             result = execute_task.apply_async(
-                args=[task_data],
+                args=[task_data, self.system_token],
                 ignore_result=False,
                 queue=execute_task.queue,
             )
@@ -87,6 +89,8 @@ class CeleryOrchestrator:
 
     async def run_action(self, action: ActionItem) -> AsyncResult:
         try:
+            if not self.system_token:
+                self.system_token = await self._get_system_access_token()
             if not action.user_laui:
                 raise ValueError("user_laui is required for action execution")
 
@@ -96,7 +100,7 @@ class CeleryOrchestrator:
             action_data["user_access_token"] = user_access_token
 
             result = execute_action.apply_async(
-                args=[action_data],
+                args=[action_data, self.system_token],
                 ignore_result=False,
                 queue=execute_action.queue,
                 soft_time_limit=action.timeout,

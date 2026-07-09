@@ -102,16 +102,6 @@ class AccessRelation(BaseModel):
     subject_permission: Permission
 
 
-class GroupResponse(BaseModel):
-    id: str
-    name: str
-
-
 class GroupsRawResponse(BaseModel):
     groups: list[str]
-    next_page_token: str
-
-
-class GroupsResponse(BaseModel):
-    groups: list[GroupResponse]
     next_page_token: str

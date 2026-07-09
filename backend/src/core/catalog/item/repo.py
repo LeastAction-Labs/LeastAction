@@ -12,7 +12,7 @@ from fastapi import Request
 from pydantic_mongo import PydanticObjectId
 from pymongo.errors import OperationFailure
 
-from src.common.context_vars.session_context import get_session_id
+from src.common.context_vars.session_context import get_session_id, session_id_context
 from src.common.context_vars.user_context import get_user_laui
 from src.common.decorators.performance import performance_logger
 from src.common.exceptions import NotFoundError
@@ -116,8 +116,6 @@ class ItemRepository:
         projections: dict[str, int] = {},
         include_deleted: bool = False,
     ) -> Item:
-        if projections is None:
-            projections = {}
         try:
             session = session_context.get()
             # Normalize laui to ObjectId to ensure consistent type matching

@@ -26,6 +26,7 @@ from src.core.ai.service import AIService
 from src.core.api.middleware.admin import admin_middleware
 from src.core.api.middleware.auth import auth_middleware
 from src.core.api.middleware.catalog import catalog_middleware
+from src.core.api.middleware.celery_auth import celery_auth_middleware
 from src.core.api.middleware.license import license_middleware
 from src.core.api.middleware.session import SessionMiddleware
 from src.core.api.middleware.transaction import transaction_context_middleware
@@ -238,6 +239,7 @@ app.middleware("http")(catalog_middleware)
 app.middleware("http")(admin_middleware)
 app.middleware("http")(license_middleware)
 app.middleware("http")(auth_middleware)
+app.middleware("http")(celery_auth_middleware)
 app.middleware("http")(transaction_context_middleware)
 app.add_middleware(SessionMiddleware)
 app.add_middleware(

@@ -200,14 +200,15 @@ export default function AdminDashboard() {
   };
 
   const searchConns = async (q: string) => {
-    const res = await searchCatalogItems('connection', false, { perPage: 10 });
+    const res = await searchCatalogItems('connection', false, {
+      filters: { name: q },
+      perPage: 10,
+    });
     const items = (res?.items ?? []).map((raw: any) => {
       const item = raw.item || raw;
       return { laui: item._laui || item.laui, name: item.name || 'Unnamed' };
     });
-    setConnResults(
-      q.trim() ? items.filter((i: any) => i.name.toLowerCase().includes(q.toLowerCase())) : items,
-    );
+    setConnResults(items);
   };
 
   const handleToggleTool = (tool: string) => {

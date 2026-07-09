@@ -28,7 +28,11 @@ async def catalog_middleware(
             "/api/v1/embed/",
         ]
 
-        if not any(request.url.path.startswith(route) for route in routes_using_catalog_service):
+        path = request.url.path
+
+        normalized_path = path if path.endswith("/") else f"{path}/"
+
+        if not any(normalized_path.startswith(route) for route in routes_using_catalog_service):
             return await call_next(request)
 
         catalog_config = load_catalog_config()

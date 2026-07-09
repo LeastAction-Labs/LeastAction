@@ -6,19 +6,20 @@
 from fastapi import Request
 from pydantic_mongo import PydanticObjectId
 
-from src.common.context_vars.user_context import get_user_laui
+from src.common.context_vars.user_context import get_user_laui, is_root_user
 from src.common.exceptions import NotFoundError
 from src.core.ee.iam.group.api_request import (
     GetGroupResponse,
+    GetGroupsRequest,
+    GetGroupsResponse,
     PaginationResponse,
     SearchGroupsRequest,
     SearchGroupsResponse,
 )
 from src.core.ee.iam.group.repo import GroupRepository
-from src.core.ee.iam.group.schema import CreateGroup, UpdateGroup
+from src.core.ee.iam.group.schema import CreateGroup, GroupProjection, UpdateGroup
 from src.core.ee.iam.user.service import UserService
 from src.core.ee.keto.access_reader import AccessReader
-from src.core.ee.keto.schema import GroupResponse, GroupsResponse, Relation
 
 
 class GroupService:
@@ -49,16 +50,33 @@ class GroupService:
             group.access_patch.add.owners = {f"U{user_laui}": ""}
             return await self.group_repo.create_group(group)
 
-    async def get_groups(self, relation: Relation) -> GroupsResponse:
-        raw = await self.access_reader.get_user_groups(user_laui=get_user_laui(), relation=relation)
-        groups_with_names = []
-        for group_id in raw.groups:
-            try:
-                group = await self.group_repo.find_group(PydanticObjectId(group_id))
-                groups_with_names.append(GroupResponse(id=group_id, name=group.name))
-            except Exception:
-                groups_with_names.append(GroupResponse(id=group_id, name=group_id))
-        return GroupsResponse(groups=groups_with_names, next_page_token=raw.next_page_token)
+    async def get_groups(self, request: GetGroupsRequest) -> GetGroupsResponse:
+        if is_root_user():
+            groups = await self.group_repo.find_groups(
+                filter={}, projections=["name"], offset=request.offset, limit=request.limit
+            )
+            has_next_page = await self.group_repo.check_next_page_exists(
+                filter={}, offset=request.offset, limit=request.limit
+            )
+            return GetGroupsResponse(
+                groups=[GroupProjection(laui=group.laui, name=group.name) for group in groups],
+                has_next=has_next_page,
+            )
+        raw = await self.access_reader.get_user_groups(
+            user_laui=get_user_laui(),
+            relation=request.relation,
+            page_token=request.page_token,
+            page_size=request.per_page,
+        )
+        groups = await self.group_repo.find_groups(
+            filter={"_id": {"$in": [PydanticObjectId(group_id) for group_id in raw.groups]}},
+            projections=["name"],
+        )
+        return GetGroupsResponse(
+            groups=groups,
+            next_page_token=raw.next_page_token,
+            has_next=bool(raw.next_page_token),
+        )
 
     async def get_group(self, group_laui: PydanticObjectId) -> GetGroupResponse:
         await self.access_reader.check_group_view_access(
