@@ -148,10 +148,9 @@ export default function ChatbotWidget() {
   }, []);
   const tourPrefill = activeTour?.steps[currentStepIndex]?.chatbotPrefill ?? null;
 
-
   const showDockPanel = open && mode === 'docked' && !dockHidden;
   const showPopupPanel = open && mode === 'popup';
-   const showFab = mode === 'popup' || (mode === 'docked' && (!open || dockHidden));
+  const showFab = mode === 'popup' || (mode === 'docked' && (!open || dockHidden));
   useEffect(() => {
     if (readDockPref() === 'docked') {
       setMode('docked');
@@ -164,7 +163,6 @@ export default function ChatbotWidget() {
     setReservedRight(showDockPanel ? dockWidth : 0);
     return () => setReservedRight(0);
   }, [showDockPanel, dockWidth, setReservedRight]);
-
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -194,7 +192,6 @@ export default function ChatbotWidget() {
     dockResizing.current = true;
     document.body.style.userSelect = 'none';
   };
-
 
   const handleDock = () => {
     setMode('docked');
