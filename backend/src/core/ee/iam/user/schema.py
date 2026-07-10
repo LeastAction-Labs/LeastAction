@@ -18,7 +18,7 @@ class UserType(str, Enum):
 
 
 class UserBase(BaseModel):
-    username: str = Field(default=None, max_length=30)
+    username: str = Field(default=None, max_length=255)
     email: EmailStr
     password: str | None = Field(default=None, min_length=6)
     must_change_password: bool = False

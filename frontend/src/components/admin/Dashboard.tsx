@@ -57,6 +57,7 @@ import {
   getMcpToolGroups,
   listUsers,
   updateLicense,
+  updateSystemAttributes,
   updateUserMcpTools,
   uploadLicense,
 } from '@/services/admin.service';
@@ -73,7 +74,7 @@ type UserListAction = 'add' | 'remove';
 
 export default function AdminDashboard() {
   const { authState } = useAuth();
-  const { systemUserLaui } = authState;
+  const { systemAttributes } = authState;
   const { userAuthenticated: _userLoggedInToMarketplace } = useMarketplace();
 
   const { showWarning } = useNotification();
@@ -108,6 +109,10 @@ export default function AdminDashboard() {
 
   const [copied, setCopied] = useState(false);
 
+  // System Details tab
+  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [ssoEnabled, setSsoEnabled] = useState(false);
+
   // MCP Tools tab
   const [activeTab, setActiveTab] = useState(0);
   const [userList, setUserList] = useState<UserRecord[]>([]);
@@ -130,8 +135,8 @@ export default function AdminDashboard() {
 
   const handleCopy = async () => {
     try {
-      if (!systemUserLaui) return;
-      await navigator.clipboard.writeText(systemUserLaui);
+      if (!systemAttributes?.instance_laui) return;
+      await navigator.clipboard.writeText(systemAttributes.instance_laui);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -144,6 +149,13 @@ export default function AdminDashboard() {
     void fetchUsers();
     void fetchAllMcpToolsList();
   }, []);
+
+  useEffect(() => {
+    if (systemAttributes) {
+      setTotpEnabled(systemAttributes.totp_enabled);
+      setSsoEnabled(systemAttributes.sso_enabled);
+    }
+  }, [systemAttributes]);
 
   const fetchLicenses = async () => {
     const data = await getLicenses();
@@ -287,11 +299,11 @@ export default function AdminDashboard() {
 
   const handleBuy = async () => {
     try {
-      if (!systemUserLaui) return;
+      if (!systemAttributes?.instance_laui) return;
       const res = await buyLicense({
         total_users: users,
         duration,
-        instance_id: systemUserLaui,
+        instance_id: systemAttributes.instance_laui,
       });
       setLicenseId(res.license_id);
       setPublicKey(res.public_key);
@@ -304,6 +316,30 @@ export default function AdminDashboard() {
     await uploadLicense({ licenseId, publicKey });
     setUploadOpen(false);
     await fetchLicenses();
+  };
+
+  const handleToggleTotpEnabled = async () => {
+    const newValue = !totpEnabled;
+    setTotpEnabled(newValue);
+    try {
+      await updateSystemAttributes({ totpEnabled: newValue });
+    } catch (error) {
+      // Revert on error
+      setTotpEnabled(!newValue);
+      console.error('Failed to update TOTP setting:', error);
+    }
+  };
+
+  const handleToggleSsoEnabled = async () => {
+    const newValue = !ssoEnabled;
+    setSsoEnabled(newValue);
+    try {
+      await updateSystemAttributes({ ssoEnabled: newValue });
+    } catch (error) {
+      // Revert on error
+      setSsoEnabled(!newValue);
+      console.error('Failed to update SSO setting:', error);
+    }
   };
 
   // --- License User Table Logic (Search, Pagination, Context Fetching) ---
@@ -909,6 +945,7 @@ export default function AdminDashboard() {
         <Tab label="Licenses" />
         <Tab label="MCP Access" />
         <Tab label="Manage Users" />
+        <Tab label="System Details" />
       </Tabs>
 
       {activeTab === 1 && (
@@ -1321,27 +1358,6 @@ export default function AdminDashboard() {
             <Typography variant="h6" sx={{ color: 'var(--text-primary)' }}>
               Licenses
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="h6" sx={{ color: 'var(--text-primary)' }}>
-                System User Laui: {systemUserLaui}
-              </Typography>
-
-              <Tooltip title={copied ? 'Copied!' : 'Copy to clipboard'}>
-                <IconButton
-                  onClick={() => {
-                    void handleCopy();
-                  }}
-                  size="small"
-                  sx={{ color: 'var(--text-primary)' }}
-                >
-                  {copied ? (
-                    <CheckIcon fontSize="small" color="success" />
-                  ) : (
-                    <ContentCopyIcon fontSize="small" />
-                  )}
-                </IconButton>
-              </Tooltip>
-            </Box>
 
             <Stack direction="row" spacing={1}>
               {/*
@@ -1702,6 +1718,163 @@ export default function AdminDashboard() {
           </BaseModal>
         </Box>
       )}
+
+      {/* SYSTEM DETAILS TAB */}
+      {activeTab === 3 && (
+        <Box>
+          <Typography variant="h6" sx={{ color: 'var(--text-primary)', mb: 3 }}>
+            System Configuration
+          </Typography>
+
+          <Paper
+            sx={{
+              bgcolor: 'var(--bg-secondary)',
+              border: '1px solid var(--border)',
+              borderRadius: 2,
+              p: 3,
+            }}
+          >
+            <Stack spacing={4}>
+              {/* Instance ID Section */}
+              <Box>
+                <Typography
+                  variant="subtitle2"
+                  sx={{ color: 'var(--text-secondary)', mb: 1, fontWeight: 600 }}
+                >
+                  Instance ID
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography
+                    fontFamily="monospace"
+                    sx={{
+                      color: 'var(--text-primary)',
+                      bgcolor: 'var(--bg-tertiary)',
+                      p: 1.5,
+                      borderRadius: 1,
+                      flex: 1,
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    {systemAttributes?.instance_laui || 'N/A'}
+                  </Typography>
+                  <Tooltip title={copied ? 'Copied!' : 'Copy Instance ID'}>
+                    <IconButton
+                      onClick={() => {
+                        void handleCopy();
+                      }}
+                      sx={{
+                        color: 'var(--text-primary)',
+                        bgcolor: 'var(--bg-tertiary)',
+                        border: '1px solid var(--border)',
+                        '&:hover': { bgcolor: 'var(--bg-primary)' },
+                      }}
+                    >
+                      {copied ? (
+                        <CheckIcon fontSize="small" color="success" />
+                      ) : (
+                        <ContentCopyIcon fontSize="small" />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </Box>
+
+              <Divider sx={{ borderColor: 'var(--border)' }} />
+
+              {/* Authentication Settings */}
+              <Box>
+                <Typography
+                  variant="subtitle2"
+                  sx={{ color: 'var(--text-secondary)', mb: 2, fontWeight: 600 }}
+                >
+                  Authentication Settings
+                </Typography>
+
+                <Stack spacing={2}>
+                  {/* TOTP Enabled Toggle */}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      bgcolor: 'var(--bg-tertiary)',
+                      p: 2,
+                      borderRadius: 1,
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <Box>
+                      <Typography sx={{ color: 'var(--text-primary)', fontWeight: 500, mb: 0.5 }}>
+                        TOTP (Two-Factor Authentication)
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
+                        Enable time-based one-time password authentication
+                      </Typography>
+                    </Box>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={totpEnabled}
+                          // CHANGE THIS LINE: Wrap the async call and use the void operator
+                          onChange={() => {
+                            void handleToggleTotpEnabled();
+                          }}
+                          sx={{
+                            color: 'var(--text-secondary)',
+                            '&.Mui-checked': { color: 'var(--accent)' },
+                          }}
+                        />
+                      }
+                      label=""
+                      sx={{ m: 0 }}
+                    />
+                  </Box>
+
+                  {/* SSO Enabled Toggle */}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      bgcolor: 'var(--bg-tertiary)',
+                      p: 2,
+                      borderRadius: 1,
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <Box>
+                      <Typography sx={{ color: 'var(--text-primary)', fontWeight: 500, mb: 0.5 }}>
+                        SSO (Single Sign-On)
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
+                        Enable single sign-on authentication
+                      </Typography>
+                    </Box>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={ssoEnabled}
+                          // CHANGE THIS LINE: Wrap the async call and use the void operator
+                          onChange={() => {
+                            void handleToggleSsoEnabled();
+                          }}
+                          sx={{
+                            color: 'var(--text-secondary)',
+                            '&.Mui-checked': { color: 'var(--accent)' },
+                          }}
+                        />
+                      }
+                      label=""
+                      sx={{ m: 0 }}
+                    />
+                  </Box>
+                </Stack>
+              </Box>
+            </Stack>
+          </Paper>
+        </Box>
+      )}
+
       {activeTab == 2 && <ManageUsers />}
     </Box>
   );

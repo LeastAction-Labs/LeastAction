@@ -32,6 +32,7 @@ from src.core.api.middleware.session import SessionMiddleware
 from src.core.api.middleware.transaction import transaction_context_middleware
 from src.core.api.router import v1Router
 from src.core.api.test import test_router
+from src.core.api.utils import RedirectHandler
 from src.core.catalog.item.repo import ItemRepository
 from src.core.catalog.item_revision.repo import ItemRevisionRepository
 from src.core.catalog.link.repo import LinkRepository
@@ -91,6 +92,7 @@ async def lifespan(app: FastAPI):
 
     app.state.email_service = EmailService()
     app.state.auth_code_dict = AuthCodeDict()
+    app.state.redirect_handler = RedirectHandler()
     app.state.user_repo = UserRepository(active_db)
     await app.state.user_repo.create_indexes()
     app.state.license_repo = LicenseRepository(active_db)
@@ -111,6 +113,7 @@ async def lifespan(app: FastAPI):
         session_service=app.state.session_service,
         refresh_token_service=app.state.refresh_token_service,
         auth_code_dict=app.state.auth_code_dict,
+        admin_service=app.state.admin_service,
     )
     app.state.transaction_manager = TransactionManager(app.state.mongo_client)
     app.state.item_repo = ItemRepository(active_db)

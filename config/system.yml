@@ -11,12 +11,12 @@ logs:
   # relative to the project root by `Config.logs_dir` if not absolute.
   directory: "./logs"
 
-project_scheduler_interval : 5 # format : project_name_cron_interval : interval in seconds
-action_timeout_seconds : 300
+project_scheduler_interval: 5 # format : project_name_cron_interval : interval in seconds
+action_timeout_seconds: 300
 celery:
   broker_url: redis://localhost:6379/0
   result_backend: redis://localhost:6379/1
-  api_client_base_url : http://backend:8000/api/v1
+  api_client_base_url: http://backend:8000/api/v1
   # Directories
   operators_dir: /tmp/la/operators
   actions_dir: /tmp/la/actions
@@ -30,7 +30,7 @@ celery:
     hard_time_limit: 1500
   # Completion polling
   check_completion_timeout_seconds: 3600
-  poll_interval_seconds : 2.5
+  poll_interval_seconds: 2.5
   # Worker behavior
   worker:
     prefetch_multiplier: 1
@@ -39,7 +39,7 @@ celery:
     reject_on_worker_lost: false
     acks_on_failure_or_timeout: false
     max_tasks_per_child: 150
-    max_memory_per_child: 524288  
+    max_memory_per_child: 524288
     cancel_long_running_tasks_on_connection_loss: false
     send_task_events: true
     send_sent_event: true
@@ -59,7 +59,7 @@ celery:
     action_queue: la_actions
     cron_queue: la_crons
 
-stale_heartbeat_multiplier: 5  # stale if delta > multiplier * celery.poll_interval_seconds
+stale_heartbeat_multiplier: 5 # stale if delta > multiplier * celery.poll_interval_seconds
 
 enforce_connection_operator_mapping: false
 connection_operator_mapping:
@@ -100,7 +100,7 @@ connection_operator_mapping:
   connection.tableau:
     - operator.python
 
-email_totp: false
+totp_enabled: false
 smtp:
   host: smtp.gmail.com
   port: 587
@@ -117,10 +117,11 @@ explore_view:
   #   logo_url: "https://logo.clearbit.com/yourcompany.com"
   #   logo_url: "https://your-cdn.com/logo.png"
   logo_url: "https://placehold.co/80x32/7c3aed/ffffff?text=YourLogo&font=sans"
-  logo_width: "100"   # px value (e.g. "80") or "auto" to preserve aspect ratio
-  logo_height: "40"    # px value for the logo height in the header
+  logo_width: "100" # px value (e.g. "80") or "auto" to preserve aspect ratio
+  logo_height: "40" # px value for the logo height in the header
 
 urls:
   core_backend_url: http://localhost:8000
   core_frontend_url: http://localhost:5173
   marketplace_url: https://marketplace.leastactionlabs.com
+  sso_url: http://localhost:8080

@@ -11,7 +11,8 @@ import { httpJson } from './api';
 import { type PaginationInterface } from './types';
 
 const API_ENDPOINTS = {
-  check: `${CORE_BACKEND_URL}/api/v1/admin/check`,
+  getSystemAttributes: `${CORE_BACKEND_URL}/api/v1/admin/get/system`,
+  updateSystemAttributes: `${CORE_BACKEND_URL}/api/v1/admin/update/system`,
   adminCreate: `${CORE_BACKEND_URL}/api/v1/admin/user/create`,
   adminList: `${CORE_BACKEND_URL}/api/v1/admin/user/list`,
   adminSetStatus: (userId: string) => `${CORE_BACKEND_URL}/api/v1/admin/user/${userId}/status`,
@@ -26,9 +27,33 @@ const API_ENDPOINTS = {
   updateLicense: CORE_BACKEND_URL + '/api/v1/admin/license/update',
 };
 
-export async function adminCheck() {
-  const data = await httpJson<any>(API_ENDPOINTS.check, { method: 'GET' });
+export interface SystemAttributes {
+  instance_laui: string;
+  sso_enabled: boolean;
+  totp_enabled: boolean;
+}
+
+export interface SystemAttributesPayload {
+  ssoEnabled?: boolean;
+  totpEnabled?: boolean;
+}
+
+export async function getSystemAttributes() {
+  const data = await httpJson<SystemAttributes>(API_ENDPOINTS.getSystemAttributes, {
+    method: 'GET',
+  });
   return data;
+}
+
+export async function updateSystemAttributes(data: SystemAttributesPayload) {
+  const response = await httpJson(API_ENDPOINTS.updateSystemAttributes, {
+    method: 'POST',
+    body: {
+      sso_enabled: data.ssoEnabled,
+      totp_enabled: data.totpEnabled,
+    },
+  });
+  return response;
 }
 
 export interface LicenseUploadRequest {

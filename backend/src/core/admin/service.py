@@ -5,7 +5,8 @@
 # Use of this file outside those terms is not permitted.
 from pydantic_mongo import PydanticObjectId
 
-from src.common.exceptions import LicenseError, NotFoundError
+from src.common.exceptions import InvalidArgumentError, LicenseError, NotFoundError
+from src.common.utils import load_system_config
 from src.core.admin.api_request import AdminCreateUserRequest, AdminLicenseUpdate, UpdateUserPayload
 from src.core.db.transaction import transactional
 from src.core.ee.iam.user.schema import CreateUser
@@ -22,10 +23,11 @@ class AdminService:
     @transactional
     async def create_user(self, request: AdminCreateUserRequest):
         try:
+            config = load_system_config()
             license = await self.license_service.get_vacant_license()
             create_user_response = await self.user_service.create_user(
                 user=CreateUser(**request.model_dump(), license_laui=license.laui),
-                auto_generate=True,
+                auto_generate=not config.get("sso_enabled"),
             )
             await self.license_service.update_license(
                 license=UpdateLicense(

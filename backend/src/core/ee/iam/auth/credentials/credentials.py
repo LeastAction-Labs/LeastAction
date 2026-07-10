@@ -4,7 +4,7 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 from abc import ABC
-from typing import Literal
+from enum import Enum
 
 from pydantic import BaseModel
 
@@ -18,15 +18,21 @@ class UsernamePasswordCredentials(BaseCredentials):
     password: str
 
 
+class Provider(str, Enum):
+    LEASTACTION = "leastaction"
+    KEYCLOAK = "keycloak"
+
+
 class AuthorizationCodeCredentials(BaseCredentials):
     code: str
-    provider: Literal["least_action"] = "least_action"
+    provider: Provider
 
 
 class RefreshTokenCredentials(BaseCredentials):
     token_string: str
 
 
-class ExternalCredentialsValidatorResonse(BaseModel):
-    sub: str
-    email: str | None = None
+class ExternalCredentialsValidatorResponse(BaseModel):
+    sub: str | None = None
+    username: str | None = None
+    email: str

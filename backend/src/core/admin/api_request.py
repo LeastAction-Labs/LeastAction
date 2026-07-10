@@ -3,7 +3,7 @@
 # LeastAction Sustainable Use License (see LICENSE.md) or, for files
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
-import hashlib
+from typing import Optional
 
 from pydantic import BaseModel, model_validator
 from pydantic_mongo import PydanticObjectId
@@ -12,6 +12,17 @@ from src.core.api.common import PaginationRequest, PaginationResponse
 from src.core.ee.iam.user.api_request import CreateUserResponse
 from src.core.ee.iam.user.schema import UserProjection
 from src.core.ee.license.schema import UpdateLicense
+
+
+class GetSystemAttributesResponse(BaseModel):
+    sso_enabled: bool
+    instance_laui: PydanticObjectId
+    totp_enabled: bool
+
+
+class UpdateSystemAttributesRequest(BaseModel):
+    sso_enabled: Optional[bool] = None
+    totp_enabled: Optional[bool] = None
 
 
 class GetUsersRequest(PaginationRequest):

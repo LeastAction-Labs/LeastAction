@@ -3,10 +3,12 @@
 # LeastAction Sustainable Use License (see LICENSE.md) or, for files
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
-from typing import Literal, Union
+from enum import Enum
+from typing import Literal, Optional, Union
 
 from pydantic import BaseModel, model_validator
 
+from src.common.exceptions import InvalidArgumentError
 from src.core.ee.iam.auth.credentials.credentials import (
     AuthorizationCodeCredentials,
     RefreshTokenCredentials,
@@ -14,20 +16,29 @@ from src.core.ee.iam.auth.credentials.credentials import (
 )
 from src.core.ee.iam.user.schema import User
 
-# In future, this will be a Union of all possible request types,
-# will contain credentials for other providers in the future(Google, etc)
-LoginRequest = UsernamePasswordCredentials  # the older code is using this
+
+class LoginSource(str, Enum):
+    NATIVE = "native"
+    SSO = "sso"
+
+
+class AuthRequest(BaseModel):
+    client_id: str
+    redirect_uri: str
+    state: str
+    login_source: LoginSource = LoginSource.NATIVE
+
+
+LoginRequest = UsernamePasswordCredentials
+
+
+class RedirectWithCodeRequest(BaseModel):
+    user_laui: Optional[str] = None
+    code: Optional[str] = None
+    state: Optional[str] = None
+
 
 Credentials = Union[RefreshTokenCredentials, AuthorizationCodeCredentials]
-
-
-from src.common.exceptions import InvalidArgumentError
-
-
-class RegisterRequest(BaseModel):
-    username: str
-    email: str
-    password: str
 
 
 class TokenRequest(BaseModel):
@@ -55,13 +66,3 @@ class TokenResponse(BaseModel):
     refresh_token: str | None = None
     token_type: str = "Bearer"
     user: User
-
-
-class AuthRequest(BaseModel):
-    client_id: str
-    redirect_uri: str
-    state: str
-
-
-class RedirectWithCodeRequest(BaseModel):
-    user_laui: str

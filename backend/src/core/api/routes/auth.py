@@ -12,18 +12,20 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic_mongo import PydanticObjectId
 
 from src.common.context_vars.user_context import get_user_laui
+from src.common.exceptions import InvalidArgumentError
 from src.common.logger.logger import log_info
 from src.common.utils import (
-    create_url,
     decode_data,
     delete_cookie,
     encode_data,
     load_system_config,
     set_cookie,
 )
+from src.core.api.utils import ClientRedirectParams, RedirectHandler, get_redirect_handler
 from src.core.ee.iam.auth.api_request import (
     AuthRequest,
     LoginRequest,
+    LoginSource,
     RedirectWithCodeRequest,
     TokenRequest,
 )
@@ -38,21 +40,14 @@ from src.core.email.service import EmailService, get_email_service
 auth_router = APIRouter()
 
 
-# @auth_router.post("/signup")
-# async def signup_user(
-#         user: CreateUser,
-#         user_service: UserService = Depends(get_user_service)
-# ):
-#     user_laui = await user_service.create_user(user)
-#     return user_laui
-
-
 @auth_router.post("/login")
 async def login_user(
     response: Response,
     username: str = Form(...),
     password: str = Form(...),
     auth_service: AuthService = Depends(get_auth_service),
+    user_service: UserService = Depends(get_user_service),
+    redirect_handler: RedirectHandler = Depends(get_redirect_handler),
 ):
     log_info(
         "api",
@@ -60,14 +55,21 @@ async def login_user(
         "login",
         f"user={get_user_laui()} payload={{username={username}, password=***}}",
     )
+
+    config = load_system_config()
+    sso_enabled = config.get("sso_enabled", False)
+    if sso_enabled:
+        user = await user_service.get_user_by_username(username)
+        if not user.user_type:
+            raise InvalidArgumentError(message="non root users must login using sso")
+
     request = LoginRequest(username=username, password=unquote(password))
     user = await auth_service.login_user(request=request)
-    redirect_url = create_url(
-        path="/api/v1/redirect-with-code",
-        query_params={"user_laui": user.laui},
-        redirect_to="backend",
+
+    response = RedirectResponse(
+        url=redirect_handler.get_backend_redirect_with_code_url(user.laui),
+        status_code=303,
     )
-    response = RedirectResponse(url=redirect_url, status_code=303)
     set_cookie(
         response=response,
         key="session",
@@ -77,21 +79,37 @@ async def login_user(
 
 
 @auth_router.get("/auth")
-async def auth(request: Request, auth_request: Annotated[AuthRequest, Query()]):
+async def auth(
+    request: Request,
+    auth_request: Annotated[AuthRequest, Query()],
+    redirect_handler: RedirectHandler = Depends(get_redirect_handler),
+):
+    config = load_system_config()
+    sso_enabled = config.get("sso_enabled", False)
+    if not sso_enabled and auth_request.login_source == LoginSource.SSO:
+        raise InvalidArgumentError(message="sso login is not enabled")
+
     log_info(
         "api", "auth_router", "auth", f"user={get_user_laui()} payload={auth_request.model_dump()}"
     )
+
     session_cookie = request.cookies.get("session")
+
     if session_cookie:
         session_data = decode_data(session_cookie)
         user = User(**session_data)
-        redirect_url = create_url(
-            path="/api/v1/redirect-with-code",
-            query_params={"user_laui": user.laui},
-            redirect_to="backend",
+        redirect_url = redirect_handler.get_backend_redirect_with_code_url(user.laui)
+        response = RedirectResponse(url=redirect_url, status_code=303)
+        set_cookie(
+            response=response, key="oauth_flow", value=encode_data(data=auth_request.model_dump())
         )
-    else:
-        redirect_url = create_url(path="/public/login", redirect_to="frontend")
+        return response
+
+    redirect_url = (
+        redirect_handler.get_sso_login_url(state=auth_request.state)
+        if auth_request.login_source == LoginSource.SSO
+        else redirect_handler.get_frontend_login_url()
+    )
 
     response = RedirectResponse(url=redirect_url, status_code=303)
 
@@ -110,6 +128,7 @@ async def redirect_with_code(
     auth_code_dict: AuthCodeDict = Depends(get_auth_code_dict),
     user_service: UserService = Depends(get_user_service),
     email_service: EmailService = Depends(get_email_service),
+    redirect_handler: RedirectHandler = Depends(get_redirect_handler),
 ):
 
     log_info(
@@ -119,19 +138,35 @@ async def redirect_with_code(
         f"user={get_user_laui()} payload={query.model_dump()}",
     )
     config = load_system_config()
-    print(config.get("email_totp"))
-    email_totp_enabled = config.get("email_totp", False)
+    totp_enabled = config.get("totp_enabled", False)
 
     oauth_flow_cookie = request.cookies.get("oauth_flow")
     if not oauth_flow_cookie:
         response.status_code = 403
         return response
 
+    oauth_flow_cookie_data = decode_data(oauth_flow_cookie)
+    auth_request_instance = AuthRequest(**oauth_flow_cookie_data)
+
+    if auth_request_instance.login_source == LoginSource.SSO:
+        if not query.code or not query.state or query.state != auth_request_instance.state:
+            response.status_code = 400
+            return response
+        redirect_url = redirect_handler.get_client_redirect_url(
+            ClientRedirectParams(
+                redirect_uri=auth_request_instance.redirect_uri,
+                login_source=LoginSource.SSO,
+                code=query.code,
+                state=query.state,
+            )
+        )
+        return RedirectResponse(url=redirect_url, status_code=303)
+
     user_laui = query.user_laui
     random_code = secrets.token_hex(6)
     await auth_code_dict.insert(key=random_code, value={"user_laui": user_laui})
 
-    if email_totp_enabled:
+    if totp_enabled:
         user_email = (await user_service.find_user(laui=PydanticObjectId(user_laui))).email
 
         email_service.send_email(
@@ -142,16 +177,12 @@ async def redirect_with_code(
             )
         )
 
-    oauth_flow_cookie_data = decode_data(oauth_flow_cookie)
-    auth_request_instance = AuthRequest(**oauth_flow_cookie_data)
-
-    query_params = {"state": auth_request_instance.state}
-
-    if not email_totp_enabled:
-        query_params["code"] = random_code
-
-    redirect_url = create_url(
-        path=auth_request_instance.redirect_uri, query_params=query_params, redirect_to="client"
+    redirect_url = redirect_handler.get_client_redirect_url(
+        ClientRedirectParams(
+            redirect_uri=auth_request_instance.redirect_uri,
+            code=random_code if not totp_enabled else None,
+            state=auth_request_instance.state,
+        )
     )
     return RedirectResponse(url=redirect_url, status_code=303)
 
@@ -181,10 +212,11 @@ async def get_token(
     try:
         session = await auth_service.create_session(token_request=request)
         set_cookie(response=response, key="frontend_token", value=session.access_token)
-        return {"must_change_password": session.user.must_change_password}
-    except Exception:
         delete_cookie(response=response, key="oauth_flow")
-        delete_cookie(response=response, key="session")
+        return {"must_change_password": session.user.must_change_password}
+    except Exception as e:
+        print(e)
+        return JSONResponse(status_code=500, content={"detail": str(e)})
 
 
 @auth_router.post("/logout")

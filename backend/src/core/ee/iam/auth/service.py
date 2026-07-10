@@ -5,6 +5,7 @@
 # Use of this file outside those terms is not permitted.
 from fastapi import Request
 
+from src.core.admin.service import AdminService
 from src.core.ee.iam.auth.api_request import LoginRequest, TokenRequest, TokenResponse
 from src.core.ee.iam.auth.auth_code_dict import AuthCodeDict
 from src.core.ee.iam.auth.credentials.validator import CredentialsValidator
@@ -20,11 +21,13 @@ class AuthService:
         session_service: SessionService,
         refresh_token_service: RefreshTokenService,
         auth_code_dict: AuthCodeDict,
+        admin_service: AdminService,
     ):
         self.session_service = session_service
         self.user_service = user_service
         self.credentials_validator = CredentialsValidator(
             user_service=user_service,
+            admin_service=admin_service,
             refresh_token_service=refresh_token_service,
             auth_code_dict=auth_code_dict,
         )
