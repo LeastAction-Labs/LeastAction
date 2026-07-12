@@ -15,7 +15,7 @@ from pymongo.errors import OperationFailure
 from src.common.exceptions import ConflictError, NotFoundError
 from src.core.db import MongoDatabase
 from src.core.db.transaction import session_context
-from src.core.ee.iam.user.schema import CreateUser, CreateUserInDB, User, UserProjection, UserType
+from src.core.iam.user.schema import CreateUser, CreateUserInDB, User, UserProjection, UserType
 
 
 class UserRepository:

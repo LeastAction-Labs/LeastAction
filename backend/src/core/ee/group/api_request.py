@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from pydantic_mongo import PydanticObjectId
 
 from src.core.api.common import PaginationRequest, PaginationResponse
-from src.core.ee.iam.group.schema import GroupProjection
+from src.core.ee.group.schema import GroupProjection
 from src.core.ee.keto.schema import Relation
 
 

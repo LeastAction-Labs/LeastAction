@@ -11,7 +11,7 @@ from pydantic_mongo import PydanticObjectId
 from src.common.context_vars.user_context import get_user_laui
 from src.common.exceptions import LAException
 from src.common.logger.logger import log_error, log_info
-from src.core.admin.service import AdminService, get_admin_service
+from src.core.ee.admin.service import AdminService, get_admin_service
 from src.core.ee.license.schema import LicenseUploadRequest, UpdateLicense
 from src.core.ee.license.service import LicenseService, get_license_service
 

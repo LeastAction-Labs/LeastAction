@@ -14,14 +14,14 @@ from src.common.exceptions import InvalidArgumentError, LAException
 from src.common.logger.logger import log_debug, log_error, log_info
 from src.common.utils import load_system_config, update_system_config
 from src.core.admin.api_request import (
-    AdminCreateUserRequest,
     GetSystemAttributesResponse,
     GetUsersRequest,
     UpdateSystemAttributesRequest,
     UpdateUserPayload,
 )
-from src.core.admin.service import AdminService, get_admin_service
-from src.core.ee.iam.user.service import UserService, get_user_service
+from src.core.ee.admin.api_request import AdminCreateUserRequest
+from src.core.ee.admin.service import AdminService, get_admin_service
+from src.core.iam.user.service import UserService, get_user_service
 from src.core.mcp.server import ALL_MCP_TOOLS, MCP_TOOL_GROUPS
 
 admin_router = APIRouter()
@@ -90,7 +90,7 @@ def update_system_attributes(request: UpdateSystemAttributesRequest):
         )
 
 
-from src.core.api.routes.license import license_router
+from src.core.ee.routes.license import license_router
 
 admin_router.include_router(license_router, prefix="/license")
 
@@ -260,7 +260,7 @@ async def admin_update_user(
 
 @admin_router.delete("/user/delete/{user_id}")
 async def admin_delete_user(
-    user_id: PydanticObjectId, user_service: UserService = Depends(get_user_service)
+    user_id: PydanticObjectId, admin_service: AdminService = Depends(get_admin_service)
 ):
     """Deletes the user. Owner access required."""
     try:
@@ -270,7 +270,7 @@ async def admin_delete_user(
             "admin_delete_user",
             f"user={get_user_laui()} payload={{user_id={user_id}}}",
         )
-        await user_service.delete_user(PydanticObjectId(user_id))
+        await admin_service.delete_user(PydanticObjectId(user_id))
         return {"message": "User deleted successfully"}
     except LAException as e:
         log_error(

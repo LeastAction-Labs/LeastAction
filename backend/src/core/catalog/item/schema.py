@@ -9,8 +9,9 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_mongo import PydanticObjectId
 
-from src.common.models import AccessPatch
-from src.common.types import LAUI, AccessPatchType, SetAccess, UnsetAccess, iLAUI
+from src.core.ee.models import AccessPatch
+from src.common.types import LAUI, iLAUI
+from src.core.ee.types import AccessPatchType, SetAccess, UnsetAccess
 from src.core.ee.keto.schema import Permission
 
 

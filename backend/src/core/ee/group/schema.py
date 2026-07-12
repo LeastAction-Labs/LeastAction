@@ -7,8 +7,9 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.common.models import Access, AccessPatch
-from src.common.types import LAUI, AccessPatchType, SetAccess, UnsetAccess, iLAUI
+from src.common.types import LAUI, iLAUI
+from src.core.ee.models import Access, AccessPatch
+from src.core.ee.types import AccessPatchType, SetAccess, UnsetAccess
 
 
 class _GroupBase(BaseModel):

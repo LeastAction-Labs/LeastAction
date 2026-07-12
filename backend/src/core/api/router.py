@@ -5,7 +5,6 @@
 # Use of this file outside those terms is not permitted.
 from fastapi import APIRouter
 
-from src.core.api.routes.access import access_router
 from src.core.api.routes.action import action_router
 from src.core.api.routes.admin import admin_router
 from src.core.api.routes.ai import ai_router
@@ -19,6 +18,7 @@ from src.core.api.routes.logs import logs_router
 from src.core.api.routes.dataplane import query_router
 from src.core.api.routes.task import task_router
 from src.core.api.routes.user import user_router
+from src.core.ee.routes.access import access_router
 
 v1Router = APIRouter()
 

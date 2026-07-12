@@ -10,8 +10,9 @@ from fastapi.responses import JSONResponse, Response
 from pydantic_mongo import PydanticObjectId
 
 from src.common.context_vars.user_context import get_root_user_laui, get_system_user_laui, get_user
-from src.common.exceptions import AuthorizationError, LAException, LicenseError
-from src.core.ee.iam.user.repo import get_user_repository
+from src.common.exceptions import AuthorizationError, LAException
+from src.core.ee.errors import LicenseError
+from src.core.iam.user.repo import get_user_repository
 from src.core.ee.license.service import get_license_service
 
 

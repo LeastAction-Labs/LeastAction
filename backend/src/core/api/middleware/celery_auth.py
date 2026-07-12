@@ -9,8 +9,8 @@ from fastapi import Request, Response
 from fastapi.responses import JSONResponse, Response
 
 from src.common.exceptions import AuthenticationError, LAException
-from src.core.ee.iam.session.service import get_session_service
-from src.core.ee.iam.user.repo import get_user_repository
+from src.core.iam.session.service import get_session_service
+from src.core.iam.user.repo import get_user_repository
 
 
 async def celery_auth_middleware(

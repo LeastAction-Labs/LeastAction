@@ -7,8 +7,8 @@ import jwt
 from fastapi import Request
 
 from src.common.secrets import get_secret
-from src.core.ee.iam.session.claims import AccessTokenClaims
-from src.core.ee.iam.user.schema import User
+from src.core.iam.session.claims import AccessTokenClaims
+from src.core.iam.user.schema import User
 
 
 class SessionService:

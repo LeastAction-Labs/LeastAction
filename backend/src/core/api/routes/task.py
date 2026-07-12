@@ -12,19 +12,15 @@ from pydantic_mongo import PydanticObjectId
 from src.common.context_vars.user_context import get_user_laui
 from src.common.exceptions import LAException
 from src.common.logger.logger import log_error, log_info
-from src.common.types import LAUI, AccessPatchType
 from src.core.api.dependencies import validate_access_for_create_run
 from src.core.catalog.api_request import (
     BaseCreateItemRequest,
     MultipleTaskRequest,
     TaskUpdateRequest,
 )
-from src.core.catalog.item.schema import ItemProjection
 from src.core.catalog.orchestrator import ItemOrchestrator, get_item_orchestrator
-from src.core.catalog.service import CatalogService, get_catalog_manager
 from src.core.ee.keto.access_reader import AccessReader, get_access_reader
 from src.core.ee.keto.schema import Permission
-from src.core.task.action.schema import Actions
 
 task_router = APIRouter()
 

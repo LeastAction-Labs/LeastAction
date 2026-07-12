@@ -5,13 +5,11 @@
 # Use of this file outside those terms is not permitted.
 from typing import Optional
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
 from pydantic_mongo import PydanticObjectId
 
 from src.core.api.common import PaginationRequest, PaginationResponse
-from src.core.ee.iam.user.api_request import CreateUserResponse
-from src.core.ee.iam.user.schema import UserProjection
-from src.core.ee.license.schema import UpdateLicense
+from src.core.iam.user.schema import UserProjection
 
 
 class GetSystemAttributesResponse(BaseModel):
@@ -42,16 +40,3 @@ class UpdateUserPayload(BaseModel):
     is_active: bool | None = None
     license_laui: PydanticObjectId | None = None
     change_password: bool = False
-
-
-class AdminCreateUserRequest(BaseModel):
-    username: str
-    email: str
-
-
-class AdminCreateUserResponse(CreateUserResponse):
-    pass
-
-
-class AdminLicenseUpdate(UpdateLicense):
-    pass

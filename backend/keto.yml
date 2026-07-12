@@ -1,6 +1,11 @@
+# Copyright (c) 2026 LeastAction Labs, Inc.
+# This file is part of LeastAction and is licensed under the
+# LeastAction Sustainable Use License (see LICENSE.md) or, for files
+# marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
+# Use of this file outside those terms is not permitted.
 serve:
   read:
-    port: 4466 
+    port: 4466
     host: 0.0.0.0
   write:
     port: 4467
@@ -9,7 +14,7 @@ serve:
     port: 4468
     host: 0.0.0.0
 limit:
-  max_read_depth: 100 
+  max_read_depth: 100
 dsn: postgres://keto:secret@postgres:5432/keto?sslmode=disable&max_conns=20&max_idle_conns=4
 
 namespaces:
@@ -17,5 +22,5 @@ namespaces:
 
 log:
   level: debug
-  format: json 
+  format: json
   leak_sensitive_values: true

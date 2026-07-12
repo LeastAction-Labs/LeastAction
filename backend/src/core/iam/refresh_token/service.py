@@ -10,8 +10,8 @@ from datetime import UTC, datetime, timedelta
 from pydantic_mongo import PydanticObjectId
 
 from src.common.exceptions import AuthenticationError
-from src.core.ee.iam.refresh_token.repo import RefreshTokenRepository
-from src.core.ee.iam.refresh_token.schema import CreateRefreshToken, RefreshToken
+from src.core.iam.refresh_token.repo import RefreshTokenRepository
+from src.core.iam.refresh_token.schema import CreateRefreshToken, RefreshToken
 
 
 class RefreshTokenService:

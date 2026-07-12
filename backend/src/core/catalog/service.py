@@ -47,7 +47,7 @@ from src.core.catalog.link.repo import LinkRepository
 from src.core.catalog.link.schema import CreateLink, Link, LinkWithPermission
 from src.core.catalog.utils.item_types.schema import ItemCategory
 from src.core.catalog.utils.item_types.service import ItemTypesManager
-from src.core.catalog.utils.permissions import PermissionManager
+from src.core.ee.permissions import PermissionManager
 from src.core.db.transaction import transactional
 from src.core.ee.keto.access_reader import AccessReader
 from src.core.ee.keto.schema import Permission
@@ -136,7 +136,7 @@ class CatalogService:
         item.pk = self._build_pk(
             item=item, schema_manager=self._get_schema_manager(item_type=item.item_type)
         )
-        await self.permission_manager.check_permission_for_create_item(item)
+        await self._check_create_access(item)
         if item.is_root:
             return await self._create_root_item(item=item)
         return await self._create_linkable_item(item=item)
@@ -189,6 +189,13 @@ class CatalogService:
 
         raise UnprocessableEntityError(message="Invalid item type for parent", detail=error)
 
+    async def _check_create_access(self, item: CreateItem):
+        if item.parent_laui:
+            await self.access_reader.check_item_edit_access(
+                item_laui=str(item.parent_laui), user_laui=get_user_laui()
+            )
+
+
     @transactional
     async def update_existing_item(
         self, existing_item: Item, new_item: CreateItem
@@ -202,7 +209,7 @@ class CatalogService:
 
         schema_manager = self._get_schema_manager(existing_item.item_type)
 
-        await self.permission_manager.check_permission_for_update_item(
+        await self._check_update_access(
             new_item=new_item, existing_item=existing_item
         )
 
@@ -279,6 +286,16 @@ class CatalogService:
 
         return update_dict
 
+    async def _check_update_access(self, new_item: CreateItem, existing_item: Item):
+        if new_item.access_patch.add.owners or new_item.access_patch.remove.owners:
+            await self.access_reader.check_item_own_access(
+                item_laui=str(existing_item.laui), user_laui=get_user_laui()
+            )
+            return
+        await self.access_reader.check_item_edit_access(
+            item_laui=str(existing_item.laui), user_laui=get_user_laui()
+        )
+
     async def find_item(self, item_laui: PydanticObjectId, include_deleted: bool = False) -> Item:
         item = await self.item_repo.get_item(item_laui=item_laui, include_deleted=include_deleted)
         item.supported_types = self.item_types_manager.get_supported_item_types(item.item_type)
@@ -300,27 +317,15 @@ class CatalogService:
 
     @transactional
     async def find_items(self, request: GetItemsFilter) -> GetItemsResponse:
-        offset = (request.page - 1) * request.per_page
-        limit = request.per_page
 
         if (request.sort_by or request.filter_state) and not request.is_root:
-            return await self._find_items_with_sort_or_filter(
-                request=request,
-                offset=offset,
-                limit=limit,
-            )
+            return await self._find_items_with_sort_or_filter(request=request)
 
-        return await self._find_items_paginated(
-            request=request,
-            offset=offset,
-            limit=limit,
-        )
+        return await self._find_items_paginated(request=request)
 
     async def _find_items_with_sort_or_filter(
         self,
         request: GetItemsFilter,
-        offset: int,
-        limit: int,
     ) -> GetItemsResponse:
         permission = await self.access_reader.get_permission(
             item_laui=str(request.item_laui), user_laui=get_user_laui()
@@ -337,13 +342,13 @@ class CatalogService:
         sorted_items = await self.item_repo.find_items(
             filter=item_filter,
             projections=self._get_projection_fields(request.item_type),
-            offset=offset,
-            limit=limit,
+            offset=request.offset,
+            limit=request.limit,
             sort_by=request.sort_by,
             sort_order=request.sort_order,
         )
         has_next = await self.item_repo.check_next_page_exists(
-            filter=item_filter, offset=offset, limit=limit
+            filter=item_filter, offset=request.offset, limit=request.limit
         )
 
         self.item_types_manager.attach_supported_item_types(sorted_items)
@@ -363,8 +368,6 @@ class CatalogService:
     async def _find_items_paginated(
         self,
         request: GetItemsFilter,
-        offset: int,
-        limit: int,
     ) -> GetItemsResponse:
         """
         Paginate at the link level (cheap) — only one page of links is fetched at a time.
@@ -374,6 +377,7 @@ class CatalogService:
 
         if request.is_root:
             request.parent_or_child = "child"
+            filtered_nodes = []
             if is_root_user():
                 filtered_nodes = [
                     (PydanticObjectId(await self.item_repo.get_account_laui()), Permission.OWN)
@@ -382,7 +386,7 @@ class CatalogService:
                 response = await self.access_reader.get_shared_items(
                     user_laui=get_user_laui(),
                     page_token=request.page_token,
-                    page_size=limit,
+                    page_size=request.limit,
                 )
                 next_page_token = response.next_page_token
                 has_next = bool(next_page_token)
@@ -394,18 +398,24 @@ class CatalogService:
                 item_laui=request.item_laui,
             )
             filtered_links = await self.link_repo.find_links(
-                filter=link_filters, offset=offset, limit=limit
+                filter=link_filters, offset=request.offset, limit=request.limit
             )
-            permission_map = await self.permission_manager.build_permission_map(
+            heirarchy_nodes = self._get_heirarchy_nodes(
                 links=filtered_links,
-                inherited_item_permission=request.item_permission,
                 parent_or_child=request.parent_or_child,
+                inherited_item_permission=request.item_permission,
             )
-            filtered_nodes = [
-                (item_laui, permission) for item_laui, permission in permission_map.items()
-            ]
+            permission_map = await self.access_reader.get_permissions_map(
+                item_lauis_with_true_parent_permission=heirarchy_nodes,
+                user_laui=get_user_laui(),
+            )
+            filtered_nodes = heirarchy_nodes
+            if permission_map:
+                filtered_nodes = [
+                    (item_laui, permission) for item_laui, permission in permission_map.items()
+                ]
             has_next = await self.link_repo.check_next_page_exists(
-                filter=link_filters, offset=offset, limit=limit
+                filter=link_filters, offset=request.offset, limit=request.limit
             )
 
         if not filtered_nodes:
@@ -451,6 +461,9 @@ class CatalogService:
 
                 links = await self.link_repo.find_links(filter=link_filters)
 
+
+                next_nodes = []
+
                 permission_map = await self.permission_manager.build_permission_map(
                     links=links,
                     parent_or_child=request.parent_or_child,
@@ -486,6 +499,20 @@ class CatalogService:
             pass
         return items
 
+    def _get_heirarchy_nodes(self, links: list[Link], parent_or_child: str, inherited_item_permission: Permission) -> list[tuple[PydanticObjectId, Permission]]:
+        heirarchy_nodes = []
+        for link in links:
+            if parent_or_child == "child":
+                true_parent_permission = inherited_item_permission if link.true_parent else None
+                heirarchy_nodes.append(
+                    (link.child_laui, true_parent_permission)
+                )
+            else:
+                if not link.parent_laui:
+                    continue
+                heirarchy_nodes.append((link.parent_laui, Permission.NONE))
+        return heirarchy_nodes
+
     async def find_multiple_items_by_laui(
         self,
         item_lauis: list[PydanticObjectId],
@@ -498,8 +525,8 @@ class CatalogService:
         )
 
     async def search(self, request: SearchRequest):
-        offset = (request.pagination.page - 1) * request.pagination.per_page
-        limit = request.pagination.per_page
+        offset = request.pagination.offset
+        limit = request.pagination.limit
 
         if request.item_filter:
             filter = request.item_filter.get_item_filters

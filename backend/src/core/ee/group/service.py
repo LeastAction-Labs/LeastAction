@@ -8,7 +8,7 @@ from pydantic_mongo import PydanticObjectId
 
 from src.common.context_vars.user_context import get_user_laui, is_root_user
 from src.common.exceptions import NotFoundError
-from src.core.ee.iam.group.api_request import (
+from src.core.ee.group.api_request import (
     GetGroupResponse,
     GetGroupsRequest,
     GetGroupsResponse,
@@ -16,9 +16,9 @@ from src.core.ee.iam.group.api_request import (
     SearchGroupsRequest,
     SearchGroupsResponse,
 )
-from src.core.ee.iam.group.repo import GroupRepository
-from src.core.ee.iam.group.schema import CreateGroup, GroupProjection, UpdateGroup
-from src.core.ee.iam.user.service import UserService
+from src.core.ee.group.repo import GroupRepository
+from src.core.ee.group.schema import CreateGroup, GroupProjection, UpdateGroup
+from src.core.iam.user.service import UserService
 from src.core.ee.keto.access_reader import AccessReader
 
 

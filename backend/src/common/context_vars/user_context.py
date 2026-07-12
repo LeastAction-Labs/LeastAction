@@ -6,7 +6,7 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 
-from src.core.ee.iam.user.schema import User
+from src.core.iam.user.schema import User
 
 user_laui_context_var: ContextVar[str] = ContextVar("user_laui", default=None)
 

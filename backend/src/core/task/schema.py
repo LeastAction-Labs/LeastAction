@@ -12,11 +12,12 @@ from pydantic import BaseModel, ConfigDict, Field, create_model, field_validator
 
 from src.common.exceptions import LAException
 from src.common.logger.logger import log_warning
-from src.common.models import AccessPatch
-from src.common.types import LAUI, AccessPatchType
+from src.common.types import LAUI
 from src.core.catalog.config.constants_mappers import types_mapper
 from src.core.catalog.config.schema.model_creator import create_item_model
 from src.core.catalog.config.schema.schema_model import SchemaModel
+from src.core.ee.models import AccessPatch
+from src.core.ee.types import AccessPatchType
 
 
 def _load_task_schema() -> dict[str, Any]:

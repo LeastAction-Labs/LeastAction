@@ -21,13 +21,13 @@ from src.common.env import ENV, get_env
 from src.common.logger.logger import initialize_logger
 from src.common.secrets import get_secret
 from src.common.utils import transform_validation_errors
-from src.core.admin.service import AdminService
+from src.core.ee.admin.service import AdminService
 from src.core.ai.service import AIService
 from src.core.api.middleware.admin import admin_middleware
 from src.core.api.middleware.auth import auth_middleware
 from src.core.api.middleware.catalog import catalog_middleware
 from src.core.api.middleware.celery_auth import celery_auth_middleware
-from src.core.api.middleware.license import license_middleware
+from src.core.ee.middleware.license import license_middleware
 from src.core.api.middleware.session import SessionMiddleware
 from src.core.api.middleware.transaction import transaction_context_middleware
 from src.core.api.router import v1Router
@@ -44,15 +44,15 @@ from src.core.db.service import create_mongo_client
 from src.core.db.transaction import (
     TransactionManager,
 )
-from src.core.ee.iam.auth.auth_code_dict import AuthCodeDict
-from src.core.ee.iam.auth.service import AuthService
-from src.core.ee.iam.group.repo import GroupRepository
-from src.core.ee.iam.group.service import GroupService
-from src.core.ee.iam.refresh_token.repo import RefreshTokenRepository
-from src.core.ee.iam.refresh_token.service import RefreshTokenService
-from src.core.ee.iam.session.service import SessionService
-from src.core.ee.iam.user.repo import UserRepository
-from src.core.ee.iam.user.service import UserService
+from src.core.iam.auth.auth_code_dict import AuthCodeDict
+from src.core.iam.auth.service import AuthService
+from src.core.ee.group.repo import GroupRepository
+from src.core.ee.group.service import GroupService
+from src.core.iam.refresh_token.repo import RefreshTokenRepository
+from src.core.iam.refresh_token.service import RefreshTokenService
+from src.core.iam.session.service import SessionService
+from src.core.iam.user.repo import UserRepository
+from src.core.iam.user.service import UserService
 from src.core.ee.keto.access_reader import AccessReader
 from src.core.ee.keto.service import KetoClient
 from src.core.ee.license.repo import LicenseRepository
@@ -98,7 +98,7 @@ async def lifespan(app: FastAPI):
     app.state.license_repo = LicenseRepository(active_db)
     app.state.license_service = LicenseService(app.state.license_repo)
     app.state.user_service = UserService(
-        user_repo=app.state.user_repo, license_service=app.state.license_service
+        user_repo=app.state.user_repo
     )
     app.state.admin_service = AdminService(
         license_service=app.state.license_service, user_service=app.state.user_service

@@ -5,12 +5,14 @@
 # Use of this file outside those terms is not permitted.
 from pydantic_mongo import PydanticObjectId
 
-from src.common.exceptions import InvalidArgumentError, LicenseError, NotFoundError
+from src.common.exceptions import NotFoundError
 from src.common.utils import load_system_config
-from src.core.admin.api_request import AdminCreateUserRequest, AdminLicenseUpdate, UpdateUserPayload
+from src.core.admin.api_request import UpdateUserPayload
+from src.core.ee.admin.api_request import AdminCreateUserRequest, AdminLicenseUpdate
 from src.core.db.transaction import transactional
-from src.core.ee.iam.user.schema import CreateUser
-from src.core.ee.iam.user.service import UserService
+from src.core.ee.errors import LicenseError
+from src.core.iam.user.schema import CreateUser
+from src.core.iam.user.service import UserService
 from src.core.ee.license.schema import UpdateLicense, UserListPatch
 from src.core.ee.license.service import LicenseService
 
@@ -55,6 +57,17 @@ class AdminService:
                     license_laui=request.laui if request.user_list_patch.add else None
                 ),
             )
+
+    @transactional
+    async def delete_user(self, laui: PydanticObjectId) -> None:
+        user = await self.user_service.find_user(laui)
+        await self.user_service.delete_user(laui)
+        await self.license_service.update_license(
+            license=UpdateLicense(
+                laui=user.license_laui,
+                user_list_patch=UserListPatch(remove=[laui]),
+            )
+        )
 
 
 from fastapi import Request

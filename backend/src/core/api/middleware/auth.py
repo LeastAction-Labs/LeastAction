@@ -11,8 +11,8 @@ from pydantic_mongo import PydanticObjectId
 
 from src.common.context_vars.user_context import user_context
 from src.common.exceptions import LAException
-from src.core.ee.iam.session.service import get_session_service
-from src.core.ee.iam.user.repo import get_user_repository
+from src.core.iam.session.service import get_session_service
+from src.core.iam.user.repo import get_user_repository
 
 
 async def auth_middleware(

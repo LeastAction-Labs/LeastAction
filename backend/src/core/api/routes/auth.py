@@ -22,18 +22,18 @@ from src.common.utils import (
     set_cookie,
 )
 from src.core.api.utils import ClientRedirectParams, RedirectHandler, get_redirect_handler
-from src.core.ee.iam.auth.api_request import (
+from src.core.iam.auth.api_request import (
     AuthRequest,
     LoginRequest,
     LoginSource,
     RedirectWithCodeRequest,
     TokenRequest,
 )
-from src.core.ee.iam.auth.auth_code_dict import AuthCodeDict, get_auth_code_dict
-from src.core.ee.iam.auth.service import AuthService, get_auth_service
-from src.core.ee.iam.session.service import SessionService, get_session_service
-from src.core.ee.iam.user.schema import User
-from src.core.ee.iam.user.service import UserService, get_user_service
+from src.core.iam.auth.auth_code_dict import AuthCodeDict, get_auth_code_dict
+from src.core.iam.auth.service import AuthService, get_auth_service
+from src.core.iam.session.service import SessionService, get_session_service
+from src.core.iam.user.schema import User
+from src.core.iam.user.service import UserService, get_user_service
 from src.core.email.schema import Email
 from src.core.email.service import EmailService, get_email_service
 
@@ -215,7 +215,6 @@ async def get_token(
         delete_cookie(response=response, key="oauth_flow")
         return {"must_change_password": session.user.must_change_password}
     except Exception as e:
-        print(e)
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
 

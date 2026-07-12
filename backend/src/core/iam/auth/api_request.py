@@ -9,12 +9,12 @@ from typing import Literal, Optional, Union
 from pydantic import BaseModel, model_validator
 
 from src.common.exceptions import InvalidArgumentError
-from src.core.ee.iam.auth.credentials.credentials import (
+from src.core.iam.auth.credentials.credentials import (
     AuthorizationCodeCredentials,
     RefreshTokenCredentials,
     UsernamePasswordCredentials,
 )
-from src.core.ee.iam.user.schema import User
+from src.core.iam.user.schema import User
 
 
 class LoginSource(str, Enum):
