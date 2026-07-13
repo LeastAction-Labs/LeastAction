@@ -17,6 +17,7 @@ import NotFound from '../components/errors/NotFound';
 import NotFoundGravity from '../components/errors/NotFoundGravity';
 import TourPanel from '../components/tour/TourPanel';
 import { useAuth } from '../contexts/AuthContext';
+import { ChatDockProvider, useChatDock } from '../contexts/ChatDockContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useTimeFormat } from '../contexts/TimeFormatContext';
 
@@ -42,22 +43,8 @@ function RootComponent() {
   };
 
   return (
-    <>
-      <div
-        key={timeZone}
-        className="min-h-screen relative overflow-hidden"
-        style={{
-          backgroundColor: 'var(--bg-primary)',
-          color: 'var(--text-primary)',
-        }}
-      >
-        <main className="w-full relative z-10">
-          <Outlet />
-        </main>
-        {/* <SessionLogButton /> */}
-        {pathname !== '/explore' && <TourPanel />}
-        <ChatbotWidget />
-      </div>
+    <ChatDockProvider>
+      <AppShell timeZone={timeZone} pathname={pathname} />
       {sessionExpired && !pathname.startsWith('/public') && (
         <Backdrop
           open
@@ -88,7 +75,33 @@ function RootComponent() {
           </Paper>
         </Backdrop>
       )}
-    </>
+    </ChatDockProvider>
+  );
+}
+
+// Renders the main app content and the chatbot. Lives inside ChatDockProvider so
+// it can reserve right-edge space when the chat is docked, shrinking the content
+// beside the docked panel instead of letting it overlap.
+function AppShell({ timeZone, pathname }: { timeZone: string; pathname: string }) {
+  const { reservedRight } = useChatDock();
+  return (
+    <div
+      key={timeZone}
+      className="min-h-screen relative overflow-hidden"
+      style={{
+        backgroundColor: 'var(--bg-primary)',
+        color: 'var(--text-primary)',
+        paddingRight: reservedRight,
+        transition: 'padding-right 0.2s ease',
+      }}
+    >
+      <main className="w-full relative z-10">
+        <Outlet />
+      </main>
+      {/* <SessionLogButton /> */}
+      {pathname !== '/explore' && <TourPanel />}
+      <ChatbotWidget />
+    </div>
   );
 }
 

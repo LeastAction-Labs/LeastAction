@@ -584,8 +584,12 @@ def build_ai_agent_item(
     account_laui: str = None,
     **kwargs,
 ) -> dict:
+    metadata = getattr(module, "metadata", {})
+    service = ""
+    if isinstance(metadata, dict):
+        service = str(metadata.get("service", "")).strip().lower()
     item = {
-        "item_type": "agent",
+        "item_type": f"agent.{service}" if service else "agent",
         "name": name,
         "codeblock": getattr(module, "codeblock", {}),
         "bashblock": getattr(module, "bashblock", {}),
