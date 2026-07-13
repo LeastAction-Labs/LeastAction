@@ -34,6 +34,7 @@ import {
   Select,
   Tab,
   Tabs,
+  Tooltip,
   Typography,
 } from '@mui/material';
 
@@ -62,6 +63,7 @@ import type { SchedulerResponse } from '@/services/scheduler.service';
 import { dangerouslyResetTask } from '@/services/task.service';
 import type { ValidationResult } from '@/services/validation.service';
 import { validateCodeblock } from '@/services/validation.service';
+import { CORE_COMPAT_HELP, formatCorePatterns } from '@/utils/semver';
 
 import FieldRenderer, { TabFields } from '../FieldRenderer';
 import { LauiDropdown } from '../FieldRenderer/LauiDropdown';
@@ -340,6 +342,27 @@ export default function TabView({ sidebar }: { sidebar?: ReactNode }) {
   const [isPublishing, setIsPublishing] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // ── Versioning (publish flow) ──
+  // "Item version" = version_details.version (publisher-controlled semver).
+  // "Core version" = version_compatibility.core (which Core releases the item runs on).
+  //
+  // The version increment is enforced at EDIT time (SaveConfirmModal) for published
+  // items, so here we simply push the item's current version. The backend guards
+  // against publishing a version that isn't strictly greater than the last published.
+  const currentVersion = itemData?.version_details?.version as string | undefined;
+  const corePatterns = itemData?.version_compatibility?.core as string[] | undefined;
+  const isRepublish = !!itemData?.is_published;
+  const hasUnpublishedChanges = !!itemData?.has_unpublished_changes;
+  const hasItemVersion = typeof currentVersion === 'string' && currentVersion.trim() !== '';
+
+  const openPublishDialog = () => {
+    if (!hasItemVersion) {
+      showError('Set an Item version (Version tab) before publishing.');
+      return;
+    }
+    setPublishConfirmOpen(true);
+  };
+
   const [resetConnectionModalOpen, setResetConnectionModalOpen] = useState(false);
   const [isResettingConnection, setIsResettingConnection] = useState(false);
   const [resetProgress, setResetProgress] = useState({ done: 0, total: 0 });
@@ -368,11 +391,18 @@ export default function TabView({ sidebar }: { sidebar?: ReactNode }) {
   };
 
   const handlePublishConfirmed = async () => {
+    // The version was already bumped at edit time; just push the current version.
+    const versionToPublish = currentVersion ?? '';
+    if (!versionToPublish) {
+      showError('An Item version is required to publish.');
+      return;
+    }
+
     setPublishConfirmOpen(false);
     setIsPublishing(true);
     try {
       await publishItemToMarketplace(itemData);
-      showSuccess('Item published to marketplace successfully');
+      showSuccess(`Published v${versionToPublish} to marketplace successfully`);
     } catch (e: any) {
       showError(`Failed to publish: ${e.message}`);
     } finally {
@@ -929,21 +959,35 @@ export default function TabView({ sidebar }: { sidebar?: ReactNode }) {
                 )}
 
                 {!isMarketplaceCatalog && publishAccess && isPublishable && (
-                  <Button
-                    onClick={() => setPublishConfirmOpen(true)}
-                    disabled={isPublishing}
-                    size="small"
-                    variant="outlined"
-                    startIcon={<PublishIcon />}
-                    sx={{
-                      ...actionButtonStyle,
-                      color: '#4caf50',
-                      borderColor: '#4caf50',
-                      '&:hover': { borderColor: '#388e3c', color: '#388e3c' },
-                    }}
+                  <Tooltip
+                    title={
+                      hasItemVersion
+                        ? ''
+                        : 'Set an Item version in the Version tab before publishing'
+                    }
                   >
-                    {publishLabel}
-                  </Button>
+                    <span>
+                      <Button
+                        onClick={openPublishDialog}
+                        disabled={isPublishing || !hasItemVersion}
+                        size="small"
+                        variant="outlined"
+                        startIcon={<PublishIcon />}
+                        sx={{
+                          ...actionButtonStyle,
+                          color: '#4caf50',
+                          borderColor: '#4caf50',
+                          '&:hover': { borderColor: '#388e3c', color: '#388e3c' },
+                          '&.Mui-disabled': {
+                            borderColor: 'var(--border)',
+                            color: 'var(--text-disabled)',
+                          },
+                        }}
+                      >
+                        {publishLabel}
+                      </Button>
+                    </span>
+                  </Tooltip>
                 )}
 
                 {['edit', 'own'].includes(itemData.permission) && (
@@ -1100,11 +1144,11 @@ export default function TabView({ sidebar }: { sidebar?: ReactNode }) {
         }}
       >
         <DialogTitle sx={{ fontSize: '15px', fontWeight: 600 }}>
-          {itemData?.is_published ? 'Publish new version?' : 'Make this item public?'}
+          {isRepublish ? 'Publish new version?' : 'Make this item public?'}
         </DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-            {itemData?.is_published ? (
+          <DialogContentText sx={{ color: 'var(--text-secondary)', fontSize: '13px', mb: 2 }}>
+            {isRepublish ? (
               <>
                 Pushing a new version of{' '}
                 <strong style={{ color: 'var(--text-primary)' }}>{itemData?.name}</strong> will
@@ -1118,6 +1162,92 @@ export default function TabView({ sidebar }: { sidebar?: ReactNode }) {
               </>
             )}
           </DialogContentText>
+
+          {/* Item version vs Core version — make the distinction explicit */}
+          <Box
+            sx={{
+              border: '1px solid var(--border-color)',
+              borderRadius: 1,
+              p: 1.5,
+              mb: 2,
+              bgcolor: 'var(--bg-primary)',
+            }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+              <Typography sx={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                Item version{' '}
+                <Tooltip title="This item's own release version (semver). It is bumped each time you edit a published item.">
+                  <span style={{ cursor: 'help' }}>ⓘ</span>
+                </Tooltip>
+              </Typography>
+              <Typography
+                sx={{ fontSize: '12px', color: 'var(--text-primary)', fontFamily: 'monospace' }}
+              >
+                v{currentVersion}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography sx={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                Core version{' '}
+                <Tooltip title={CORE_COMPAT_HELP}>
+                  <span style={{ cursor: 'help' }}>ⓘ</span>
+                </Tooltip>
+              </Typography>
+              <Typography
+                sx={{ fontSize: '12px', color: 'var(--text-primary)', fontFamily: 'monospace' }}
+              >
+                {formatCorePatterns(corePatterns)}
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* Re-publish without local edits has nothing new to push. */}
+          {isRepublish && !hasUnpublishedChanges && (
+            <Typography sx={{ fontSize: '12px', color: 'var(--warning, #d97706)', mb: 2 }}>
+              No unpublished changes. Edit the item (which bumps its version) before publishing a
+              new version.
+            </Typography>
+          )}
+
+          {/* Versioning rules / best practices */}
+          <Box
+            sx={{
+              borderLeft: '3px solid var(--accent)',
+              pl: 1.5,
+              py: 0.5,
+              bgcolor: 'var(--bg-primary)',
+            }}
+          >
+            <Typography
+              sx={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', mb: 0.5 }}
+            >
+              Versioning rules
+            </Typography>
+            <Typography
+              component="ul"
+              sx={{ m: 0, pl: 2, fontSize: '11px', color: 'var(--text-secondary)' }}
+            >
+              <li>Every published item must carry an Item version.</li>
+              <li>
+                Editing a published item forces a one-step version bump — that bumped version is
+                what gets published here.
+              </li>
+              <li>
+                <strong>Patch</strong> (x.y.<strong>Z+1</strong>) = fix · <strong>Minor</strong> (x.
+                <strong>Y+1</strong>.0) = feature · <strong>Major</strong> (<strong>X+1</strong>
+                .0.0) = breaking.
+              </li>
+              <li>
+                Core version compatibility is separate — it tracks which Core releases the item
+                supports.
+              </li>
+              <li>
+                For Core compatibility, prefer an open range like <strong>&gt;=0.4.0</strong> (runs
+                on Core 0.4.0 and newer) over a wildcard like <strong>0.*</strong> (locked to the
+                0.x series only).
+              </li>
+            </Typography>
+          </Box>
         </DialogContent>
         <DialogActions sx={{ px: 2, pb: 2, gap: 1 }}>
           <Button
@@ -1137,9 +1267,10 @@ export default function TabView({ sidebar }: { sidebar?: ReactNode }) {
               bgcolor: '#4caf50',
               color: '#fff',
               '&:hover': { bgcolor: '#388e3c' },
+              '&.Mui-disabled': { bgcolor: 'var(--bg-tertiary)', color: 'var(--text-disabled)' },
             }}
           >
-            {itemData?.is_published ? 'Yes, Push Update' : 'Yes, Publish'}
+            Publish v{currentVersion}
           </Button>
         </DialogActions>
       </Dialog>

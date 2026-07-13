@@ -5,15 +5,26 @@
  * marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
  * Use of this file outside those terms is not permitted.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { Alert, Box, Button, CircularProgress, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Typography,
+} from '@mui/material';
 
 import BaseModal from '@/components/ui/Modal/BaseModal';
 import { FONT_SIZES } from '@/constants';
 import { useCatalog } from '@/contexts/CatalogContext';
 import { useEditorHandlers } from '@/screens/Browse/handlers/editorHandlers';
 import { searchCatalogItems } from '@/services/catalog.service';
+import { nextVersionOptions } from '@/utils/semver';
 
 import type { FormMode } from '../types';
 
@@ -32,6 +43,21 @@ export const SaveConfirmModal = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [duplicateItem, setDuplicateItem] = useState<any>(null);
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+
+  // ── Forced version bump when editing an already-published item ──
+  // Editing a published item MUST increment its Item version (version_details.version)
+  // by one step. This bump IS the increment that later gets pushed on publish.
+  const currentVersion = saveData?.version_details?.version as string | undefined;
+  const requiresVersionBump = mode === 'edit' && saveData?.is_published === true;
+  const bumpOptions = useMemo(() => nextVersionOptions(currentVersion), [currentVersion]);
+  const [bumpedVersion, setBumpedVersion] = useState('');
+  useEffect(() => {
+    if (isOpen && requiresVersionBump) {
+      setBumpedVersion(bumpOptions[0]?.version ?? '');
+    } else {
+      setBumpedVersion('');
+    }
+  }, [isOpen, requiresVersionBump, bumpOptions]);
 
   useEffect(() => {
     if (isOpen && mode === 'create' && saveData?.name && itemType) {
@@ -64,7 +90,14 @@ export const SaveConfirmModal = () => {
   const handleSaveConfirm = async () => {
     setIsSaving(true);
     try {
-      await handleSaveItem(saveData, itemType);
+      // Inject the forced version bump for published items before saving.
+      const finalSaveData = requiresVersionBump
+        ? {
+            ...saveData,
+            version_details: { ...(saveData.version_details ?? {}), version: bumpedVersion },
+          }
+        : saveData;
+      await handleSaveItem(finalSaveData, itemType);
       setSaveConfirmModalState({ isOpen: false });
     } finally {
       setIsSaving(false);
@@ -79,7 +112,7 @@ export const SaveConfirmModal = () => {
       <Button
         onClick={() => void handleSaveConfirm()}
         variant="contained"
-        disabled={isSaving}
+        disabled={isSaving || (requiresVersionBump && !bumpedVersion)}
         sx={{
           bgcolor: 'var(--accent)',
           color: 'white',
@@ -139,6 +172,43 @@ export const SaveConfirmModal = () => {
             ? `Are you sure you want to update "${itemName}"?`
             : `Are you sure you want to ${mode === 'create' ? 'create' : 'save'} "${itemName}"?`}
         </Typography>
+
+        {requiresVersionBump && (
+          <Box
+            sx={{
+              border: '1px solid var(--border-color)',
+              borderRadius: 1,
+              p: 1.5,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+            }}
+          >
+            <Alert severity="info" sx={{ fontSize: FONT_SIZES.BASE, py: 0 }}>
+              This item is published. Editing it requires a new <strong>Item version</strong>. The
+              bump you pick here is what gets pushed the next time you publish.
+            </Alert>
+            <FormControl fullWidth size="small">
+              <InputLabel id="edit-bump-label">New item version</InputLabel>
+              <Select
+                labelId="edit-bump-label"
+                label="New item version"
+                value={bumpedVersion}
+                onChange={(e) => setBumpedVersion(e.target.value)}
+              >
+                {bumpOptions.map((opt) => (
+                  <MenuItem key={opt.version} value={opt.version}>
+                    v{opt.version} — {opt.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Typography sx={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+              Item version {currentVersion ? `v${currentVersion}` : '(unset)'} → v
+              {bumpedVersion || '…'}. Core version compatibility is separate and unchanged.
+            </Typography>
+          </Box>
+        )}
       </Box>
     </BaseModal>
   );
