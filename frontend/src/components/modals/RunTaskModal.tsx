@@ -971,6 +971,10 @@ export default function RunTaskModal() {
 
         handleClose();
       } else if (taskModalState.mode === 'run') {
+        // Notify the opener (e.g. TaskView) so it refreshes and shows the task's
+        // updated logical_date after the adhoc run.
+        taskModalState.onSuccess?.();
+
         // Run mode - show logs
         if (result?.session_id) {
           setSessionId(result.session_id);
@@ -1288,6 +1292,23 @@ export default function RunTaskModal() {
       taskPayload.retry_interval = formData.retry_interval ?? 0;
       // Handle different modes
       if (mode === 'run') {
+        // Adhoc run of an existing task: send item_laui (+ the chosen logical_date)
+        // so the backend updates the task's logical_date and executes it, instead of
+        // routing through the create/update path which discards the logical_date.
+        const existingTaskLaui = initialTaskData?.laui;
+        if (existingTaskLaui) {
+          const runPayload: Record<string, unknown> = {
+            item_type: 'task',
+            item_laui: existingTaskLaui,
+          };
+          if (formData.logical_date) {
+            runPayload.logical_date = formData.logical_date;
+          }
+          const taskResponse = await runTask(runPayload);
+          return { session_id: taskResponse.session_id };
+        }
+
+        // New task (e.g. AI context): create-and-run via the full payload.
         taskPayload.state = 'scheduled';
         taskPayload.frequency = 'ADHOC';
 
