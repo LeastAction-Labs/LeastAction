@@ -43,7 +43,7 @@ Each developer generates their own by running the login flow. The file is never 
 
 ## Login (one-time setup)
 
-**Step 1 — Log in to your LeastAction instance** (local: `http://localhost:5173`, remote: your deployment URL).
+**Step 1 — Log in to your LeastAction instance** (local: `http://localhost:8080`, remote: your deployment URL).
 
 **Step 2 — Open the MCP token page:**
 
@@ -66,7 +66,7 @@ After login, `.mcp.json` at the project root will look like:
   "mcpServers": {
     "leastaction": {
       "type": "http",
-      "url": "http://localhost:8000/mcp/",
+      "url": "http://localhost:8080/mcp/",
       "headers": {
         "Authorization": "Bearer <your-token>"
       }
@@ -248,4 +248,4 @@ If a tool you expect is missing from `allowed_tools`, contact your admin to enab
 Your token may have expired (24-hour TTL). Go to `/mcp-token`, copy the fresh snippet, update `.mcp.json`, and restart Claude Code.
 
 **Claude Code shows MCP server as disconnected**
-Ensure the backend is running and the URL in `.mcp.json` is correct (`http://localhost:8000/mcp/` for local, your deployment URL for remote).
+Ensure the backend is running and the URL in `.mcp.json` is correct (`http://localhost:8080/mcp/` for local, your deployment URL for remote).

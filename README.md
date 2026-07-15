@@ -176,7 +176,7 @@ All product documentation lives in [`docs/`](docs/). Start here:
 
 - [Getting Started](docs/01-getting-started/02-quickstart.md) — core concepts, your first task in under 20 minutes
 - [Concepts](docs/04-concepts/) — connections, operators, actions, config, workflows, CI/CD, monitoring
-- [Examples](docs/examples/) — real patterns built on LeastAction
+- [Building pipelines](docs/05-building-pipelines/) — real patterns: operators, actions, dependencies, monitoring, backfill
 - [Data Inspector](docs/10-reference/api/12-query.md) — (Experimental Preview) `inspect_data` MCP tool + REST endpoint for read-only queries across any catalog connection; primary use is AI-driven post-task verification; UI at `/query` is a debug surface for engineers
 - [Production deployment](deploy/README.md) — local blue-green zero-downtime deploys via `./blue-green-run.sh`: two-slot (blue/green) swap from Docker Hub images or local source, automatic rollback on failed health, graceful worker draining
 
