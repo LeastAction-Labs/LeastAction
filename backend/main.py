@@ -3,18 +3,15 @@
 # LeastAction Sustainable Use License (see LICENSE.md) or, for files
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
-import asyncio
-import json
 import os
 import sys
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 
 from src.common.config import Config
 from src.common.env import ENV, get_env
@@ -260,228 +257,8 @@ async def root():
     return {"message": "Welcome to Least Actions"}
 
 
-# app.include_router(items_router, prefix="/items")
-# app.include_router(links_router, prefix="/links")
-# app.include_router(ai_router, prefix="/ai")
-# app.include_router(auth_router, prefix="/auth")
 app.include_router(test_router, prefix="/test")
 app.include_router(v1Router, prefix="/api/v1")
-# Endpoint for logging
-BASE_DIR = Path(__file__).parent
-LOG_FILE = BASE_DIR / "logs" / "app.log"
-LOGS_DIR = BASE_DIR / "logs"
-
-
-@app.get("/logs")
-async def get_logs():
-    """Return the full contents of the log file"""
-    try:
-        with open(LOG_FILE) as f:
-            content = f.read()
-        return {"logs": content}
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Log file not found")
-
-
-@app.get("/logs/listItems")
-async def list_log_items():
-    """Return list of all files and folders in the logs directory"""
-    try:
-        if not LOGS_DIR.exists():
-            raise HTTPException(status_code=404, detail="Logs directory not found")
-
-        items = []
-        for item in LOGS_DIR.iterdir():
-            item_info = {
-                "name": item.name,
-                "type": "directory" if item.is_dir() else "file",
-                "size": item.stat().st_size if item.is_file() else None,
-                "modified": item.stat().st_mtime,
-                "path": str(item.relative_to(LOGS_DIR)),
-            }
-            items.append(item_info)
-
-        items.sort(key=lambda x: x["name"], reverse=True)
-
-        return {
-            "directory": str(LOGS_DIR),
-            "items": items,
-            "total_count": len(items),
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error listing directory: {str(e)}")
-
-
-@app.get("/logs/listItems/{folder_path:path}")
-async def list_folder_items(folder_path: str):
-    """Return list of files and folders in a specific subfolder"""
-    try:
-        target_path = LOGS_DIR / folder_path
-
-        if not target_path.exists():
-            raise HTTPException(status_code=404, detail="Folder not found")
-
-        if not target_path.is_dir():
-            raise HTTPException(status_code=400, detail="Path is not a directory")
-
-        items = []
-        for item in target_path.iterdir():
-            item_info = {
-                "name": item.name,
-                "type": "directory" if item.is_dir() else "file",
-                "size": item.stat().st_size if item.is_file() else None,
-                "modified": item.stat().st_mtime,
-                "path": str(item.relative_to(LOGS_DIR)),
-            }
-            items.append(item_info)
-
-        return {
-            "directory": str(target_path),
-            "items": items,
-            "total_count": len(items),
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error listing directory: {str(e)}")
-
-
-@app.get("/logs/file/{file_path:path}")
-async def get_file_details(file_path: str):
-    """Get detailed information about a specific file including content for supported formats"""
-    try:
-        target_file = LOGS_DIR / file_path
-        if not target_file.exists():
-            raise HTTPException(status_code=404, detail="File not found")
-        if not target_file.is_file():
-            raise HTTPException(status_code=400, detail="Path is not a file")
-
-        file_stats = target_file.stat()
-
-        # Base response with file metadata
-        response = {
-            "name": target_file.name,
-            "path": str(target_file.relative_to(LOGS_DIR)),
-            "full_path": str(target_file),
-            "size": file_stats.st_size,
-            "modified": file_stats.st_mtime,
-            "created": file_stats.st_ctime,
-            "extension": target_file.suffix,
-            "is_readable": target_file.is_file() and target_file.stat().st_size > 0,
-        }
-
-        # Add content for supported file types
-        supported_extensions = {".log", ".txt", ".json"}
-        if target_file.suffix.lower() in supported_extensions:
-            try:
-                # Read file content with UTF-8 encoding
-                with open(target_file, encoding="utf-8") as f:
-                    content = f.read()
-
-                response["content"] = content
-                response["content_type"] = "text/plain"
-
-                # Special handling for JSON files
-                if target_file.suffix.lower() == ".json":
-                    try:
-                        import json
-
-                        # Validate JSON and format it
-                        json_data = json.loads(content)
-                        response["content_type"] = "application/json"
-                        response["json_valid"] = True
-                        response["formatted_content"] = json.dumps(json_data, indent=2)
-                    except json.JSONDecodeError as je:
-                        response["json_valid"] = False
-                        response["json_error"] = str(je)
-
-            except UnicodeDecodeError:
-                # Handle files that aren't UTF-8 encoded
-                response["content"] = None
-                response["content_error"] = (
-                    "File contains non-UTF-8 characters and cannot be displayed as text"
-                )
-            except Exception as read_error:
-                response["content"] = None
-                response["content_error"] = f"Error reading file content: {str(read_error)}"
-        else:
-            response["content"] = None
-            response["content_reason"] = (
-                f"Content not included - unsupported file type: {target_file.suffix}"
-            )
-
-        return response
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting file details: {str(e)}")
-
-
-#
-# @app.get("/logs/listItems")
-# async def list_log_items():
-#     """Return list of all files and folders in the logs directory"""
-#     try:
-#         if not LOGS_DIR.exists():
-#             raise HTTPException(status_code=404, detail="Logs directory not found")
-#
-#         items = []
-#         for item in LOGS_DIR.iterdir():
-#             item_info = {
-#                 "name": item.name,
-#                 "type": "directory" if item.is_dir() else "file",
-#                 "size": item.stat().st_size if item.is_file() else None,
-#                 "modified": item.stat().st_mtime
-#             }
-#             items.append(item_info)
-#
-#         return {
-#             "directory": str(LOGS_DIR),
-#             "items": items,
-#             "total_count": len(items)
-#         }
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error listing directory: {str(e)}")
-
-
-@app.get("/logs/stream")
-async def stream_logs():
-    async def event_generator():
-        last_position = 0
-
-        # First, Initial content is sent
-        try:
-            if os.path.exists(LOG_FILE):
-                with open(LOG_FILE) as f:
-                    content = f.read()
-                    last_position = len(content)
-                    yield f"data: {json.dumps({'content': content})}\n\n"
-        except Exception as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
-
-        # Then, we watch for changes
-        while True:
-            try:
-                if os.path.exists(LOG_FILE):
-                    with open(LOG_FILE) as f:
-                        f.seek(last_position)
-                        new_content = f.read()
-                        if new_content:
-                            last_position = f.tell()
-                            yield f"data: {json.dumps({'content': new_content})}\n\n"
-            except Exception as e:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
-
-            # the 1 here indicates the duration after which we should
-            # check for updates.
-            await asyncio.sleep(1)
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Access-Control-Allow-Origin": "*",  # Critical for SSE!
-        },
-    )
 
 
 @app.exception_handler(RequestValidationError)
@@ -496,7 +273,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 @app.exception_handler(HTTPException)
-async def validation_exception_handler(request: Request, exc: HTTPException):
+async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code, content=transform_validation_errors(exc.detail)
     )
