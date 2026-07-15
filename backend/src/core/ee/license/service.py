@@ -10,7 +10,7 @@ from fastapi import Request
 from pydantic import ValidationError
 from pydantic_mongo import PydanticObjectId
 
-from src.common.exceptions import LicenseError
+from src.core.ee.errors import LicenseError
 from src.core.ee.license.repo import LicenseRepository
 from src.core.ee.license.schema import (
     CreateLicense,

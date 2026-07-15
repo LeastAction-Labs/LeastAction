@@ -49,7 +49,6 @@ async def get_permission(
             status_code=e.http_status_code, detail={"message": e.message, "detail": e.detail}
         )
     except Exception as e:
-        print(e)
         log_error(
             "api_traceback",
             "access_router",

@@ -5,13 +5,13 @@
 # Use of this file outside those terms is not permitted.
 from fastapi import Request
 
-from src.core.admin.service import AdminService
-from src.core.ee.iam.auth.api_request import LoginRequest, TokenRequest, TokenResponse
-from src.core.ee.iam.auth.auth_code_dict import AuthCodeDict
-from src.core.ee.iam.auth.credentials.validator import CredentialsValidator
-from src.core.ee.iam.refresh_token.service import RefreshTokenService
-from src.core.ee.iam.session.service import SessionService
-from src.core.ee.iam.user.service import UserService
+from src.core.ee.admin.service import AdminService
+from src.core.iam.auth.api_request import LoginRequest, TokenRequest, TokenResponse
+from src.core.iam.auth.auth_code_dict import AuthCodeDict
+from src.core.iam.auth.credentials.validator import CredentialsValidator
+from src.core.iam.refresh_token.service import RefreshTokenService
+from src.core.iam.session.service import SessionService
+from src.core.iam.user.service import UserService
 
 
 class AuthService:

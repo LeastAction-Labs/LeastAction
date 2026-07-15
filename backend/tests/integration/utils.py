@@ -12,8 +12,8 @@ from pymongo import AsyncMongoClient
 
 from src.core.catalog.api_request import CreateItemResponse
 from src.core.db.types import MongoDatabase, MongoDocument
-from src.core.ee.iam.session.service import SessionService
-from src.core.ee.iam.user.schema import UserType
+from src.core.iam.session.service import SessionService
+from src.core.iam.user.schema import UserType
 from src.core.ee.license.repo import LicenseRepository
 from src.core.ee.license.service import LicenseService
 from tests.integration.schema import TestRequest
@@ -47,8 +47,8 @@ async def get_system_access_token() -> str:
     """Get or create the system user's access token from the database"""
     from bson import ObjectId
 
-    from src.core.ee.iam.user.repo import UserRepository
-    from src.core.ee.iam.user.schema import CreateUser
+    from src.core.iam.user.repo import UserRepository
+    from src.core.iam.user.schema import CreateUser
 
     test_db = await get_test_database()
 
@@ -64,9 +64,7 @@ async def get_system_access_token() -> str:
 
     # Create system user if it doesn't exist
 
-    license_repo = LicenseRepository(test_db)
-    license_service = LicenseService(license_repo)
-    user_service = UserService(user_repo=UserRepository(test_db), license_service=license_service)
+    user_service = UserService(user_repo=UserRepository(test_db))
     session_service = get_session_service()
 
     if not system_user:
@@ -154,8 +152,8 @@ from src.core.db.transaction import (
     TransactionManager,
     transaction_manager_context,
 )
-from src.core.ee.iam.user.repo import UserRepository
-from src.core.ee.iam.user.service import UserService
+from src.core.iam.user.repo import UserRepository
+from src.core.iam.user.service import UserService
 from src.core.ee.keto.access_reader import AccessReader
 from src.core.ee.keto.service import KetoClient
 from src.core.task.action.pre_action_manager import PreActionManager
@@ -197,10 +195,8 @@ async def get_item_orchestrator(test_database: MongoDatabase):
 
     # Initialize session and user services for token generation
     session_service = get_session_service()
-    license_repo = LicenseRepository(test_database)
-    license_service = LicenseService(license_repo)
     user_service = UserService(
-        user_repo=UserRepository(test_database), license_service=license_service
+        user_repo=UserRepository(test_database)
     )
 
     celery_orchestrator = CeleryOrchestrator(

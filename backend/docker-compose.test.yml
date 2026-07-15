@@ -1,3 +1,8 @@
+# Copyright (c) 2026 LeastAction Labs, Inc.
+# This file is part of LeastAction and is licensed under the
+# LeastAction Sustainable Use License (see LICENSE.md) or, for files
+# marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
+# Use of this file outside those terms is not permitted.
 name: leastaction-test
 services:
   mongodb-test:
@@ -9,8 +14,8 @@ services:
     environment:
       MONGO_INITDB_DATABASE: LeastActionTest
     command: >
-      bash -c "mongod --quiet --replSet rs0 --bind_ip_all & 
-      until mongosh --quiet --eval 'db.runCommand({hello: 1})' > /dev/null 2>&1; do sleep 2; done && 
+      bash -c "mongod --quiet --replSet rs0 --bind_ip_all &
+      until mongosh --quiet --eval 'db.runCommand({hello: 1})' > /dev/null 2>&1; do sleep 2; done &&
       mongosh --quiet --eval \"
         try {
           rs.initiate({
@@ -20,20 +25,20 @@ services:
         } catch (e) {
           // If already init, we just move on
         }
-        
-        while (!db.hello().isWritablePrimary) { 
-          sleep(1000); 
+
+        while (!db.hello().isWritablePrimary) {
+          sleep(1000);
         }
 
         // FIX: Match the DB name to your MONGO_URI
         const database = db.getSiblingDB('LeastActionTest');
-        
+
         if (!database.getCollectionNames().includes('links')) {
           database.createCollection('links');
         }
 
         database.runCommand({
-          collMod: 'links', 
+          collMod: 'links',
           changeStreamPreAndPostImages: { enabled: true }
         });
       \" > /dev/null 2>&1 &&
@@ -69,7 +74,7 @@ services:
       - DSN=postgres://keto:secret@postgres-test:5432/keto-test?sslmode=disable&max_conns=20&max_idle_conns=4
     volumes:
       - ./keto.yml:/home/ory/keto.yml
-      - ./namespaces.ts:/home/ory/namespaces.ts  
+      - ./namespaces.ts:/home/ory/namespaces.ts
     command: migrate up -y
     restart: on-failure
     depends_on:
@@ -79,7 +84,7 @@ services:
     image: oryd/keto:v25.4.0
     ports:
       - '4466:4466' # Read API
-      - '4467:4467' # Write API 
+      - '4467:4467' # Write API
     environment:
       - SERVE_READ_MAX_DEPTH=50
       - DSN=postgres://keto:secret@postgres-test:5432/keto-test?sslmode=disable
@@ -92,13 +97,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 10s     
+      start_period: 10s
     restart: on-failure
     depends_on:
       postgres-test:
         condition: service_started
       keto-migrate-test:
-        condition: service_completed_successfully 
+        condition: service_completed_successfully
 
   db-change-streamer-test:
     image: la-backend-test

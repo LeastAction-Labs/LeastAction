@@ -5,7 +5,7 @@
 # Use of this file outside those terms is not permitted.
 from fastapi import Request
 
-from src.core.ee.iam.session.claims import AccessTokenClaims
+from src.core.iam.session.claims import AccessTokenClaims
 
 
 class ApiService:

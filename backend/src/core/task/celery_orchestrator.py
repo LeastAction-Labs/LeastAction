@@ -14,8 +14,8 @@ from src.core.celery.registry.actions import execute_action
 from src.core.celery.registry.crons import run_cron
 from src.core.celery.registry.tasks import execute_task
 from src.core.celery.schema import Task
-from src.core.ee.iam.session.service import SessionService
-from src.core.ee.iam.user.service import UserService
+from src.core.iam.session.service import SessionService
+from src.core.iam.user.service import UserService
 from src.core.task.action.schema import ActionItem
 
 

@@ -14,7 +14,7 @@ from src.common.exceptions import NotFoundError
 from src.common.utils import transform_access
 from src.core.db import MongoDatabase
 from src.core.db.transaction import session_context
-from src.core.ee.iam.group.schema import (
+from src.core.ee.group.schema import (
     CreateGroup,
     CreateGroupInDB,
     Group,

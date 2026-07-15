@@ -86,7 +86,7 @@ SORTABLE_TASK_FIELDS = {
 }
 
 
-class GetItemsFilter(BaseModel):
+class GetItemsFilter(PaginationRequest):
     item_laui: PydanticObjectId | None = Field(
         default=None, json_schema_extra={"deciding_factor": True}
     )
@@ -96,10 +96,7 @@ class GetItemsFilter(BaseModel):
     )
     item_type: str | None = None
     depth: int | None = 1
-    per_page: int = 10
-    page: int = 1
     is_deleted: bool = True
-    page_token: str | None = None
     item_permission: Permission | None = None
     sort_by: str | None = None
     sort_order: Literal["asc", "desc"] | None = "asc"

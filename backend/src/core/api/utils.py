@@ -11,8 +11,8 @@ from fastapi import Request
 from pydantic import BaseModel, ConfigDict
 
 from src.common.secrets import get_secret
-from src.core.ee.iam.auth.api_request import LoginSource
-from src.core.ee.iam.auth.credentials.credentials import Provider
+from src.core.iam.auth.api_request import LoginSource
+from src.core.iam.auth.credentials.credentials import Provider
 
 
 class ClientRedirectParams(BaseModel):
@@ -53,7 +53,6 @@ class RedirectHandler:
             "scope": "openid email profile",
             "state": state,
         }
-        print(f"SSO login URL: {self.sso_redirect_url}?{urlencode(query_params)}")
         return f"{self.sso_redirect_url}?{urlencode(query_params)}"
 
     def get_frontend_login_url(self) -> str:

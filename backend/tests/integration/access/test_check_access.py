@@ -13,10 +13,10 @@ from pydantic_mongo import PydanticObjectId
 
 from src.core.catalog.api_request import CreateItemResponse
 from src.core.db.types import MongoDatabase
-from src.core.ee.iam.session.service import SessionService
-from src.core.ee.iam.user.repo import UserRepository
-from src.core.ee.iam.user.schema import CreateUser, UserType
-from src.core.ee.iam.user.service import UserService
+from src.core.iam.session.service import SessionService
+from src.core.iam.user.repo import UserRepository
+from src.core.iam.user.schema import CreateUser, UserType
+from src.core.iam.user.service import UserService
 from src.core.ee.license.repo import LicenseRepository
 from src.core.ee.license.schema import LicenseClaims, LicenseTier, LicenseUploadRequest
 from src.core.ee.license.service import LicenseService
@@ -220,11 +220,7 @@ async def setup_catalog(client: TestClient, test_database: MongoDatabase):
 # create root user , test users and assign license to test users and return a dict mapping username -> laui and token
 @pytest.fixture(autouse=True)
 async def setup_users(client: TestClient, test_database: MongoDatabase):
-    license_repo = LicenseRepository(test_database)
-    license_service = LicenseService(license_repo)
-    user_service = UserService(
-        user_repo=UserRepository(test_database), license_service=license_service
-    )
+    user_service = UserService(user_repo=UserRepository(test_database))
     session_service = get_session_service()
 
     # create root user
@@ -576,10 +572,8 @@ async def test_check_access(client:TestClient,
 
 
 async def _get_user_access_token(test_database: MongoDatabase, email: str) -> str:
-    license_repo = LicenseRepository(test_database)
-    license_service = LicenseService(license_repo)
     user_service = UserService(
-        user_repo=UserRepository(test_database), license_service=license_service
+        user_repo=UserRepository(test_database)
     )
     session_service = get_session_service()
     existing_user = await user_service.get_user_by_email(email)

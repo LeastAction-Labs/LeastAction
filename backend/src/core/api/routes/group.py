@@ -12,9 +12,9 @@ from pydantic_mongo import PydanticObjectId
 from src.common.context_vars.user_context import get_user_laui
 from src.common.exceptions import LAException
 from src.common.logger.logger import log_error, log_info
-from src.core.ee.iam.group.api_request import GetGroupsRequest, SearchGroupsRequest
-from src.core.ee.iam.group.schema import CreateGroup
-from src.core.ee.iam.group.service import GroupService, get_group_service
+from src.core.ee.group.api_request import GetGroupsRequest, SearchGroupsRequest
+from src.core.ee.group.schema import CreateGroup
+from src.core.ee.group.service import GroupService, get_group_service
 from src.core.ee.keto.schema import Relation
 
 group_router = APIRouter()

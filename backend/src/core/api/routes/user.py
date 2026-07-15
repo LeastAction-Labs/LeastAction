@@ -14,8 +14,8 @@ from src.common.exceptions import InvalidArgumentError, LAException
 from src.common.logger.logger import log_error, log_info
 from src.common.utils import load_system_config
 from src.core.api.utils import convert_objectid_to_str
-from src.core.ee.iam.user.api_request import SearchUsersRequest
-from src.core.ee.iam.user.service import UserService, get_user_service
+from src.core.iam.user.api_request import SearchUsersRequest
+from src.core.iam.user.service import UserService, get_user_service
 
 user_router = APIRouter()
 

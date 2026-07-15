@@ -10,18 +10,18 @@ from pydantic_mongo import PydanticObjectId
 
 from src.common.exceptions import AuthenticationError, NotFoundError
 from src.common.secrets import get_secret
-from src.core.admin.api_request import AdminCreateUserRequest
-from src.core.admin.service import AdminService
-from src.core.ee.iam.auth.auth_code_dict import AuthCodeDict
-from src.core.ee.iam.auth.credentials.credentials import (
+from src.core.ee.admin.api_request import AdminCreateUserRequest
+from src.core.ee.admin.service import AdminService
+from src.core.iam.auth.auth_code_dict import AuthCodeDict
+from src.core.iam.auth.credentials.credentials import (
     AuthorizationCodeCredentials,
     BaseCredentials,
     Provider,
     RefreshTokenCredentials,
 )
-from src.core.ee.iam.refresh_token.service import RefreshTokenService
-from src.core.ee.iam.user.schema import User
-from src.core.ee.iam.user.service import UserService
+from src.core.iam.refresh_token.service import RefreshTokenService
+from src.core.iam.user.schema import User
+from src.core.iam.user.service import UserService
 
 
 class ValidatorFunc(Protocol):

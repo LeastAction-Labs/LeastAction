@@ -1,3 +1,8 @@
+# Copyright (c) 2026 LeastAction Labs, Inc.
+# This file is part of LeastAction and is licensed under the
+# LeastAction Sustainable Use License (see LICENSE.md) or, for files
+# marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
+# Use of this file outside those terms is not permitted.
 # ============================================================================
 # Shared infrastructure for blue-green deploys — started once, reused by both
 # app slots. Managed by blue-green-run.sh (project: leastaction-infra):
