@@ -9,7 +9,7 @@ import json
 from src.common.logger.logger import log_info, log_error
 
 
-def run(least_action_action_object, webhook_url, message, channel=None, username=None, icon_emoji=None, icon_url=None, attachments=None, **kwargs):
+def run(least_action_action_object, webhook_url=None, message=None, channel=None, username=None, icon_emoji=None, icon_url=None, attachments=None, **kwargs):
     """
     Send a notification to Slack using a webhook URL.
     
@@ -32,7 +32,20 @@ def run(least_action_action_object, webhook_url, message, channel=None, username
         action_id = least_action_action_object.get('laui')
         session_id = least_action_action_object.get('session_id')
         log_info("action", "run", "initialize", "Action initialized")
-        
+
+        # Prefer the vaulted connection (connection.slack content) so a caller only
+        # references the connection by laui and never handles the webhook secret. Fall
+        # back to the explicit action variables when no connection is attached.
+        conn = least_action_action_object.get("connection") or {}
+        webhook_url = webhook_url or conn.get("webhook_url")
+        channel = channel or conn.get("default_channel") or conn.get("channel")
+        if not webhook_url:
+            log_error("action", "run", "no_webhook", "No webhook_url — pass it, or attach a connection.slack whose content has webhook_url")
+            return False
+        if not message:
+            log_error("action", "run", "no_message", "message is required")
+            return False
+
         payload = {
             "text": message
         }
@@ -98,22 +111,28 @@ bashblock = {
 }
 
 action_variables={
-  "webhook_url": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
+  "webhook_url": "",
   "message": "Task execution notification",
-  "channel": "#general",
+  "channel": None,
   "username": "LeastAction Bot",
   "icon_emoji": ":robot_face:",
   "icon_url": None,
   "attachments": None
 }
-connection={}
+# Attach a connection.slack whose content holds the secret webhook_url (+ an optional
+# default_channel); the action reads it from the connection so callers reference the
+# connection by laui and never handle the URL. The explicit webhook_url variable is a fallback.
+connection={
+  "webhook_url": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
+  "default_channel": "#general",
+}
 
 prompt = (
-    "Send a webhook notification (e.g. Slack) with a custom message when a task event occurs. "
-    "Action variables: webhook_url (required), message (required), channel (optional), "
-    "username, icon_emoji, icon_url, attachments. "
-    "POSTs a JSON payload to webhook_url. Returns True on success (HTTP 200). "
-    "Use as a notification step after task completion, failure, or key milestones in a workflow."
+    "Post a Slack message via an incoming webhook. Preferred usage: attach a connection.slack "
+    "(content: webhook_url [+ default_channel]) and pass connection_laui — the action reads the "
+    "webhook from the vaulted connection, so you only need to supply `message` (and optionally "
+    "`channel`). `webhook_url` can also be passed directly as a fallback. Returns True on HTTP 200. "
+    "Use to post status / all-clear / escalation to an ops channel after an incident or milestone."
 )
 
 install_docs = """# LeastActionWebhookNotify — Install Guide

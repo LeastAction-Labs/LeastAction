@@ -69,7 +69,9 @@ To add only the pipeline skill (lighter context, no notify — report goes to lo
 |---------|---------------|-----|
 | `dbt-server unreachable` | CURRENT TASK payload → connection | `docker compose up -d dbt-demo` |
 | `model file missing` | SKILL content → dbt models table | Copy model SQL into `dbt-server/demo_project/models/` |
-| Contract gate failed | `00b_sales_contract` task state | Check seed task produced 500k rows; inspect contract clauses |
+| Contract gate failed | `00b_sales_contract` task state | Inspect the failing clause: schema/type (e.g. `product_name` length changed), referential (category/region/product_id), domain (negative profit / units<=0), freshness or volume band. Confirm the seed produced ~400k rows |
+| `03b` reconciliation / anomaly fail | `03b_sales_validation` task state | Reconciliation fail (Σ product revenue ≠ grand total) ⇒ a source **fan-out** — check the stage1 CUBE + the seed join grain. WoW / 3σ / YoY trip ⇒ decide **real spike vs fan-out** by inspect_data around the date before editing |
+| Revenue looks "10x" on a dashboard | `fact_product_agg_daily` by date | Usually **real** Nov/Dec holiday seasonality — confirm with the reconciliation + WoW checks before assuming a bug |
 | Rolling metrics empty | `02_rolling_metrics` task state | Ensure stage1 produced rows; widen date range in payload |
 | HTML report empty | `04`/`05` task state | Widen `date_filter` in the report payload |
 | Task stuck in `scheduled` | CURRENT TASK → `state`, `actions_status` | Parent hasn't reached `success`; check pre_actions logs |
@@ -77,7 +79,7 @@ To add only the pipeline skill (lighter context, no notify — report goes to lo
 ## Pipeline DAG reminder
 
 ```
-00_fact_sales_daily (seed 500k rows)
+00_fact_sales_daily (seed ~400k rows, realistic 5-yr tech-retail)
     ├── 00b_sales_contract (data-contract gate)
     └── 01_cube_aggregation (DBTRunModel — stage1)
             └── 02_rolling_metrics (DBTRunModel — stage2)
@@ -86,6 +88,23 @@ To add only the pipeline skill (lighter context, no notify — report goes to lo
                             ├── 04_sales_performance_report
                             └── 05_category_performance_report
 ```
+
+## On-call loop — act like a human engineer
+
+For an **incident** (Sev-1: a Tier-1 table stale or wrong), work it end to end and pull in a human
+only for **approval** or genuinely **out-of-scope** work:
+1. **Triage** — `get_task_logs` on the failing step + `inspect_data` on `postgres_demo_db` to confirm the hypothesis.
+2. **Fix forward** — correct the seed / dbt model / report payload; never hand-mutate a table (reruns full-rebuild).
+3. **Re-run the chain** — the failed step AND every downstream step through `03_final_metrics` → `04`/`05`.
+4. **Verify** — confirm `03b_sales_validation` is green (reconciliation, freshness, WoW, 3σ anomaly, YoY).
+5. **Communicate on Slack** — post status, then an all-clear, to `#px-data-incidents`. Discover the tool, don't
+   hardcode the secret: `search_catalog(action, "slack"/"webhook")` → `connection.slack`, then
+   `run_action(LeastActionWebhookNotify, connection_laui=<slack>, action_variables={"message": "<summary>"})`.
+   The webhook lives in the vaulted connection — you never handle the URL. Escalate in-thread if unresolved.
+
+`LeastActionAgentDebug` already **auto-triages** a failing task (it feeds this skill + the pipeline/contract
+skills to an AI agent and routes the analysis via `notify`). Use that analysis as your starting point, then
+close the loop above.
 
 ## Related skills
 

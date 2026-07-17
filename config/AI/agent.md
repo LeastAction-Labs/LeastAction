@@ -48,7 +48,8 @@ Prefix your response with `[content_type:markdown]` on the very first line (the 
 | `get_children` | List children of an item (paginated) |
 | `run_task` | Execute a task |
 | `run_action` | Execute an action |
-| `create_catalog_item` | Create operators, tasks, folders, connections, etc. (also overwrites in place) |
+| `create_catalog_item` | Create operators, folders, connections, actions, payloads, configs (overwrites in place). **Not tasks** — use `create_task`. |
+| `create_task` | Create **or update** a task (upsert by pk: name+project+account+partition). `create_catalog_item` rejects tasks. |
 | `get_item_schema` | Get required/optional fields for an item type — call before `create_catalog_item` |
 | `update_task` | Update allowed task fields (e.g. `logical_date`, `payload`) in place |
 | `get_task_status` | Get current state and diagnostics of a task |
@@ -94,9 +95,10 @@ Prefix your response with `[content_type:markdown]` on the very first line (the 
 | `get_children` | List children of an item. Fixed to `own` permission. Supports `page`, `per_page`, filtering by item type. |
 | `run_task` | Run a task by its laui ID. **Always store the returned session_id for later log retrieval.** |
 | `run_action` | Run an action by its laui ID. Returns `{session_id, result}` — **store the session_id** to confirm delivery or debug a failed send (see Find-logs-on-failure flow). |
-| `create_catalog_item` | Create a new catalog item (operator, action, task, connection, payload, config, folder). Re-creating with the same `name` + `parent_laui` overwrites in place. |
+| `create_catalog_item` | Create a new catalog item (operator, action, connection, payload, config, folder). Re-creating with the same `name` + `parent_laui` overwrites in place. **Tasks are NOT created here** — `create_catalog_item(item_type="task")` returns `use /api/v1/task api to create task`. Use `create_task`. |
+| `create_task` | Create **or update a task**. Pass a single `task_data` object with `item_type:"task"`, `name`, `parent_laui`, `project_laui`, `account_laui`, `operator_laui`, `connection_laui`, `payload`, `frequency`, `partition`, `start_date`/`end_date`, and `actions` (`{pre_actions:[…], post_actions:[…]}`). **Upserts by pk** (name+project+account+partition) — same pk ⇒ updates in place (returns the same laui) and **preserves the actions you pass** (parents-done gate, post-actions). Include the actions or they are dropped. |
 | `get_item_schema` | Return the required and optional fields for an item type. **Call before `create_catalog_item`** — required fields vary significantly by type. |
-| `update_task` | Update a task's allowed fields in place (e.g. `logical_date`, `payload`, `frequency`, `connection_laui`). Silently ignores fields not in its allowed list (e.g. `start_date` — use a `create_catalog_item` overwrite for those). |
+| `update_task` | Update a task's allowed fields in place (e.g. `logical_date`, `payload`, `frequency`, `connection_laui`). Silently ignores fields not in its allowed list (e.g. `start_date`, `actions` — use a `create_task` upsert for those). |
 | `get_task_status` | Get a task's health diagnostics: returns `current_state`, `issues_found`, and a `diagnostics[]` array with 15 checks (scheduler, end_date, pre-actions, celery, connection queue, etc.). Does **not** return `last_run_session_id` — use `get_catalog_item` or `get_task_history` for that. |
 | `get_task_logs` | Fetch parsed execution logs for a task session. Requires `task_laui` and `session_id`. Optional: `date` (YYYY-MM-DD — use the date portion of `prev_interval_start` from `get_task_history`), `tail` (return only last N lines). Get `session_id` from `get_task_history` — NOT from `get_task_status`. |
 | `get_non_task_logs` | Fetch CELERY or API logs for a session. Use when `get_task_logs` stops mid-step with no error line — the full operator traceback is in `category=CELERY`. Builds exact path, returns fast. |
@@ -137,7 +139,7 @@ inspect_data(connection_laui=<src_conn>, sql="SELECT column_name, data_type FROM
 ```
 inspect_data(...)                      # 1. understand source schema
 create_catalog_item(type="operator")   # 2. generate operator from schema
-create_catalog_item(type="task")       # 3. wire it to source + target connections
+create_task(task_data={...})           # 3. wire it to source + target connections (tasks use create_task, NOT create_catalog_item)
 run_task(task_laui=<id>)               # 4. run
 get_task_logs(...)                     # 5. confirm no errors
 inspect_data(...)                      # 6. verify data landed correctly
@@ -239,9 +241,9 @@ Sets `logical_date` to the target date and triggers the run now. `next_run_date`
 
 **Option B — Reset the schedule anchor (slow catch-up, one day per wall-clock cycle):**
 ```
-create_catalog_item(name=<same>, partition=<same>, parent=<same>, ..., start_date="2026-01-15")
+create_task(task_data={"name":<same>, "partition":<same>, "parent_laui":<same>, ..., "start_date":"2026-01-15"})
 ```
-Overwrites the task with a new `start_date`. The scheduler sets `next_run_date` from `start_date` (in the past) and immediately runs one instance at `logical_date=start_date`. After each success, `next_run_date` advances one cron interval from the previous `next_run_date`. Because `next_run_date` is still ≤ UTC now, the cron dispatches the next run immediately — catching up one slot per wall-clock run until `next_run_date > UTC now`. 121 days of backlog = 121 consecutive runs. **Use Option A for immediate multi-date backfill.**
+Upserts the task (by pk) with a new `start_date` — re-include the full `task_data` incl `actions`, since the upsert replaces fields. (`update_task` can't do this — it ignores `start_date`.) The scheduler sets `next_run_date` from `start_date` (in the past) and immediately runs one instance at `logical_date=start_date`. After each success, `next_run_date` advances one cron interval from the previous `next_run_date`. Because `next_run_date` is still ≤ UTC now, the cron dispatches the next run immediately — catching up one slot per wall-clock run until `next_run_date > UTC now`. 121 days of backlog = 121 consecutive runs. **Use Option A for immediate multi-date backfill.**
 
 Note: `update_task` silently ignores `start_date` (not in its allowed field list) — Option B requires `create_catalog_item` overwrite.
 
@@ -328,23 +330,18 @@ The MCP tool takes **four separate parameters** — not a nested `fields` dict:
 
 ```
 create_catalog_item(
-  name="my_task.sql",
-  item_type="task",
-  parent_laui="<workflow_laui>",
+  name="MyReport.operator",
+  item_type="operator.python",
+  parent_laui="<folder_laui>",
   extra_fields={
-    "project_laui": "...",
-    "account_laui": "...",
-    "operator_laui": "...",
-    "connection_laui": "...",
-    "frequency": "0 0 * * *",
-    "start_date": "2026-01-01",
-    "end_date": "2099-12-31",
-    "partition": "ALL",
-    "state": "scheduled",
-    "payload": "<sql string>"
+    "codeblock": { "main.py": "<python>" },
+    "bashblock": { "main.sh": "<bash>" },
+    "description": "..."
   }
 )
 ```
+
+> **Tasks are the exception** — `create_catalog_item(item_type="task")` is rejected (`use /api/v1/task api to create task`). Create/update tasks with **`create_task(task_data={...})`** instead (see Step 4). `task_data` is a single flat object (not `extra_fields`), upserts by pk, and replaces fields — so include `actions`.
 
 ### `actions` / `pre_actions` format
 
@@ -648,32 +645,38 @@ create_catalog_item(
 2. Get `project_laui` and `account_laui` from `get_root_items()` — workflow items do NOT carry these fields directly. `account_laui` = `folder.account` laui, `project_laui` = `folder.project` laui.
 
 **Before creating**, search first: `search_catalog(name="<task_name>", item_type="task")`.
-- If found → use the existing `item_laui`. Skip creation. Go to Step 5.
-- If not found → create with `create_catalog_item` ( MCP format):
+- If found → use the existing `item_laui` (or `create_task` again to update it in place). Go to Step 5.
+- If not found → create with **`create_task`** (tasks have their own API — `create_catalog_item(item_type="task")` returns `use /api/v1/task api to create task`):
 
 ```
-create_catalog_item(
-  name="<task_name>",
-  item_type="task",
-  parent_laui="<workflow_laui>",
-  extra_fields={
-    "project_laui": "<project_laui>",
-    "account_laui": "<account_laui>",
-    "operator_laui": "<operator_laui>",
-    "connection_laui": "<connection_laui>",
-    "frequency": "ADHOC",
-    "payload": "<string payload>",
-    "state": "scheduled"
-  }
-)
+create_task(task_data={
+  "item_type": "task",
+  "name": "<task_name>",
+  "parent_laui": "<workflow_laui>",
+  "project_laui": "<project_laui>",
+  "account_laui": "<account_laui>",
+  "operator_laui": "<operator_laui>",
+  "connection_laui": "<connection_laui>",
+  "frequency": "ADHOC",
+  "partition": "ALL",
+  "payload": "<string payload>",
+  "actions": { "pre_actions": [...], "post_actions": [...] }
+})
 ```
+- **Upserts by pk** (name+project+account+partition): passing an existing task's pk **updates it in place** and returns the same laui. It **replaces the task's fields with what you send**, so re-include `actions` (the parents-done gate + any post-actions) or they are dropped. To edit only `payload`/`frequency`/`logical_date` in place, `update_task` also works (but it silently ignores `start_date`/`actions`).
 - If `payload` is passed as a dict/object, serialize it to a JSON string.
 - If `connection_laui` or `operator_laui` was given by name, resolve with `search_catalog` first.
 
 ### Step 5 — Run task
 `run_task(task_laui=<task_laui>)` → get result
 
-> **Never batch `create_catalog_item` and `run_task` as parallel tool calls.** Always await the create response before calling run. The backend does a fresh DB read on every `run_task`, so sequential calls are safe — but if both are dispatched in the same parallel batch, run may execute with the old item before the write commits.
+> **Never batch `create_task` (or `create_catalog_item`) and `run_task` as parallel tool calls.** Always await the create/upsert response before calling run. The backend does a fresh DB read on every `run_task`, so sequential calls are safe — but if both are dispatched in the same parallel batch, run may execute with the old item before the write commits.
+
+**Running a multi-step (DAG) pipeline — respect the gates.** A task with a `LeastActionCheckIfParentsAreDone` pre-action only runs once its parent tasks are `success`. `run_task` on a gated task whose parent isn't done **does nothing** — it stays `scheduled` and `get_task_status` reports *"Pre-action failed"* (blocking, `case_id 3`). So run a pipeline **in dependency order**, waiting for each task to reach `success` before starting its child (e.g. `00 → 00b → 01 → 02 → 03 → 03b → 04/05`). `run_task`/`reset_task` do not bypass the gate.
+
+**`500 Failed to run operator` on a long dbt/SQL task may be a TIMEOUT false-negative.** The operator's HTTP wait is ~120s; a model that takes longer to build (e.g. a large cube/mart) makes the task report `error` **even though the build finishes on the server**. Before treating it as a real failure — or re-running (which just times out again) — **verify with `inspect_data` whether the target table actually built** (row count / freshness). If it did, the fix is to speed the model up or reduce data volume (or raise the timeout), not to debug SQL. Symptom: task `duration` ≈ 120–122s and `last_run_output.error = "500 Failed to run operator"`, but the table is present and correct.
+
+**Polling a run / reading its result.** After `run_task`, poll with `search_catalog(name="<task>", item_type="task", projection_include=["state","last_run_output"])` (lighter than `get_catalog_item`). Right after dispatch, `state` is `running` and **`last_run_output` still shows the PREVIOUS run** — wait for `state="success"` before trusting the result or starting the next task. For a validator task, the counts are at `last_run_output.run_output.result.{checks_total,checks_passed,checks_failed}`. Verify landed data with `inspect_data` — and remember a downstream table (e.g. a cube/mart) stays **stale** until its own task re-runs, so re-seeding the source does not refresh it until you re-run the models.
 
 ### Step 6 — Check status
 `get_catalog_item(item_laui=<task_laui>)` → extract `state`, `last_run_session_id` (session_id for logs), and `prev_interval_start` (date for logs)
@@ -856,20 +859,18 @@ Once the item is fetched, identify which pattern applies (see below). **Ask the 
 
 4. Resolve the target workflow to get `parent_laui`. Get `project_laui` and `account_laui` from `get_root_items()` — NOT from the workflow item itself.
 
-5. For each payload **in order**, create one task using the MCP format:
+5. For each payload **in order**, create one task with **`create_task`** (tasks use their own API — not `create_catalog_item`):
    ```
-   create_catalog_item(
-     name="<payload_filename>",
-     item_type="task",
-     parent_laui="<workflow_laui>",
-     extra_fields={
-       "project_laui": "...", "account_laui": "...",
-       "operator_laui": "...", "connection_laui": "...",
-       "frequency": "...", "start_date": "...", "end_date": "...",
-       "partition": "ALL", "state": "scheduled", "payload": "<sql string>",
-       "actions": { "pre_actions": [...] }
-     }
-   )
+   create_task(task_data={
+     "item_type": "task",
+     "name": "<payload_filename>",
+     "parent_laui": "<workflow_laui>",
+     "project_laui": "...", "account_laui": "...",
+     "operator_laui": "...", "connection_laui": "...",
+     "frequency": "...", "start_date": "...", "end_date": "...",
+     "partition": "ALL", "payload": "<sql string>",
+     "actions": { "pre_actions": [...], "post_actions": [...] }
+   })
    ```
    - Parse `operator_name` and `connection_name` from the payload header — override connection if user provided one
    - Override `start_date` / `end_date` in the payload header with user-provided values
@@ -922,7 +923,7 @@ Once the item is fetched, identify which pattern applies (see below). **Ask the 
 
 ### Rules — what never to do
 
-- **Never create tasks in a loop without showing the plan first.** Always present the step table and get confirmation before any `create_catalog_item` calls.
+- **Never create tasks in a loop without showing the plan first.** Always present the step table and get confirmation before any `create_task` calls.
 - **Never skip operator existence checks.** If `operator_name` from a payload does not exist in core, stop immediately — do not create a task with a missing operator.
 - **Never call a marketplace import API.** There is no import endpoint. Read marketplace content and recreate manually in core.
 - **Never mix patterns mid-flow.** If the user asks to "just run it", use Pattern 1. If they want to adapt it, use Pattern 2 or 3. Pick one and complete it.

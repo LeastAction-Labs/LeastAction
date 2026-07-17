@@ -33,7 +33,9 @@ def initialize(least_action_task_object):
         with urllib.request.urlopen(req, timeout=10) as resp:
             body = json.loads(resp.read())
         log_info('task', 'initialize', 'health_ok', f'dbt-server responded: {body}')
-        return {'base_url': server_url}
+        # run_timeout (seconds) is connection-configurable — dbt models / backfills can
+        # legitimately run for many minutes to hours, so there is no short hard cap.
+        return {'base_url': server_url, 'run_timeout': int(connection.get('run_timeout', 3600))}
     except Exception as e:
         log_error('task', 'initialize', 'health_failed', f'Could not reach dbt-server: {str(e)}')
         raise
@@ -60,7 +62,7 @@ def run(least_action_task_object, client):
             headers={'Content-Type': 'application/json'},
             method='POST',
         )
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with urllib.request.urlopen(req, timeout=client.get('run_timeout', 3600)) as resp:
             result = json.loads(resp.read())
 
         log_info('task', 'run', 'dbt_stdout', result.get('stdout', ''))

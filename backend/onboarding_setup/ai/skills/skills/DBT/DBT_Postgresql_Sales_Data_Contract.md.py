@@ -16,16 +16,19 @@ dbt models consume it. Run after Task 00 (seed) succeeds.
 
 | Clause | Check | Severity |
 |--------|-------|----------|
-| Schema — required columns | `sale_id`, `sale_date`, `revenue`, `units_sold`, `cost`, `product_id`, `category_id`, `region_id`, `store_id` exist with expected types | critical |
+| Schema — required columns | `sale_id`, `sale_date`, `revenue`, `units_sold`, `cost`, `product_id`, `category_name`, `region_name`, `store_id` exist with expected types | critical |
+| Schema — `product_name` is VARCHAR(100) | `character_maximum_length = 100`; **changing the length is a BREAKING contract change** (consumer sign-off + deprecation notice) | critical |
 | Primary key — `sale_id` unique | No duplicate `sale_id` values | critical |
-| Nullability — NOT NULL columns | `sale_date`, `revenue`, `units_sold`, `cost`, `product_id`, `category_id`, `region_id`, `store_id` have no NULLs | critical |
-| Domain — revenue non-negative | `revenue >= 0` for all rows | warning |
+| Nullability — NOT NULL columns | `sale_date`, `revenue`, `units_sold`, `cost`, `product_id`, `category_name`, `region_name`, `store_id` have no NULLs | critical |
+| Domain — revenue & profit non-negative | `revenue >= 0`, `cost >= 0`, and `revenue >= cost` (profit ≥ 0) | warning |
 | Domain — units_sold positive | `units_sold > 0` for all rows | warning |
-| Domain — cost non-negative | `cost >= 0` for all rows | warning |
+| Domain — per-row revenue ceiling | `revenue <= 500000` per row (guards against a source fan-out) | warning |
 | Volume — partition non-empty | At least 1 row exists | critical |
-| Volume — expected row count | At least 100,000 rows (synthetic data has 500,000) | warning |
-| Referential — valid categories | All `category_name` values are in the expected set (Electronics, Peripherals, Audio, Lighting, Furniture) | warning |
-| Referential — valid regions | All `region_name` values are in the expected set (North America, Europe, Asia Pacific, Latin America, Middle East) | warning |
+| Volume — row count within band | Row count in `[100000, 2000000]` (~400k for the realistic 5-yr seed) | critical |
+| Freshness — multi-year span | `MAX(sale_date) - MIN(sale_date) >= 1400` days | critical |
+| Referential — valid categories | All `category_name` values in {Electronics, Peripherals, Audio, Lighting, Furniture} | warning |
+| Referential — valid regions | All `region_name` values in {North America, Europe, Asia Pacific, Latin America, Middle East} | warning |
+| Referential — product_id format | All `product_id` match `^P[0-9]{3}$` | warning |
 
 ## PostgresqlValidatorSQL payload
 
@@ -93,7 +96,7 @@ queries:
     display: scalar
 
   - name: 'Volume — expected row count'
-    description: 'At least 100,000 rows expected (synthetic = 500k)'
+    description: 'Row count within [100000, 2000000] (~400k realistic)'
     sql: "SELECT COUNT(*) AS row_count FROM fact_sales_daily"
     severity: warning
     pass_condition: 'row_count >= 100000'
@@ -124,8 +127,9 @@ queries:
   pointing to `00_fact_sales_daily`.
 - **As a gate:** Attach as a post-action on `00_fact_sales_daily`. If a critical check fails, chain
   `LeastActionSkipSubtree` to prevent bad data from flowing into the dbt models.
-- **In the seeded pipeline** this runs as task `00b_sales_contract` (a subset — schema, PK, nullability,
-  revenue domain, volume). The full clause set above is the target contract.
+- **In the seeded pipeline** this runs as task `00b_sales_contract` — the full 12-clause contract above
+  (schema+types incl the `product_name` VARCHAR(100) length, PK, nullability, domain bands, referential,
+  freshness, volume band).
 
 ## Connection
 Uses `dbt_postgresql` (same as the seed and report tasks).

@@ -4,16 +4,16 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 skill = {
-    "description": "AI orchestration skill for the dbt sales reporting pipeline — 8-task DAG producing 45+ metric types via CUBE aggregation and 2 HTML dashboards.",
+    "description": "AI orchestration skill for the dbt sales reporting pipeline — 8-task DAG producing 30+ metric types via CUBE aggregation and 2 HTML dashboards.",
     "content": """\
 # dbt Sales Reporting Pipeline — Orchestration Skill
 
 ## Pipeline overview
-Eight-task DAG: seed 500k synthetic sales rows, enforce a data contract, run 3 dbt transformation
+Eight-task DAG: seed ~400k rows of realistic 5-yr tech-retail sales, enforce a data contract, run 3 dbt transformation
 stages (CUBE → rolling metrics → YOY/rank), validate, then generate 2 styled HTML dashboard reports.
 
 ```
-00_fact_sales_daily (PostgresqlExecuteSQL — ADHOC seed, 500k rows)
+00_fact_sales_daily (PostgresqlExecuteSQL — seed, ~400k rows realistic 5-yr)
     ├── 00b_sales_contract (PostgresqlValidatorSQL — data-contract gate)
     └── 01_cube_aggregation (DBTRunModel — fact_product_agg_daily_stage1, CUBE base metrics)
             └── 02_rolling_metrics (DBTRunModel — fact_product_agg_daily_stage2, DOD/WOW/rolling 10D/MTD/YTD)
@@ -47,7 +47,7 @@ stages (CUBE → rolling metrics → YOY/rank), validate, then generate 2 styled
 | `fact_product_agg_daily_stage2` | Rolling | stage1 | +DOD, DOD%, WOW, avg/std/min/max/sum 10D, MTD, YTD |
 | `fact_product_agg_daily` | Final | stage2 | +YOY, YOY%, DODLY, rank, pct_of_total, LY, LW, MTD-YOY, YTD-YOY |
 
-Total: **45+ metric types** per dimension combination per day.
+Total: **30+ metric types** per dimension combination per day.
 
 ## Supporting dbt objects
 
@@ -119,7 +119,7 @@ deploy usecase dbt-sales-reporting
 """,
 }
 
-prompt = "Orchestrate the dbt sales reporting pipeline: seed fact_sales_daily (500k rows), run 3 dbt models (CUBE → rolling metrics → YOY/rank), generate 2 HTML reports. Uses PostgresqlExecuteSQL, DBTRunModel, and PostgresqlGenerateHtmlTableReport operators."
+prompt = "Orchestrate the dbt sales reporting pipeline: seed fact_sales_daily (~400k rows, realistic 5-yr), run 3 dbt models (CUBE → rolling metrics → YOY/rank), generate 2 HTML reports. Uses PostgresqlExecuteSQL, DBTRunModel, and PostgresqlGenerateHtmlTableReport operators."
 
 publisher = "LeastAction"
 

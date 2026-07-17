@@ -941,85 +941,233 @@ async def get_or_create_sales_pipeline_tasks(
             "name": "00_fact_sales_daily",
             "operator_laui": sql_operator_laui,
             "connection_laui": pg_connection_laui,
-            "payload": (
-                "DROP TABLE IF EXISTS fact_sales_daily CASCADE;\n"
-                "CREATE TABLE fact_sales_daily (\n"
-                "    sale_id BIGSERIAL, sale_date DATE NOT NULL, sale_timestamp TIMESTAMP NOT NULL,\n"
-                "    product_id VARCHAR(50) NOT NULL, product_name VARCHAR(100) NOT NULL,\n"
-                "    category_id VARCHAR(50) NOT NULL, category_name VARCHAR(100) NOT NULL,\n"
-                "    region_id VARCHAR(50) NOT NULL, region_name VARCHAR(100) NOT NULL,\n"
-                "    sub_region_name VARCHAR(100), store_id VARCHAR(50) NOT NULL, store_name VARCHAR(100) NOT NULL,\n"
-                "    sales_channel VARCHAR(50),\n"
-                "    revenue DECIMAL(15,2) NOT NULL, units_sold INTEGER NOT NULL, cost DECIMAL(15,2) NOT NULL,\n"
-                "    discount_amount DECIMAL(15,2) DEFAULT 0, shipping_cost DECIMAL(15,2) DEFAULT 0,\n"
-                "    tax_amount DECIMAL(15,2) DEFAULT 0,\n"
-                "    PRIMARY KEY (sale_id)\n"
-                ");\n"
-                "INSERT INTO fact_sales_daily (\n"
-                "    sale_date, sale_timestamp, product_id, product_name,\n"
-                "    category_id, category_name, region_id, region_name, sub_region_name,\n"
-                "    store_id, store_name, sales_channel,\n"
-                "    revenue, units_sold, cost, discount_amount, shipping_cost, tax_amount\n"
-                ")\n"
-                "SELECT\n"
-                "    (DATE '2023-01-01' + (i % 730) * INTERVAL '1 day')::DATE,\n"
-                "    TIMESTAMP '2023-01-01' + (i % 730) * INTERVAL '1 day' + (i % 86400) * INTERVAL '1 second',\n"
-                "    'P' || LPAD((i % 10 + 1)::TEXT, 3, '0'),\n"
-                "    (ARRAY['Laptop Pro','Wireless Mouse','Mechanical Keyboard','4K Monitor','USB-C Hub',\n"
-                "           'Webcam HD','Gaming Headset','Desk Lamp','Chair Ergonomic','Standing Desk'])[i % 10 + 1],\n"
-                "    'CAT-' || LPAD((i % 5 + 1)::TEXT, 2, '0'),\n"
-                "    (ARRAY['Electronics','Peripherals','Audio','Lighting','Furniture'])[i % 5 + 1],\n"
-                "    'R' || LPAD((i % 5 + 1)::TEXT, 2, '0'),\n"
-                "    (ARRAY['North America','Europe','Asia Pacific','Latin America','Middle East'])[i % 5 + 1],\n"
-                "    (ARRAY['Northeast','Southeast','Midwest','West Coast','Southwest',\n"
-                "           'Western Europe','Eastern Europe','East Asia','Southeast Asia',\n"
-                "           'South Asia','Northern SA','Southern SA','GCC','Levant'])[i % 14 + 1],\n"
-                "    'S' || LPAD((i % 50 + 1)::TEXT, 3, '0'),\n"
-                "    'Store ' || (i % 50 + 1)::TEXT,\n"
-                "    (ARRAY['online','retail','wholesale','direct'])[i % 4 + 1],\n"
-                "    (50.00 + (i % 2451))::DECIMAL(15,2),\n"
-                "    (1 + i % 50)::INTEGER,\n"
-                "    ((50.00 + (i % 2451)) * (0.40 + (i % 31) * 0.01))::DECIMAL(15,2),\n"
-                "    CASE WHEN i % 5 = 0 THEN (2.00 + (i % 99))::DECIMAL(15,2) ELSE 0.00 END,\n"
-                "    (i % 31)::DECIMAL(15,2),\n"
-                "    ((50.00 + (i % 2451)) * 0.08)::DECIMAL(15,2)\n"
-                "FROM generate_series(0, 499999) AS g(i);\n"
-            ),
+            "payload": """
+DROP TABLE IF EXISTS fact_sales_daily CASCADE;
+CREATE TABLE fact_sales_daily (
+    sale_id BIGSERIAL, sale_date DATE NOT NULL, sale_timestamp TIMESTAMP NOT NULL,
+    product_id VARCHAR(50) NOT NULL, product_name VARCHAR(100) NOT NULL,
+    category_id VARCHAR(50) NOT NULL, category_name VARCHAR(100) NOT NULL,
+    region_id VARCHAR(50) NOT NULL, region_name VARCHAR(100) NOT NULL,
+    sub_region_name VARCHAR(100), store_id VARCHAR(50) NOT NULL, store_name VARCHAR(100) NOT NULL,
+    sales_channel VARCHAR(50),
+    revenue DECIMAL(15,2) NOT NULL, units_sold INTEGER NOT NULL, cost DECIMAL(15,2) NOT NULL,
+    discount_amount DECIMAL(15,2) DEFAULT 0, shipping_cost DECIMAL(15,2) DEFAULT 0,
+    tax_amount DECIMAL(15,2) DEFAULT 0,
+    PRIMARY KEY (sale_id)
+);
+
+-- Realistic 5-year tech-retail sales, generated DETERMINISTICALLY (hash-based, not
+-- random()) so every reseed is identical. Layers: catalog x stores x calendar, with a
+-- multiplicative demand model = base_units * store_scale * weekday * season/holiday
+-- * lifecycle(product age) * deterministic-noise. This gives real weekend lift, Nov/Dec
+-- holiday spikes, and per-SKU ramp/decline so the downstream DoD/WoW/YoY/rolling metrics
+-- are meaningful rather than noise.
+INSERT INTO fact_sales_daily (
+    sale_date, sale_timestamp, product_id, product_name,
+    category_id, category_name, region_id, region_name, sub_region_name,
+    store_id, store_name, sales_channel,
+    revenue, units_sold, cost, discount_amount, shipping_cost, tax_amount
+)
+WITH products0(product_id, product_name, category_id, category_name, base_price, cost_ratio, base_units, launch_date, holiday_lift) AS (
+    VALUES
+    ('P001','Aurora 13 Ultrabook','CAT-01','Electronics',1299.00,0.84,5,DATE '2020-02-01',0.60),
+    ('P002','Aurora 15 Pro Laptop','CAT-01','Electronics',1799.00,0.85,4,DATE '2020-02-01',0.60),
+    ('P003','Vertex Gaming Laptop','CAT-01','Electronics',2199.00,0.84,3,DATE '2021-06-01',0.75),
+    ('P004','Lumina 27-inch 4K Monitor','CAT-01','Electronics',549.00,0.72,6,DATE '2020-05-01',0.45),
+    ('P005','Lumina 32-inch Ultrawide','CAT-01','Electronics',899.00,0.74,4,DATE '2021-09-01',0.45),
+    ('P006','Pulse 11 Tablet','CAT-01','Electronics',649.00,0.80,7,DATE '2020-08-01',0.55),
+    ('P007','Pulse Phone X','CAT-01','Electronics',999.00,0.82,8,DATE '2021-10-01',0.70),
+    ('P008','Pulse Phone SE','CAT-01','Electronics',499.00,0.78,10,DATE '2022-04-01',0.55),
+    ('P009','Nimbus Mini PC','CAT-01','Electronics',749.00,0.79,3,DATE '2023-03-01',0.40),
+    ('P010','Aurora 14 (2024 refresh)','CAT-01','Electronics',1399.00,0.84,5,DATE '2024-01-15',0.60),
+    ('P011','Glide Wireless Mouse','CAT-02','Peripherals',39.00,0.55,20,DATE '2020-01-01',0.30),
+    ('P012','Glide Pro Ergo Mouse','CAT-02','Peripherals',79.00,0.58,10,DATE '2021-03-01',0.30),
+    ('P013','Clack Mechanical Keyboard','CAT-02','Peripherals',129.00,0.60,9,DATE '2020-04-01',0.35),
+    ('P014','Clack TKL Wireless','CAT-02','Peripherals',149.00,0.61,7,DATE '2022-02-01',0.35),
+    ('P015','LinkHub USB-C Dock','CAT-02','Peripherals',89.00,0.56,12,DATE '2020-06-01',0.30),
+    ('P016','View HD Webcam','CAT-02','Peripherals',69.00,0.57,11,DATE '2020-03-15',0.35),
+    ('P017','View 4K Webcam','CAT-02','Peripherals',149.00,0.62,6,DATE '2022-07-01',0.35),
+    ('P018','Echo Gaming Headset','CAT-03','Audio',119.00,0.63,10,DATE '2020-05-15',0.55),
+    ('P019','Echo Wireless Earbuds','CAT-03','Audio',149.00,0.60,14,DATE '2021-05-01',0.65),
+    ('P020','Echo Studio Earbuds Pro','CAT-03','Audio',229.00,0.62,8,DATE '2023-05-01',0.65),
+    ('P021','Boom Bluetooth Speaker','CAT-03','Audio',99.00,0.58,12,DATE '2020-09-01',0.55),
+    ('P022','Clarity USB Microphone','CAT-03','Audio',129.00,0.60,6,DATE '2021-08-01',0.40),
+    ('P023','Halo LED Desk Lamp','CAT-04','Lighting',49.00,0.52,13,DATE '2020-02-15',0.30),
+    ('P024','Halo Smart Lamp','CAT-04','Lighting',89.00,0.55,8,DATE '2022-03-01',0.35),
+    ('P025','Glow LED Strip Kit','CAT-04','Lighting',34.00,0.50,16,DATE '2021-01-15',0.45),
+    ('P026','Ring Light Studio','CAT-04','Lighting',79.00,0.53,7,DATE '2021-11-01',0.40),
+    ('P027','Ascend Standing Desk','CAT-05','Furniture',599.00,0.64,4,DATE '2020-07-01',0.35),
+    ('P028','Ascend Desk Compact','CAT-05','Furniture',399.00,0.62,5,DATE '2022-05-01',0.35),
+    ('P029','Recline Ergonomic Chair','CAT-05','Furniture',449.00,0.60,5,DATE '2020-10-01',0.40),
+    ('P030','Mount Pro Monitor Arm','CAT-05','Furniture',119.00,0.56,8,DATE '2021-04-01',0.30)
+),
+products AS (
+    -- Roll the staggered launch dates forward with the window so the newest SKU
+    -- launches ~1 year before today and every reseed stays current (CURRENT_DATE-relative).
+    SELECT product_id, product_name, category_id, category_name, base_price, cost_ratio, base_units,
+           (launch_date + (CURRENT_DATE - DATE '2024-12-31'))::date AS launch_date, holiday_lift
+    FROM products0
+),
+stores(store_id, store_name, region_id, region_name, sub_region_name, sales_channel, store_scale) AS (
+    VALUES
+    ('S001','Manhattan Flagship','R01','North America','Northeast','retail',1.7),
+    ('S002','SF Union Square','R01','North America','West Coast','retail',1.5),
+    ('S003','Chicago Mag Mile','R01','North America','Midwest','retail',1.2),
+    ('S004','Online US','R01','North America','National','online',2.3),
+    ('S005','London Oxford St','R02','Europe','Western Europe','retail',1.4),
+    ('S006','Berlin Mitte','R02','Europe','Central Europe','retail',1.1),
+    ('S007','Online EU','R02','Europe','Continental','online',1.9),
+    ('S008','Tokyo Ginza','R03','Asia Pacific','East Asia','retail',1.3),
+    ('S009','Singapore Orchard','R03','Asia Pacific','Southeast Asia','retail',1.1),
+    ('S010','Sydney CBD','R03','Asia Pacific','Oceania','retail',1.0)
+),
+calendar AS (
+    SELECT d::date AS sale_date,
+           EXTRACT(dow FROM d)::int   AS dow,
+           EXTRACT(doy FROM d)::int   AS doy,
+           EXTRACT(month FROM d)::int AS mon,
+           EXTRACT(day FROM d)::int   AS dom
+    FROM generate_series((CURRENT_DATE - INTERVAL '5 years')::date, CURRENT_DATE, INTERVAL '1 day') AS g(d)
+),
+demand AS (
+    SELECT
+        c.sale_date, c.dow, c.mon, c.dom,
+        p.product_id, p.product_name, p.category_id, p.category_name, p.base_price, p.cost_ratio,
+        s.store_id, s.store_name, s.region_id, s.region_name, s.sub_region_name, s.sales_channel,
+        GREATEST(0, round(
+            p.base_units * s.store_scale
+            -- weekday: retail lifts on the weekend (dow 0=Sun, 6=Sat)
+            * (CASE c.dow WHEN 0 THEN 1.25 WHEN 6 THEN 1.40 WHEN 5 THEN 1.08 ELSE 0.92 END)
+            -- annual seasonal wave x holiday windows (Nov/Dec surge, back-to-school, post-holiday slump)
+            * ((1.0 + 0.10 * sin(2 * pi() * (c.doy - 80) / 365.0))
+               * (CASE
+                    WHEN c.mon = 12 THEN 1.0 + p.holiday_lift
+                    WHEN c.mon = 11 AND c.dom >= 20 THEN 1.0 + p.holiday_lift
+                    WHEN c.mon = 11 THEN 1.15
+                    WHEN c.mon = 8 THEN 1.18
+                    WHEN c.mon = 7 AND c.dom <= 7 THEN 1.12
+                    WHEN c.mon = 1 AND c.dom <= 12 THEN 0.78
+                    ELSE 1.0 END))
+            -- lifecycle by product age: ramp (0-90d) -> mild growth to ~2y -> slow decline
+            * (CASE
+                 WHEN (c.sale_date - p.launch_date) < 90 THEN 0.35 + 0.65 * ((c.sale_date - p.launch_date) / 90.0)
+                 WHEN (c.sale_date - p.launch_date) <= 730 THEN 1.0 + 0.12 * (((c.sale_date - p.launch_date) - 90) / 640.0)
+                 ELSE GREATEST(0.45, 1.12 - 0.00035 * ((c.sale_date - p.launch_date) - 730)) END)
+            -- deterministic noise in [0.78, 1.22], stable across reseeds
+            * (0.78 + 0.44 * ((abs(hashtext(p.product_id || s.store_id || c.sale_date::text)) % 1000) / 1000.0))
+        ))::int AS units
+    FROM calendar c
+    CROSS JOIN products p
+    CROSS JOIN stores s
+    WHERE c.sale_date >= p.launch_date
+)
+SELECT
+    d.sale_date,
+    d.sale_date::timestamp + ((10 + (abs(hashtext(d.product_id || d.store_id || d.sale_date::text || 'h')) % 11)) * INTERVAL '1 hour') AS sale_timestamp,
+    d.product_id, d.product_name, d.category_id, d.category_name,
+    d.region_id, d.region_name, d.sub_region_name,
+    d.store_id, d.store_name, d.sales_channel,
+    round((d.units * d.base_price) * (1 - disc.rate), 2)                 AS revenue,
+    d.units                                                             AS units_sold,
+    round(d.units * d.base_price * d.cost_ratio, 2)                      AS cost,
+    round((d.units * d.base_price) * disc.rate, 2)                       AS discount_amount,
+    CASE WHEN d.sales_channel = 'online' THEN round(d.units * 1.50, 2) ELSE 0.00 END AS shipping_cost,
+    round((d.units * d.base_price) * (1 - disc.rate) * 0.08, 2)          AS tax_amount
+FROM demand d
+CROSS JOIN LATERAL (
+    -- promo depth: deeper on the holiday window + weekends, but always < margin so profit stays positive
+    SELECT (CASE
+        WHEN d.mon = 12 OR (d.mon = 11 AND d.dom >= 20) THEN 0.10
+        WHEN d.mon = 8 THEN 0.07
+        WHEN d.dow IN (0, 6) THEN 0.05
+        ELSE 0.02 END) AS rate
+) disc
+WHERE d.units >= 1;
+""",
         },
         {
             "name": "00b_sales_contract",
             "operator_laui": validator_operator_laui,
             "connection_laui": pg_connection_laui,
-            "payload": (
-                "report_title: 'Data Contract — fact_sales_daily'\n"
-                "output_table: 'sales_contract_reports'\n"
-                "\nqueries:\n"
-                "  - name: 'Schema — required columns'\n"
-                "    sql: \"SELECT COUNT(*) AS missing FROM (VALUES ('sale_id','bigint'),('sale_date','date'),('revenue','numeric'),('units_sold','integer'),('cost','numeric')) AS c(col, typ) LEFT JOIN information_schema.columns ic ON ic.table_name='fact_sales_daily' AND ic.column_name=c.col AND ic.data_type=c.typ WHERE ic.column_name IS NULL\"\n"
-                "    severity: critical\n"
-                "    pass_condition: 'missing == 0'\n"
-                "    display: scalar\n"
-                "\n  - name: 'PK — sale_id unique'\n"
-                '    sql: "SELECT sale_id, COUNT(*) AS dupes FROM fact_sales_daily GROUP BY sale_id HAVING COUNT(*) > 1 LIMIT 5"\n'
-                "    severity: critical\n"
-                "    pass_condition: 'row_count == 0'\n"
-                "    display: table\n"
-                "\n  - name: 'Nullability — required NOT NULL'\n"
-                '    sql: "SELECT COUNT(*) AS null_rows FROM fact_sales_daily WHERE sale_date IS NULL OR revenue IS NULL OR units_sold IS NULL OR cost IS NULL"\n'
-                "    severity: critical\n"
-                "    pass_condition: 'null_rows == 0'\n"
-                "    display: scalar\n"
-                "\n  - name: 'Domain — revenue non-negative'\n"
-                '    sql: "SELECT COUNT(*) AS neg FROM fact_sales_daily WHERE revenue < 0"\n'
-                "    severity: warning\n"
-                "    pass_condition: 'neg == 0'\n"
-                "    display: scalar\n"
-                "\n  - name: 'Volume — row count'\n"
-                '    sql: "SELECT COUNT(*) AS row_count FROM fact_sales_daily"\n'
-                "    severity: critical\n"
-                "    pass_condition: 'row_count >= 100000'\n"
-                "    display: scalar\n"
-            ),
+            "payload": """
+report_title: 'Data Contract — fact_sales_daily'
+output_table: 'sales_contract_reports'
+
+queries:
+  - name: 'Schema — required columns & types'
+    sql: "SELECT COUNT(*) AS missing FROM (VALUES ('sale_id','bigint'),('sale_date','date'),('revenue','numeric'),('units_sold','integer'),('cost','numeric'),('product_id','character varying'),('category_name','character varying'),('region_name','character varying'),('store_id','character varying')) AS c(col, typ) LEFT JOIN information_schema.columns ic ON ic.table_name='fact_sales_daily' AND ic.column_name=c.col AND ic.data_type=c.typ WHERE ic.column_name IS NULL"
+    severity: critical
+    pass_condition: 'missing == 0'
+    display: scalar
+
+  - name: 'Schema — product_name is VARCHAR(100)'
+    description: 'The contracted max length; changing it is a breaking contract change (needs consumer sign-off).'
+    sql: "SELECT count(*) AS mismatch FROM information_schema.columns WHERE table_name='fact_sales_daily' AND column_name='product_name' AND character_maximum_length <> 100"
+    severity: critical
+    pass_condition: 'mismatch == 0'
+    display: scalar
+
+  - name: 'Primary key — sale_id unique'
+    sql: "SELECT sale_id, COUNT(*) AS dupes FROM fact_sales_daily GROUP BY sale_id HAVING COUNT(*) > 1 LIMIT 5"
+    severity: critical
+    pass_condition: 'row_count == 0'
+    display: table
+
+  - name: 'Nullability — required NOT NULL'
+    sql: "SELECT COUNT(*) AS null_rows FROM fact_sales_daily WHERE sale_date IS NULL OR revenue IS NULL OR units_sold IS NULL OR cost IS NULL OR product_id IS NULL OR category_name IS NULL OR region_name IS NULL OR store_id IS NULL"
+    severity: critical
+    pass_condition: 'null_rows == 0'
+    display: scalar
+
+  - name: 'Domain — revenue & profit non-negative'
+    sql: "SELECT COUNT(*) AS bad FROM fact_sales_daily WHERE revenue < 0 OR cost < 0 OR revenue < cost"
+    severity: warning
+    pass_condition: 'bad == 0'
+    display: scalar
+
+  - name: 'Domain — units_sold positive'
+    sql: "SELECT COUNT(*) AS bad FROM fact_sales_daily WHERE units_sold <= 0"
+    severity: warning
+    pass_condition: 'bad == 0'
+    display: scalar
+
+  - name: 'Domain — per-row revenue within a sane ceiling'
+    description: 'Guards against a source fan-out inflating a single product/store/day.'
+    sql: "SELECT COUNT(*) AS bad FROM fact_sales_daily WHERE revenue > 500000"
+    severity: warning
+    pass_condition: 'bad == 0'
+    display: scalar
+
+  - name: 'Referential — category_name in the allowed set'
+    sql: "SELECT COUNT(*) AS bad FROM fact_sales_daily WHERE category_name NOT IN ('Electronics','Peripherals','Audio','Lighting','Furniture')"
+    severity: warning
+    pass_condition: 'bad == 0'
+    display: scalar
+
+  - name: 'Referential — region_name in the allowed set'
+    sql: "SELECT COUNT(*) AS bad FROM fact_sales_daily WHERE region_name NOT IN ('North America','Europe','Asia Pacific','Latin America','Middle East')"
+    severity: warning
+    pass_condition: 'bad == 0'
+    display: scalar
+
+  - name: 'Referential — product_id format Pnnn'
+    sql: "SELECT COUNT(*) AS bad FROM fact_sales_daily WHERE product_id !~ '^P[0-9]{3}$'"
+    severity: warning
+    pass_condition: 'bad == 0'
+    display: scalar
+
+  - name: 'Freshness — multi-year span present'
+    sql: "SELECT (MAX(sale_date) - MIN(sale_date)) AS span_days FROM fact_sales_daily"
+    severity: critical
+    pass_condition: 'span_days >= 1400'
+    display: scalar
+
+  - name: 'Volume — row count within the expected band'
+    sql: "SELECT COUNT(*) AS row_count FROM fact_sales_daily"
+    severity: critical
+    pass_condition: 'row_count >= 100000 and row_count <= 2000000'
+    display: scalar
+""",
             "depends_on": "00_fact_sales_daily",
         },
         {
@@ -1047,32 +1195,70 @@ async def get_or_create_sales_pipeline_tasks(
             "name": "03b_sales_validation",
             "operator_laui": validator_operator_laui,
             "connection_laui": pg_connection_laui,
-            "payload": (
-                "report_title: 'Sales Pipeline Validation'\n"
-                "output_table: 'sales_validation_reports'\n"
-                f"output_parent_laui: '{reports_folder_laui}'\n"
-                "\nqueries:\n"
-                "  - name: 'Stage1 non-empty'\n"
-                '    sql: "SELECT COUNT(*) AS row_count FROM fact_product_agg_daily_stage1"\n'
-                "    severity: critical\n"
-                "    pass_condition: 'row_count > 0'\n"
-                "    display: scalar\n"
-                "\n  - name: 'Final table non-empty'\n"
-                '    sql: "SELECT COUNT(*) AS row_count FROM fact_product_agg_daily"\n'
-                "    severity: critical\n"
-                "    pass_condition: 'row_count > 0'\n"
-                "    display: scalar\n"
-                "\n  - name: 'Metric types count'\n"
-                '    sql: "SELECT COUNT(DISTINCT metric_key) AS metric_count FROM fact_product_agg_daily"\n'
-                "    severity: warning\n"
-                "    pass_condition: 'metric_count >= 20'\n"
-                "    display: scalar\n"
-                "\n  - name: 'No NULL metric values'\n"
-                '    sql: "SELECT COUNT(*) AS null_count FROM fact_product_agg_daily WHERE metric_value IS NULL"\n'
-                "    severity: critical\n"
-                "    pass_condition: 'null_count == 0'\n"
-                "    display: scalar\n"
-            ),
+            "payload": f"""
+report_title: 'Sales Pipeline Validation'
+output_table: 'sales_validation_reports'
+output_parent_laui: '{reports_folder_laui}'
+
+queries:
+  - name: 'Stage1 non-empty'
+    sql: "SELECT COUNT(*) AS row_count FROM fact_product_agg_daily_stage1"
+    severity: critical
+    pass_condition: 'row_count > 0'
+    display: scalar
+
+  - name: 'Final table non-empty'
+    sql: "SELECT COUNT(*) AS row_count FROM fact_product_agg_daily"
+    severity: critical
+    pass_condition: 'row_count > 0'
+    display: scalar
+
+  - name: 'Metric coverage — at least 25 metric types'
+    sql: "SELECT COUNT(DISTINCT metric_key) AS metric_count FROM fact_product_agg_daily"
+    severity: warning
+    pass_condition: 'metric_count >= 25'
+    display: scalar
+
+  - name: 'No NULL metric values'
+    sql: "SELECT COUNT(*) AS null_count FROM fact_product_agg_daily WHERE metric_value IS NULL"
+    severity: critical
+    pass_condition: 'null_count == 0'
+    display: scalar
+
+  - name: 'Reconciliation — product revenue sums to the grand total'
+    description: 'Sum of per-product revenue must equal the fully-aggregated total each day (cube integrity; catches source fan-out).'
+    sql: "SELECT COUNT(*) AS bad FROM (SELECT p.date FROM fact_product_agg_daily p JOIN fact_product_agg_daily g ON g.date=p.date AND g.metric_key='revenue' AND g.dim_key_grouping='dim_product::dim_category::dim_region::dim_subregion' WHERE p.metric_key='revenue' AND p.dim_key_grouping LIKE '%::dim_category::dim_region::dim_subregion' AND p.dim_key_grouping NOT LIKE 'dim_product::%' GROUP BY p.date HAVING ABS(SUM(p.metric_value) - MAX(g.metric_value)) > 1.0) x"
+    severity: critical
+    pass_condition: 'bad == 0'
+    display: scalar
+
+  - name: 'Freshness — no missing days in the last 14'
+    sql: "SELECT COUNT(*) AS missing_days FROM (SELECT generate_series((SELECT MAX(date) FROM fact_product_agg_daily) - INTERVAL '13 days', (SELECT MAX(date) FROM fact_product_agg_daily), INTERVAL '1 day')::date AS d) cal LEFT JOIN (SELECT DISTINCT date FROM fact_product_agg_daily) f ON f.date=cal.d WHERE f.date IS NULL"
+    severity: critical
+    pass_condition: 'missing_days == 0'
+    display: scalar
+
+  - name: 'WoW — same-day-last-week swing within band (grand total)'
+    description: 'Total revenue should not swing more than 50% versus the same weekday last week.'
+    sql: "SELECT COUNT(*) AS bad FROM fact_product_agg_daily r JOIN fact_product_agg_daily w ON w.date=r.date AND w.dim_key_grouping=r.dim_key_grouping AND w.dim_value=r.dim_value AND w.metric_key='revenue_wow' WHERE r.metric_key='revenue' AND r.dim_key_grouping='dim_product::dim_category::dim_region::dim_subregion' AND r.date >= (SELECT MAX(date) FROM fact_product_agg_daily) - INTERVAL '30 days' AND r.metric_value > 0 AND ABS(w.metric_value) > 0.5 * r.metric_value"
+    severity: warning
+    pass_condition: 'bad == 0'
+    display: scalar
+
+  - name: 'Anomaly — revenue within 3 sigma of its 10-day moving average'
+    description: 'Flags product/day points deviating more than 3 standard deviations from their own 10-day mean.'
+    sql: "SELECT COUNT(*) AS bad FROM fact_product_agg_daily r JOIN fact_product_agg_daily a ON a.date=r.date AND a.dim_key_grouping=r.dim_key_grouping AND a.dim_value=r.dim_value AND a.metric_key='revenue_avg_10d' JOIN fact_product_agg_daily s ON s.date=r.date AND s.dim_key_grouping=r.dim_key_grouping AND s.dim_value=r.dim_value AND s.metric_key='revenue_std_10d' WHERE r.metric_key='revenue' AND r.date >= (SELECT MAX(date) FROM fact_product_agg_daily) - INTERVAL '30 days' AND s.metric_value > 0 AND ABS(r.metric_value - a.metric_value) > 3 * s.metric_value"
+    severity: warning
+    pass_condition: 'bad <= 20'
+    display: scalar
+
+  - name: 'YoY — year-over-year within a plausible band (grand total)'
+    description: 'Total revenue YoY delta should stay within 60% of current; a larger jump signals a fan-out, not real growth.'
+    sql: "SELECT COUNT(*) AS bad FROM fact_product_agg_daily y JOIN fact_product_agg_daily r ON r.date=y.date AND r.dim_key_grouping=y.dim_key_grouping AND r.dim_value=y.dim_value AND r.metric_key='revenue' WHERE y.metric_key='revenue_yoy' AND y.dim_key_grouping='dim_product::dim_category::dim_region::dim_subregion' AND y.date >= (SELECT MAX(date) FROM fact_product_agg_daily) - INTERVAL '30 days' AND r.metric_value > 0 AND ABS(y.metric_value) > 0.6 * r.metric_value"
+    severity: warning
+    pass_condition: 'bad == 0'
+    display: scalar
+""",
             "depends_on": "03_final_metrics",
         },
     ]
