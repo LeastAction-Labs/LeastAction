@@ -991,7 +991,7 @@ def create_mcp_server(orchestrator, proxy: McpProxyManager | None = None) -> Fas
                     "sort_order": sort_order,
                 },
             }
-            async with httpx.AsyncClient(timeout=15) as client:
+            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
                 resp = await client.post(url, json=payload)
             if not resp.is_success:
                 return {"error": f"Marketplace search failed: {resp.status_code} {resp.text}"}
@@ -1012,7 +1012,7 @@ def create_mcp_server(orchestrator, proxy: McpProxyManager | None = None) -> Fas
             from src.common.utils import MARKETPLACE_BACKEND_NETLOC
 
             url = f"http://{MARKETPLACE_BACKEND_NETLOC}/api/v1/marketplace/catalog/get"
-            async with httpx.AsyncClient(timeout=15) as client:
+            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
                 resp = await client.get(url, params={"item_laui": item_laui})
             if not resp.is_success:
                 return {"error": f"Marketplace get failed: {resp.status_code} {resp.text}"}
