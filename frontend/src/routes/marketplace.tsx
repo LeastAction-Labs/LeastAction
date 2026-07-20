@@ -103,6 +103,12 @@ function RouteComponent() {
             onItemSelect={(laui) =>
               void navigate({ to: '/marketplace', search: (prev) => ({ ...prev, laui }) })
             }
+            onBack={() =>
+              void navigate({
+                to: '/marketplace',
+                search: (prev) => ({ ...prev, laui: undefined }),
+              })
+            }
           />
         </CatalogProvider>
       )}
