@@ -236,3 +236,8 @@ def transform_validation_errors(data: Any) -> Any:
         return {key: transform_validation_errors(value) for key, value in data.items()}
 
     return data
+
+
+config = load_system_config()
+_parsed_marketplace = urlsplit(config["urls"]["marketplace_url"])
+MARKETPLACE_BACKEND_NETLOC = _parsed_marketplace.netloc
