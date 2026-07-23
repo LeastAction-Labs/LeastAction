@@ -1,19 +1,28 @@
 import subprocess
 import json
 import os
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
 DBT_PROJECT_DIR = os.environ.get("DBT_PROJECT_DIR", "/dbt/demo_project")
 PORT = int(os.environ.get("PORT", "8001"))
 
+# dbt cannot run twice against the same project concurrently (shared target/ dir +
+# manifest), so serialise the actual builds behind this lock. The HTTP server is
+# threaded (ThreadingHTTPServer), so /health and the list endpoints stay responsive
+# while a build holds the lock — that is what stops a second dbt task's /health
+# probe (10s timeout in DBTRunModel.initialize) from failing while a build runs.
+_dbt_lock = threading.Lock()
+
 
 def _dbt_cmd(args):
-    return subprocess.run(
-        ["dbt"] + args + ["--project-dir", DBT_PROJECT_DIR, "--profiles-dir", DBT_PROJECT_DIR],
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
+    with _dbt_lock:
+        return subprocess.run(
+            ["dbt"] + args + ["--project-dir", DBT_PROJECT_DIR, "--profiles-dir", DBT_PROJECT_DIR],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -126,4 +135,4 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print(f"[dbt-server] Starting on port {PORT}, project dir: {DBT_PROJECT_DIR}")
-    HTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
+    ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()

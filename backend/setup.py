@@ -1265,59 +1265,111 @@ queries:
 
     import json as _json
 
-    # Curated metric_templates keep each report a compact, styled dashboard (a
-    # bounded set of dim×metric slices) instead of a raw pivot over all 239
-    # groupings × 31 metrics — which balloons past the catalog html field cap.
+    # Analyst-grade dashboards: each block is a section that expands one dimension
+    # into item rows, with indented %-variance sub-rows (DoD/LWSD/YoY) and a set of
+    # right-hand analytic columns. Everything derives from cube metrics that already
+    # exist (<base>_dod/_wow/_yoy/_pct_of_total); the operator computes the sparkline
+    # + Std + true WoW from the trailing series it pulls (default 12 weeks).
     # dim_key = product::category::region::subregion; '*' expands one row per value.
-    _last3 = "date >= (SELECT MAX(date) FROM fact_product_agg_daily) - INTERVAL '3 days'"
+    _grand = "dim_product::dim_category::dim_region::dim_subregion"  # grand-total grouping (dim_value='')
+    _summary_cols = ["trend", "std", "dod", "yoy", "lwsd", "share"]  # DoD not WoW: these are daily reports
+
     perf_template = [
+        # Company-wide totals (fixed grand-total grouping, no '*') with variance sub-rows.
+        {
+            "display_name": "Gross Revenue",
+            "dim_key_grouping": _grand,
+            "dim_value": "",
+            "metric_key": "revenue",
+            "cell_format": "${value:,.0f}",
+            "indent": 0,
+            "text_bold": True,
+            "variance_rows": ["dod", "lwsd", "yoy"],
+        },
+        {
+            # Gross Profit stands in for "Discounts" from the mock: discount has no
+            # derived cube metrics (_dod/_yoy/_pct_of_total), so its variance/share
+            # cells would be blank. Profit is fully covered. (Add discount to the
+            # dbt metric_key lists + reseed if a Discounts block is required.)
+            "display_name": "Gross Profit",
+            "dim_key_grouping": _grand,
+            "dim_value": "",
+            "metric_key": "profit",
+            "cell_format": "${value:,.0f}",
+            "indent": 0,
+            "text_bold": True,
+            "variance_rows": ["dod", "lwsd", "yoy"],
+        },
+        # Revenue expanded by product (top 10 by latest revenue), each with a DoD row.
         {
             "display_name": "Revenue by Product",
+            "show_display_name": True,
             "dim_key_grouping": "*::dim_category::dim_region::dim_subregion",
             "metric_key": "revenue",
             "cell_format": "${value:,.0f}",
             "cell_bg_color": "#E8F5E9",
+            "indent": 0,
+            "sort_order": "value",
+            "limit": 10,
+            "variance_rows": ["dod"],
         },
+        # Revenue expanded by region.
         {
-            "display_name": "Profit by Product",
-            "dim_key_grouping": "*::dim_category::dim_region::dim_subregion",
-            "metric_key": "profit",
+            "display_name": "Revenue by Region",
+            "show_display_name": True,
+            "dim_key_grouping": "dim_product::dim_category::*::dim_subregion",
+            "metric_key": "revenue",
             "cell_format": "${value:,.0f}",
             "cell_bg_color": "#E3F2FD",
+            "indent": 0,
+            "sort_order": "value",
+            "variance_rows": ["dod"],
         },
+        # Revenue by product x region (two '*'); renders only if the cube carries the
+        # combined grouping, otherwise the block is skipped with no error.
         {
-            "display_name": "Units by Product",
-            "dim_key_grouping": "*::dim_category::dim_region::dim_subregion",
-            "metric_key": "units_sold",
-            "cell_format": "{value:,.0f}",
-        },
-        {
-            "display_name": "Revenue YoY %",
-            "dim_key_grouping": "*::dim_category::dim_region::dim_subregion",
-            "metric_key": "revenue_yoy",
-            "cell_format": "{value:,.1f}%",
+            "display_name": "Revenue by Product and Region",
+            "show_display_name": True,
+            "dim_key_grouping": "*::dim_category::*::dim_subregion",
+            "metric_key": "revenue",
+            "cell_format": "${value:,.0f}",
+            "indent": 0,
+            "sort_order": "value",
+            "limit": 10,
         },
     ]
     category_template = [
         {
+            "display_name": "Gross Revenue",
+            "dim_key_grouping": _grand,
+            "dim_value": "",
+            "metric_key": "revenue",
+            "cell_format": "${value:,.0f}",
+            "indent": 0,
+            "text_bold": True,
+            "variance_rows": ["dod", "lwsd", "yoy"],
+        },
+        {
             "display_name": "Revenue by Category",
+            "show_display_name": True,
             "dim_key_grouping": "dim_product::*::dim_region::dim_subregion",
             "metric_key": "revenue",
             "cell_format": "${value:,.0f}",
             "cell_bg_color": "#E8F5E9",
+            "indent": 0,
+            "sort_order": "value",
+            "variance_rows": ["dod", "yoy"],
         },
         {
             "display_name": "Profit by Category",
+            "show_display_name": True,
             "dim_key_grouping": "dim_product::*::dim_region::dim_subregion",
             "metric_key": "profit",
             "cell_format": "${value:,.0f}",
             "cell_bg_color": "#E3F2FD",
-        },
-        {
-            "display_name": "Revenue % of Total",
-            "dim_key_grouping": "dim_product::*::dim_region::dim_subregion",
-            "metric_key": "revenue_pct_of_total",
-            "cell_format": "{value:,.1f}%",
+            "indent": 0,
+            "sort_order": "value",
+            "variance_rows": ["dod"],
         },
     ]
 
@@ -1326,7 +1378,6 @@ queries:
             "04_sales_performance_report",
             "Sales Performance Dashboard",
             "fact_product_agg_daily",
-            _last3,
             "#1565C0",
             "corporate_blue",
             perf_template,
@@ -1335,14 +1386,13 @@ queries:
             "05_category_performance_report",
             "Category Performance",
             "fact_product_agg_daily",
-            _last3,
             "#2E7D32",
             "modern_green",
             category_template,
         ),
     ]
 
-    for name, title, table, date_filter, header_color, theme, metric_template in report_configs:
+    for name, title, table, header_color, theme, metric_template in report_configs:
         payload = _json.dumps(
             {
                 "data": {
@@ -1366,9 +1416,11 @@ queries:
                         "user": "postgres",
                         "password": "postgres",
                     },
+                    "date_columns": 4,
+                    "trend_weeks": 12,
+                    "summary_columns": _summary_cols,
                     "query": {
                         "table": table,
-                        "date_filter": date_filter,
                         "limit": None,
                     },
                     "metric_template": metric_template,

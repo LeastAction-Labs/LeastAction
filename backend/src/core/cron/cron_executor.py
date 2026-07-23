@@ -143,6 +143,38 @@ class CronExecutor:
             except TimeoutError:
                 pass  # normal: interval elapsed, continue
 
+    async def _celery_task_failed(self, celery_task_id: str | None) -> bool:
+        """Ask Celery's result backend whether this task's run failed/was lost.
+
+        A SIGKILL (e.g. out-of-memory) kills the prefork child before the executor
+        can write the final state, so the DB is left stuck in 'running'. Celery,
+        however, records the run as FAILURE/REVOKED (WorkerLostError). Checking this
+        lets the cleanup loop reconcile a dead worker promptly instead of waiting out
+        the heartbeat-staleness window. The `executor` field on a task holds its
+        Celery task id (set in TaskExecutionService)."""
+        if not celery_task_id:
+            return False
+        try:
+            # Lazy import to avoid a circular import at module load (the Celery app
+            # imports the task/cron registries).
+            from celery import states
+
+            from src.core.celery.app import app
+
+            def _state() -> str:
+                return app.AsyncResult(celery_task_id).state
+
+            state = await asyncio.to_thread(_state)
+            return state in (states.FAILURE, states.REVOKED)
+        except Exception as e:
+            log_error(
+                "cron",
+                "CronExecutor",
+                "_celery_task_failed",
+                f"Could not read Celery state for {celery_task_id}: {str(e)}",
+            )
+            return False
+
     async def _cleanup_stale_heartbeats_loop(self) -> None:
         """Independent loop that checks for stale heartbeats and cleans up stuck tasks."""
         while not self._stop_event.is_set():
@@ -157,12 +189,24 @@ class CronExecutor:
                     task_laui = str(task.get("laui", task.get("_id", "")))
                     task_name = task.get("name", "unknown")
 
-                    if is_heartbeat_stale(latest_heartbeat, threshold):
+                    # A task is stuck if either its heartbeat went stale OR Celery
+                    # reports the run failed/was lost (the latter catches an OOM
+                    # SIGKILL immediately, before the heartbeat window elapses).
+                    celery_task_id = task.get("executor")
+                    stale = is_heartbeat_stale(latest_heartbeat, threshold)
+                    celery_failed = await self._celery_task_failed(celery_task_id)
+
+                    if stale or celery_failed:
+                        reason = (
+                            "Task heartbeat went stale."
+                            if stale
+                            else "Celery reports the task's worker failed (e.g. out-of-memory / worker lost)."
+                        )
                         log_info(
                             "cron",
                             "CronExecutor",
                             "_cleanup_stale_heartbeats_loop",
-                            f"Stale heartbeat detected for task {task_name} ({task_laui})",
+                            f"Reaping stuck task {task_name} ({task_laui}) — stale_heartbeat={stale}, celery_failed={celery_failed}",
                         )
                         try:
                             await self.api_client.update_item(
@@ -172,7 +216,7 @@ class CronExecutor:
                                 update_data=TaskUpdateData(
                                     state=TaskState.FAIL,
                                     last_run_output={
-                                        "error": "An error occurred during execution. Task heartbeat went stale."
+                                        "error": f"Task reaped by scheduler cleanup: {reason}"
                                     },
                                     last_system_updated_date=datetime.now(UTC),
                                 ),

@@ -294,11 +294,20 @@ services:
     <<: *backend-image
     user: celeryuser
     restart: unless-stopped
+    # Task operators (wide report pivots, dbt runs) can be memory-heavy, so recycle
+    # a prefork child once it exceeds ~2 GiB RSS (--max-memory-per-child is in KiB)
+    # and keep concurrency modest. mem_limit is the container ceiling — raise it (and
+    # the Docker Desktop VM memory) if you still see SIGKILL/WorkerLostError.
+    # NOTE: dbt-task "timed out" collisions are fixed at the dbt-server (now threaded
+    # + a lock serialises builds), NOT by throttling this worker.
     command: >
       .venv/bin/celery -A src.core.celery.app worker
       -Q la_tasks
       --loglevel info
       --hostname la-task@%h
+      --concurrency 2
+      --max-memory-per-child 2000000
+    mem_limit: 4g
     working_dir: /backend
     volumes:
       - la_logs:/logs

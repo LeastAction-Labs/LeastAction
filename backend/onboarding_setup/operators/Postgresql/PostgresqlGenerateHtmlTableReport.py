@@ -85,21 +85,55 @@ def initialize(least_action_task_object):
         raise
 
 
-def load_data_from_database(conn, query_config):
+def load_data_from_database(conn, query_config, needed_keys=None, window_weeks=12, grouping_patterns=None):
     """
     Load data from database based on query configuration.
+
+    Pulls a trailing window (default 12 weeks ending at MAX(date)) restricted to
+    the metric_keys the templates actually need, so the pivot stays bounded while
+    still carrying enough history for the trend sparkline and rolling stats.
 
     Args:
         conn: PostgreSQL connection object
         query_config: Query configuration dictionary
+        needed_keys: iterable of metric_key values to keep (None = all)
+        window_weeks: trailing window size when no explicit date_filter is given
 
     Returns:
         pd.DataFrame: Loaded data
     """
     try:
         table = query_config.get('table', 'fact_product_agg_daily')
-        date_filter = query_config.get('date_filter', 'TRUE')
+        date_filter = query_config.get('date_filter')
         limit = query_config.get('limit')
+
+        if not date_filter:
+            days = int(window_weeks) * 7
+            date_filter = f"date >= (SELECT MAX(date) FROM {table}) - INTERVAL '{days} days'"
+
+        key_clause = ""
+        if needed_keys:
+            safe = sorted({re.sub(r'[^A-Za-z0-9_]', '', str(k)) for k in needed_keys if k})
+            if safe:
+                key_list = ", ".join("'" + k + "'" for k in safe)
+                key_clause = f"AND metric_key IN ({key_list})"
+
+        # Restrict the pull to only the grouping SHAPES the templates render. Without
+        # this the query returns every grouping in the cube over the whole window,
+        # which for a wide report blows the worker's memory (OOM -> SIGKILL). We turn
+        # each template's dim_key_grouping into a POSIX regex ('*' -> one non-colon
+        # segment) and OR them; the finer '(?!dim_)' distinction is still applied in
+        # pandas, so this is a coarse-but-safe pre-filter.
+        group_clause = ""
+        if grouping_patterns:
+            regexes = []
+            for g in sorted({p for p in grouping_patterns if p}):
+                parts = g.split('::')
+                rx = '^' + '::'.join('[^:]+' if p == '*' else re.escape(p) for p in parts) + '$'
+                regexes.append(rx)
+            if regexes:
+                ors = " OR ".join("dim_key_grouping ~ '" + rx + "'" for rx in regexes)
+                group_clause = f"AND ({ors})"
 
         log_info(
             "task",
@@ -109,7 +143,7 @@ def load_data_from_database(conn, query_config):
         )
 
         sql = f"""
-            SELECT 
+            SELECT
                 date,
                 dim_key,
                 dim_key_grouping,
@@ -119,6 +153,8 @@ def load_data_from_database(conn, query_config):
                 cube_level
             FROM {table}
             WHERE {date_filter}
+            {key_clause}
+            {group_clause}
         """
 
         if limit:
@@ -128,7 +164,7 @@ def load_data_from_database(conn, query_config):
             "task",
             "run",
             "executing_query",
-            f"Executing query: SELECT FROM {table} WHERE {date_filter}"
+            f"Executing report query on {table} WHERE {date_filter} {key_clause}"
         )
 
         df = pd.read_sql(sql, conn)
@@ -140,12 +176,13 @@ def load_data_from_database(conn, query_config):
             f"Successfully loaded {len(df)} rows from database"
         )
 
-        log_info(
-            "task",
-            "run",
-            "data_summary",
-            f"Data shape: {df.shape[0]} rows, {df.shape[1]} columns | Unique groupings: {df['dim_key_grouping'].nunique()} | Unique metrics: {df['metric_key'].nunique()}"
-        )
+        if len(df) > 0:
+            log_info(
+                "task",
+                "run",
+                "data_summary",
+                f"Data shape: {df.shape[0]} rows | Unique groupings: {df['dim_key_grouping'].nunique()} | Unique metrics: {df['metric_key'].nunique()}"
+            )
 
         return df
 
@@ -176,245 +213,269 @@ def format_cell_value(value, format_string):
         return str(value)
 
 
-def pivot_kv_data_to_report(df, metric_template=None):
-    """
-    Pivot the key-value fact table data using dynamic template configuration.
+# Variance sub-rows / summary columns are derived from cube metrics that already
+# exist (stage2/final emits <base>_dod / _wow / _yoy / _pct_of_total). "lwsd"
+# (last-week-same-day) reuses the 7-day lag captured by _wow.
+VAR_SUFFIX = {"dod": "_dod", "lwsd": "_wow", "yoy": "_yoy"}
+VAR_LABELS = {"dod": "DoD", "lwsd": "LWSD", "yoy": "YoY"}
+SUMMARY_LABELS = {
+    "trend": "12-Wk Trend",
+    "std": "Std 12w",
+    "dod": "DoD",
+    "wow": "WoW",
+    "yoy": "YoY",
+    "lwsd": "LWSD",
+    "share": "Share %",
+}
 
-    Args:
-        df: Input DataFrame
-        metric_template: List of metric template configurations
+
+def _pct_change(value, delta):
+    """Percent change given a value and its absolute delta (value - prev)."""
+    try:
+        if value is None or delta is None:
+            return None
+        prev = value - delta
+        if not prev:
+            return None
+        return delta / prev * 100.0
+    except Exception:
+        return None
+
+
+def _sparkline_svg(values, color="#1565C0"):
+    """Inline SVG polyline sparkline from a numeric series (self-contained, no deps)."""
+    pts = [v for v in values if v is not None]
+    if len(pts) < 2:
+        return ""
+    lo, hi = min(pts), max(pts)
+    span = (hi - lo) or 1.0
+    w, h = 84.0, 20.0
+    n = len(pts)
+    coords = " ".join(
+        f"{(i / (n - 1)) * w:.1f},{h - ((v - lo) / span) * h:.1f}"
+        for i, v in enumerate(pts)
+    )
+    return (
+        f'<svg width="{int(w)}" height="{int(h)}" viewBox="0 0 {int(w)} {int(h)}" '
+        f'preserveAspectRatio="none"><polyline fill="none" stroke="{color}" '
+        f'stroke-width="1.5" points="{coords}"/></svg>'
+    )
+
+
+def _summary_cell(key, g, v, base, cell_format, latest, val, full_series, grand):
+    """Compute one right-hand analytic column for an item row."""
+    if latest is None:
+        return ""
+    if key == "trend":
+        return _sparkline_svg(full_series(g, v, base))
+    if key == "std":
+        vals = [x for x in full_series(g, v, base) if x is not None]
+        if len(vals) < 2:
+            return ""
+        try:
+            import statistics
+            return format_cell_value(statistics.pstdev(vals), cell_format)
+        except Exception:
+            return ""
+    if key == "share":
+        # Share of the grand total for this metric/date. The cube's _pct_of_total is
+        # self-referential per grouping (always 100% for a detail row), so we divide
+        # by the grand-total row (dim_value='') value instead.
+        row_v = val(g, v, base, latest)
+        total = grand.get((base, latest))
+        if row_v is None or not total:
+            return ""
+        return f"{row_v / total * 100.0:.1f}%"
+    if key == "dod":
+        p = _pct_change(val(g, v, base, latest), val(g, v, base + "_dod", latest))
+        return "" if p is None else f"{p:+.1f}%"
+    if key == "wow":
+        # true week-over-week: trailing 7-day total vs the prior 7-day total
+        ser = [x for x in full_series(g, v, base) if x is not None]
+        if len(ser) < 14:
+            return ""
+        last7, prev7 = sum(ser[-7:]), sum(ser[-14:-7])
+        if not prev7:
+            return ""
+        return f"{(last7 - prev7) / prev7 * 100.0:+.1f}%"
+    if key in ("yoy", "lwsd"):
+        suffix = "_yoy" if key == "yoy" else "_wow"
+        p = _pct_change(val(g, v, base, latest), val(g, v, base + suffix, latest))
+        return "" if p is None else f"{p:+.1f}%"
+    return ""
+
+
+def build_report_rows(df, metric_template, report_opts):
+    """
+    Build a hierarchical, multi-column report from the CUBE key-value fact table.
+
+    Each metric_template item emits a block: an optional section header, one item
+    row per expanded '*' dimension value (or a single row for a fixed grouping such
+    as a grand total), and optional indented %-variance sub-rows (DoD / LWSD / YoY).
+    Right-hand summary columns (12-week trend sparkline, Std, WoW, YoY, LWSD,
+    Share %) are computed per item row from metrics already in the cube.
 
     Returns:
-        tuple: (Pivoted DataFrame, Styling metadata dictionary)
+        tuple: (rows, date_cols, summary_cols)
+          rows        -> list of {label, indent, kind, cells, summary, style}
+          date_cols   -> list of date strings rendered as columns
+          summary_cols-> list of {key, label}
     """
     try:
-        log_info(
-            "task",
-            "run",
-            "pivoting_data",
-            "Starting data pivot operation"
-        )
+        if df is None or len(df) == 0:
+            log_info("task", "run", "empty_pivot", "No rows returned for the report window")
+            return [], [], []
 
+        df = df.copy()
         df['date_str'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
 
-        if metric_template is None:
-            log_info(
-                "task",
-                "run",
-                "no_template",
-                "No metric template provided, using default pivot"
-            )
+        all_dates = sorted(df['date_str'].unique())
+        n_date_cols = int(report_opts.get('date_columns', 4))
+        date_cols = all_dates[-n_date_cols:] if n_date_cols > 0 else list(all_dates)
+        latest = date_cols[-1] if date_cols else (all_dates[-1] if all_dates else None)
 
-            df['metric'] = df['dim_value'] + ' - ' + df['metric_key']
-            pivot_table = df.pivot_table(
-                index='metric',
-                columns='date_str',
-                values='metric_value',
-                aggfunc='sum',
-                fill_value=0
-            )
-            return pivot_table, {}
+        summary_keys = list(report_opts.get('summary_columns', []) or [])
+        summary_cols = [{"key": k, "label": SUMMARY_LABELS.get(k, k)} for k in summary_keys]
 
-        filtered_data = []
-        metric_order = []
-        metric_styles = {}
+        # Fast lookup: (grouping, dim_value, metric_key) -> {date_str: value}
+        series = {}
+        for r in df.itertuples(index=False):
+            series.setdefault((r.dim_key_grouping, r.dim_value, r.metric_key), {})[r.date_str] = r.metric_value
 
-        log_info(
-            "task",
-            "run",
-            "processing_templates",
-            f"Processing {len(metric_template)} metric templates"
-        )
+        # Grand total per (metric_key, date) for Share %: the fully-grouped row
+        # (every dimension rolled up, dim_value='').
+        grand = {}
+        for (gg, vv, mk), dd in series.items():
+            if vv == '' and all(p.startswith('dim_') for p in gg.split('::')):
+                for d, x in dd.items():
+                    grand[(mk, d)] = x
 
-        for idx, template_item in enumerate(metric_template):
-            display_name = template_item['display_name']
-            dim_key_grouping_filter = template_item.get('dim_key_grouping')
+        def val(g, v, mk, d):
+            return series.get((g, v, mk), {}).get(d)
+
+        def full_series(g, v, mk):
+            s = series.get((g, v, mk), {})
+            return [s.get(d) for d in all_dates]
+
+        rows = []
+        for template_item in (metric_template or []):
+            base = template_item.get('metric_key')
+            grouping_filter = template_item.get('dim_key_grouping')
             dim_value_filter = template_item.get('dim_value')
-            metric_key_filter = template_item.get('metric_key')
-
-            # Extract styling options
             cell_format = template_item.get('cell_format', '{value:,.2f}')
-            cell_bg_color = template_item.get('cell_bg_color')
-            cell_text_color = template_item.get('cell_text_color')
-            text_bold = template_item.get('text_bold', False)
-            text_italic = template_item.get('text_italic', False)
-            text_size = template_item.get('text_size')
+            indent = int(template_item.get('indent', 0))
+            show_header = bool(template_item.get('show_display_name', False))
+            sort_order = template_item.get('sort_order', 'key')
+            variance_rows = template_item.get('variance_rows', []) or []
+            top_n = template_item.get('limit')
+            display_name = template_item.get('display_name', base)
 
-            log_info(
-                "task",
-                "run",
-                "processing_template",
-                f"Processing template {idx + 1}: {display_name}"
-            )
+            item_style = {
+                'bg': template_item.get('cell_bg_color'),
+                'color': template_item.get('cell_text_color'),
+                'bold': bool(template_item.get('text_bold', False)),
+                'italic': bool(template_item.get('text_italic', False)),
+            }
 
-            # DYNAMIC ROW DETECTION
-            # '*' in the grouping key means "expand on this dimension" — one output row per distinct value
-            show_details = False
-            if dim_key_grouping_filter and '*' in dim_key_grouping_filter:
-                show_details = True
-                log_info(
-                    "task",
-                    "run",
-                    "dynamic_row_detection",
-                    f"Dynamic row expansion enabled for: {display_name}"
-                )
+            expand = bool(grouping_filter and '*' in grouping_filter)
 
-            # Start with all data
-            mask = pd.Series([True] * len(df))
-
-            if metric_key_filter:
-                mask &= (df['metric_key'] == metric_key_filter)
-
-            if dim_key_grouping_filter is not None:
-                if show_details:
-                    # Convert pattern to regex:
-                    #   '*'        → any non-placeholder value (not starting with 'dim_')
-                    #   everything else → literal match
-                    parts = dim_key_grouping_filter.split('::')
-                    regex_parts = []
-                    for part in parts:
-                        if part == '*':
-                            regex_parts.append(r'(?!dim_)[^:]+')
-                        else:
-                            regex_parts.append(re.escape(part))
-                    pattern = '^' + '::'.join(regex_parts) + '$'
-                    mask &= df['dim_key_grouping'].str.match(pattern)
+            # Which (grouping, dim_value) pairs make up this block's item rows
+            base_mask = (df['metric_key'] == base)
+            if grouping_filter is not None:
+                if expand:
+                    parts = grouping_filter.split('::')
+                    pattern = '^' + '::'.join(
+                        ('(?!dim_)[^:]+' if p == '*' else re.escape(p)) for p in parts
+                    ) + '$'
+                    base_mask &= df['dim_key_grouping'].str.match(pattern)
                 else:
-                    mask &= (df['dim_key_grouping'] == dim_key_grouping_filter)
-
+                    base_mask &= (df['dim_key_grouping'] == grouping_filter)
             if dim_value_filter is not None:
-                mask &= (df['dim_value'] == dim_value_filter)
-                show_details = False
+                base_mask &= (df['dim_value'] == dim_value_filter)
 
-            filtered_df = df[mask].copy()
+            bdf = df[base_mask]
+            if len(bdf) == 0:
+                log_info("task", "run", "no_data_for_template", f"No data for: {display_name}")
+                continue
 
-            if len(filtered_df) > 0:
-                if show_details and dim_value_filter is None:
-                    # Detail rows
-                    unique_dim_values = filtered_df['dim_value'].unique()
-
-                    log_info(
-                        "task",
-                        "run",
-                        "creating_detail_rows",
-                        f"Creating {len(unique_dim_values)} detail rows for: {display_name}"
-                    )
-
-                    for dim_val in sorted(unique_dim_values):
-                        detail_mask = filtered_df['dim_value'] == dim_val
-                        detail_df = filtered_df[detail_mask].copy()
-                        detail_grouped = detail_df.groupby('date_str')['metric_value'].sum().reset_index()
-                        detail_metric_name = f"  {dim_val}"
-                        detail_grouped['metric'] = detail_metric_name
-                        filtered_data.append(detail_grouped)
-                        metric_order.append(detail_metric_name)
-
-                        metric_styles[detail_metric_name] = {
-                            'cell_format': cell_format,
-                            'cell_bg_color': cell_bg_color,
-                            'cell_text_color': cell_text_color,
-                            'text_bold': False,
-                            'text_italic': text_italic,
-                            'text_size': text_size
-                        }
-
-                    # Total row
-                    total_grouped = filtered_df.groupby('date_str')['metric_value'].sum().reset_index()
-                    total_metric_name = f"{display_name} (Total)"
-                    total_grouped['metric'] = total_metric_name
-                    filtered_data.append(total_grouped)
-                    metric_order.append(total_metric_name)
-
-                    metric_styles[total_metric_name] = {
-                        'cell_format': cell_format,
-                        'cell_bg_color': cell_bg_color,
-                        'cell_text_color': cell_text_color,
-                        'text_bold': True,
-                        'text_italic': text_italic,
-                        'text_size': text_size
-                    }
-                else:
-                    # Single row
-                    grouped = filtered_df.groupby('date_str')['metric_value'].sum().reset_index()
-                    grouped['metric'] = display_name
-                    filtered_data.append(grouped)
-                    metric_order.append(display_name)
-
-                    metric_styles[display_name] = {
-                        'cell_format': cell_format,
-                        'cell_bg_color': cell_bg_color,
-                        'cell_text_color': cell_text_color,
-                        'text_bold': text_bold,
-                        'text_italic': text_italic,
-                        'text_size': text_size
-                    }
+            pairs = list(
+                bdf[['dim_key_grouping', 'dim_value']].drop_duplicates().itertuples(index=False, name=None)
+            )
+            if sort_order == 'value':
+                pairs.sort(key=lambda gv: (val(gv[0], gv[1], base, latest) or 0), reverse=True)
             else:
-                log_info(
-                    "task",
-                    "run",
-                    "no_data_for_template",
-                    f"No data found for metric template: {display_name}"
-                )
+                pairs.sort(key=lambda gv: str(gv[1]))
+            if top_n:
+                pairs = pairs[:int(top_n)]
 
-        if filtered_data:
-            combined_df = pd.concat(filtered_data, ignore_index=True)
-            pivot_table = combined_df.pivot_table(
-                index='metric',
-                columns='date_str',
-                values='metric_value',
-                aggfunc='sum',
-                fill_value=0
-            )
-            existing_metrics = [m for m in metric_order if m in pivot_table.index]
-            pivot_table = pivot_table.reindex(existing_metrics)
+            if show_header:
+                rows.append({
+                    'label': display_name, 'indent': indent, 'kind': 'section',
+                    'cells': ['' for _ in date_cols], 'summary': ['' for _ in summary_cols],
+                    'style': {'bold': True},
+                })
+                item_indent = indent + 1
+            else:
+                item_indent = indent
 
-            log_info(
-                "task",
-                "run",
-                "pivot_complete",
-                f"Pivot table created: {pivot_table.shape[0]} metrics × {pivot_table.shape[1]} dates"
-            )
-        else:
-            pivot_table = pd.DataFrame()
-            log_info(
-                "task",
-                "run",
-                "empty_pivot",
-                "No metrics matched the template filters"
-            )
+            for (g, v) in pairs:
+                label = (str(v) if (expand and v not in (None, '')) else display_name)
+                cells = []
+                for d in date_cols:
+                    x = val(g, v, base, d)
+                    cells.append(format_cell_value(x, cell_format) if x is not None else '')
+                summary = [
+                    _summary_cell(sc['key'], g, v, base, cell_format, latest, val, full_series, grand)
+                    for sc in summary_cols
+                ]
+                rows.append({
+                    'label': label, 'indent': item_indent, 'kind': 'item',
+                    'cells': cells, 'summary': summary, 'style': item_style,
+                })
 
-        return pivot_table, metric_styles
+                for vr in variance_rows:
+                    suffix = VAR_SUFFIX.get(vr)
+                    if not suffix:
+                        continue
+                    vcells = []
+                    for d in date_cols:
+                        p = _pct_change(val(g, v, base, d), val(g, v, base + suffix, d))
+                        vcells.append('' if p is None else f"{p:+.1f}%")
+                    rows.append({
+                        'label': VAR_LABELS.get(vr, vr.upper()), 'indent': item_indent + 1,
+                        'kind': 'variance', 'cells': vcells,
+                        'summary': ['' for _ in summary_cols],
+                        'style': {'italic': True, 'color': '#777'},
+                    })
+
+        log_info("task", "run", "pivot_complete",
+                 f"Report built: {len(rows)} rows x {len(date_cols)} date cols + {len(summary_cols)} summary cols")
+        return rows, date_cols, summary_cols
 
     except Exception as e:
         log_error(
             "task",
             "run",
             "pivot_error",
-            f"Error during pivot operation: {str(e)}"
+            f"Error building report rows: {str(e)}"
         )
         raise
 
 
-def generate_styled_html_table(pivot_table, metric_styles, report_style):
+def generate_styled_html_table(rows, date_cols, summary_cols, report_style):
     """
-    Generate HTML table with inline styling for each cell.
+    Render the hierarchical report rows into an HTML table.
 
-    Args:
-        pivot_table: Pivoted DataFrame
-        metric_styles: Styling metadata dictionary
-        report_style: Report-level styling configuration
+    Rows carry an indent level (rendered as left padding), the date-column cells,
+    and the right-hand summary cells. Per-row styles are de-duplicated into a small
+    set of CSS classes (sN) to keep the HTML well under the catalog size cap.
 
     Returns:
         str: HTML table string
     """
     try:
-        if len(pivot_table) == 0:
-            log_info(
-                "task",
-                "run",
-                "empty_table",
-                "No data to display in table"
-            )
+        if not rows:
+            log_info("task", "run", "empty_table", "No data to display in table")
             return "<p>No data to display</p>"
 
         rs = report_style or {}
@@ -422,39 +483,35 @@ def generate_styled_html_table(pivot_table, metric_styles, report_style):
         even = rs.get('row_bg_color_even', '#f9f9f9')
         odd = rs.get('row_bg_color_odd', '#ffffff')
 
-        # Emit ONE CSS class per distinct per-metric style (deduped) instead of
-        # stamping a full inline style on every cell — a big table went from a
-        # ~150-char <td style="…"> per cell to a ~10-char <td class="sN">, ~10x
-        # smaller, which is what pushed the report over the catalog html cap.
         sig_to_class = {}
-        metric_class = {}
         css_rules = []
-        for m_name, st in (metric_styles or {}).items():
+
+        def class_for(style):
             props = []
-            if st.get('cell_bg_color'):
-                props.append(f"background-color:{st['cell_bg_color']}")
-            if st.get('cell_text_color'):
-                props.append(f"color:{st['cell_text_color']}")
-            if st.get('text_bold'):
+            if style.get('bg'):
+                props.append(f"background-color:{style['bg']}")
+            if style.get('color'):
+                props.append(f"color:{style['color']}")
+            if style.get('bold'):
                 props.append("font-weight:bold")
-            if st.get('text_italic'):
+            if style.get('italic'):
                 props.append("font-style:italic")
-            if st.get('text_size'):
-                props.append(f"font-size:{st['text_size']}")
             if not props:
-                continue
+                return ''
             sig = ';'.join(props)
             cls = sig_to_class.get(sig)
             if cls is None:
                 cls = f"s{len(sig_to_class)}"
                 sig_to_class[sig] = cls
                 css_rules.append(f".{cls}{{{sig}}}")
-            metric_class[m_name] = cls
+            return cls
+
+        row_classes = [class_for(r.get('style', {})) for r in rows]
 
         style_block = (
             "<style>"
-            f"td{{border:1px solid {border};padding:8px;text-align:right}}"
-            "td.k{text-align:left;font-weight:bold}"
+            f"td,th{{border:1px solid {border};padding:6px 8px;text-align:right;white-space:nowrap}}"
+            "td.k{text-align:left}"
             f"tbody tr:nth-child(even){{background-color:{even}}}"
             f"tbody tr:nth-child(odd){{background-color:{odd}}}"
             + ''.join(css_rules)
@@ -462,23 +519,26 @@ def generate_styled_html_table(pivot_table, metric_styles, report_style):
         )
 
         parts = [style_block, '<table><thead><tr><th>Metric</th>']
-        for col in pivot_table.columns:
+        for col in date_cols:
             parts.append(f'<th>{col}</th>')
+        for sc in summary_cols:
+            parts.append(f'<th>{sc["label"]}</th>')
         parts.append('</tr></thead><tbody>')
 
-        for metric_name, row in pivot_table.iterrows():
-            fmt = (metric_styles or {}).get(metric_name, {}).get('cell_format', '{value:,.2f}')
-            cls = metric_class.get(metric_name)
+        for r, cls in zip(rows, row_classes):
             cattr = f' class="{cls}"' if cls else ''
+            kcls = ('k ' + cls).strip()
+            pad = 8 + int(r.get('indent', 0)) * 18
             parts.append('<tr>')
-            parts.append(f'<td class="k">{metric_name}</td>')
-            for value in row:
-                parts.append(f'<td{cattr}>{format_cell_value(value, fmt)}</td>')
+            parts.append(f'<td class="{kcls}" style="padding-left:{pad}px">{r["label"]}</td>')
+            for c in r.get('cells', []):
+                parts.append(f'<td{cattr}>{c}</td>')
+            for s in r.get('summary', []):
+                parts.append(f'<td{cattr}>{s}</td>')
             parts.append('</tr>')
         parts.append('</tbody></table>')
 
         log_info("task", "run", "html_table_generated", "HTML table generated")
-
         return ''.join(parts)
 
     except Exception as e:
@@ -491,14 +551,15 @@ def generate_styled_html_table(pivot_table, metric_styles, report_style):
         raise
 
 
-def write_report_to_database(conn, pivot_table, metric_styles, output_table, report_title, report_style, output_parent_laui , least_action_task_object):
+def write_report_to_database(conn, rows, date_cols, summary_cols, output_table, report_title, report_style, output_parent_laui , least_action_task_object):
     """
     Write HTML report to database table and send to catalog API.
 
     Args:
         conn: PostgreSQL connection object
-        pivot_table: Pivoted DataFrame
-        metric_styles: Styling metadata dictionary
+        rows: hierarchical report rows from build_report_rows
+        date_cols: date-column labels
+        summary_cols: right-hand analytic column definitions
         output_table: Output table name
         report_title: Report title
         report_style: Report-level styling configuration
@@ -598,14 +659,14 @@ def write_report_to_database(conn, pivot_table, metric_styles, output_table, rep
         </html>
         """
 
-        table_html = generate_styled_html_table(pivot_table, metric_styles, report_style)
+        table_html = generate_styled_html_table(rows, date_cols, summary_cols, report_style)
 
         generation_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         html_content = html_template.format(
             report_title=report_title,
             generation_time=generation_time,
-            num_metrics=len(pivot_table),
-            num_dates=len(pivot_table.columns) if len(pivot_table) > 0 else 0,
+            num_metrics=sum(1 for r in rows if r.get('kind') == 'item'),
+            num_dates=len(date_cols),
             table_html=table_html,
             font_family=report_style.get('font_family', 'Arial, sans-serif'),
             header_bg_color=report_style.get('header_bg_color', '#4CAF50'),
@@ -638,8 +699,8 @@ def write_report_to_database(conn, pivot_table, metric_styles, output_table, rep
         """
         
         generation_timestamp = datetime.now()
-        metrics_count = len(pivot_table)
-        date_range_count = len(pivot_table.columns) if len(pivot_table) > 0 else 0
+        metrics_count = sum(1 for r in rows if r.get('kind') == 'item')
+        date_range_count = len(date_cols)
         
         cursor.execute(insert_sql, (
             report_title,
@@ -796,9 +857,44 @@ def run(least_action_task_object, client):
         report_title = payload_data.get('report_title', 'Dynamic Report')
         output_table = payload_data.get('output_table', 'report_output')
         query_config = payload_data.get('query', {})
-        metric_template = payload_data.get('metric_template')
+        metric_template = payload_data.get('metric_template') or []
         report_style = payload_data.get('report_style', {})
         output_parent_laui = payload_data.get('output_parent_laui')
+
+        # Report-level layout: how many recent date columns + which right-hand
+        # analytic columns to render, and how far back to pull for trend/stats.
+        report_opts = {
+            'date_columns': payload_data.get('date_columns', 4),
+            'summary_columns': payload_data.get('summary_columns', []),
+        }
+        trend_weeks = int(payload_data.get('trend_weeks', 12))
+
+        # Pull only the metric_keys the templates need: each base metric plus the
+        # derived suffixes required by its variance rows / the summary columns.
+        summary_keys = set(report_opts.get('summary_columns') or [])
+        needed_keys = set()
+        for t in metric_template:
+            base = t.get('metric_key')
+            if not base:
+                continue
+            needed_keys.add(base)
+            wanted_suffixes = set()
+            for vr in (t.get('variance_rows') or []):
+                suf = VAR_SUFFIX.get(vr)
+                if suf:
+                    wanted_suffixes.add(suf)
+            if 'dod' in summary_keys:
+                wanted_suffixes.add('_dod')
+            if 'yoy' in summary_keys:
+                wanted_suffixes.add('_yoy')
+            if 'lwsd' in summary_keys:
+                wanted_suffixes.add('_wow')
+            for suf in wanted_suffixes:
+                needed_keys.add(base + suf)
+
+        # Grouping shapes to restrict the SQL pull to only what the report renders
+        # (memory guard against pulling the whole cube).
+        grouping_patterns = [t.get('dim_key_grouping') for t in metric_template if t.get('dim_key_grouping')]
 
         log_info(
             "task",
@@ -807,14 +903,14 @@ def run(least_action_task_object, client):
             f"Report title: {report_title}, Output table: {output_table}"
         )
 
-        # Load data from database
-        df = load_data_from_database(client, query_config)
+        # Load data from database (trailing window, only the needed metric_keys)
+        df = load_data_from_database(client, query_config, needed_keys=needed_keys, window_weeks=trend_weeks, grouping_patterns=grouping_patterns)
 
-        # Pivot data with styling
-        pivot_table, metric_styles = pivot_kv_data_to_report(df, metric_template=metric_template)
+        # Build the hierarchical, multi-column report
+        rows, date_cols, summary_cols = build_report_rows(df, metric_template, report_opts)
 
         # Write HTML report to database and send to catalog API
-        output_table_name = write_report_to_database(client, pivot_table, metric_styles, output_table, report_title, report_style, output_parent_laui , least_action_task_object)
+        output_table_name = write_report_to_database(client, rows, date_cols, summary_cols, output_table, report_title, report_style, output_parent_laui , least_action_task_object)
 
         result = {
             'status': 'success',
@@ -822,8 +918,8 @@ def run(least_action_task_object, client):
             'result': {
                 'output_table': output_table_name,
                 'report_title': report_title,
-                'metrics_count': len(pivot_table),
-                'date_range_count': len(pivot_table.columns) if len(pivot_table) > 0 else 0,
+                'metrics_count': sum(1 for r in rows if r.get('kind') == 'item'),
+                'date_range_count': len(date_cols),
                 'generation_time': datetime.now().isoformat()
             }
         }
@@ -997,12 +1093,15 @@ connection = {
 }
 
 prompt = (
-    "Generate a styled HTML pivot table report from a PostgreSQL CUBE-transformed fact table and publish to the LeastAction catalog. "
-    "Payload is a JSON config with: report_title, output_table, output_parent_laui, query (table + date_filter + limit), "
-    "metric_template (list of row definitions with display_name, dim_key_grouping, dim_value, metric_key, cell_format, colors), "
-    "report_style (header colors, fonts, border). "
-    "Pivots the key-value fact table by date. Supports '*' wildcard in dim_key_grouping for dynamic row expansion. "
-    "Writes report HTML to PostgreSQL output_table and publishes as html_report catalog item."
+    "Generate an analyst-grade, hierarchical HTML report from a PostgreSQL CUBE-transformed fact table and publish to the LeastAction catalog. "
+    "Payload is a JSON config with: report_title, output_table, output_parent_laui, query (table + optional date_filter + limit), "
+    "date_columns (how many recent dates to show), trend_weeks (trailing window pulled for trend/stats), "
+    "summary_columns (right-hand analytic columns, any of trend/std/wow/yoy/lwsd/share), "
+    "metric_template (list of blocks: display_name, show_display_name, dim_key_grouping, dim_value, metric_key, cell_format, colors, "
+    "indent, sort_order key|value, limit, variance_rows any of dod/lwsd/yoy), and report_style. "
+    "Each block renders a section header + one row per '*'-expanded dimension value (or a single row for a fixed grouping) plus indented "
+    "%-variance sub-rows. Analytic columns and variances derive from cube metrics already present (<base>_dod/_wow/_yoy/_pct_of_total). "
+    "Writes report HTML to PostgreSQL output_table and publishes as an html_report catalog item."
 )
 
 install_docs = """# PostgresqlGenerateHtmlTableReport — Install Guide
