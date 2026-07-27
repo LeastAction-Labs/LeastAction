@@ -105,6 +105,7 @@ export default function ImportModal() {
 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const conflictCheckIdRef = useRef(0);
 
   // --- Usecase-specific state ---
   // usecaseMode is driven by usecaseImportMode from the modal state (set externally),
@@ -227,6 +228,13 @@ export default function ImportModal() {
     }
   }, [isOpen, itemData, usecaseMode]);
 
+  useEffect(() => {
+    conflictCheckIdRef.current += 1;
+    setConflictItem(null);
+    setMode(null);
+    setNewName('');
+  }, [formValues, importProjectLaui]);
+
   // Fields auto-handled by usecase-specific UI (don't show as generic form fields)
   const usecaseAutoFields = useMemo(() => {
     if (!isUsecase || !usecaseMode) return new Set<string>();
@@ -263,23 +271,28 @@ export default function ImportModal() {
     }));
   };
 
-  const checkItemPresent = async () => {
+  const checkItemPresent = async (): Promise<'conflict' | 'clear' | 'stale'> => {
     const filteredFormValues = { ...formValues };
     if (!parentLauiInPK) delete filteredFormValues['parent_laui'];
     filteredFormValues['item_type'] = itemData.item_type;
 
     const pk = createPK(filteredFormValues);
 
+    const requestId = conflictCheckIdRef.current;
     const items = (await searchCatalogItems(itemData?.item_type, false, { filters: { pk } })).items;
+
+    if (requestId !== conflictCheckIdRef.current) {
+      return 'stale';
+    }
 
     if (items && items.length > 0) {
       const existing = items[0];
       setConflictItem(existing);
       setNewName(formValues.name || '');
-      return true;
+      return 'conflict';
     }
 
-    return false;
+    return 'clear';
   };
 
   const submitItem = async (values: any) => {
@@ -315,8 +328,8 @@ export default function ImportModal() {
   const handleConfirm = async () => {
     setSubmitting(true);
     try {
-      const exists = await checkItemPresent();
-      if (!exists) {
+      const result = await checkItemPresent();
+      if (result === 'clear') {
         await submitItem(formValues);
       }
     } finally {

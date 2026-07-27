@@ -169,6 +169,8 @@ export default function FolderView() {
         catalogState.setActiveFilterType(null);
         catalogState.setFilteredFromItem(null);
       }
+
+      setLoadingItems(false);
       return;
     }
     // Wait for the full item: until supported_types is loaded we can't know
