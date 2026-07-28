@@ -6,7 +6,8 @@
 #   ./blue-green-run.sh                 zero-downtime redeploy (blue<->green)
 #   ./blue-green-run.sh --build         deploy from local source
 #
-# How it works: shared infra (mongo/redis/postgres/keto) runs once as project
+# How it works: shared infra (mongo/redis/postgres/keto/keycloak + the demo
+# postgres/dbt containers) runs once as project
 # leastaction-infra. The app runs in one of two slots — leastaction-blue / leastaction-green. Each deploy
 # brings the *inactive* slot up next to the active one, waits for it to be
 # healthy, repoints the stable edge nginx (leastaction-frontend, port 8080) at it with a
@@ -34,6 +35,7 @@ fi
 
 : "${LEASTACTION_IMAGE_REPO:=leastactionlabs/leastaction}"
 : "${LEASTACTION_HTTP_PORT:=8080}"
+: "${LEASTACTION_KEYCLOAK_PORT:=8082}"
 : "${LEASTACTION_DRAIN_TIMEOUT:=600}"
 : "${LEASTACTION_DRAIN_HARD_KILL:=1}"
 : "${LEASTACTION_HEALTH_TIMEOUT:=300}"
@@ -166,6 +168,12 @@ build_backend_image() {
     docker build -f backend/Dockerfile -t "leastaction-backend:$slot" . || err "Backend build failed"
 }
 
+build_dbt_image() {
+    cd "$ROOT"
+    log "Building dbt-server image from source..."
+    docker build -t leastaction-dbt:latest dbt-server || err "dbt-server build failed"
+}
+
 build_frontend_image() {
     cd "$ROOT"
     log "Building frontend image from source..."
@@ -240,15 +248,37 @@ acquire_frontend_image() {
     fi
 }
 
+check_port_free() {
+    local port="$1"; shift
+    local holder
+    holder=$(docker ps --filter "publish=${port}" --format '{{.Names}}' || true)
+    local ours
+    for ours in "$@"; do
+        holder=$(echo "$holder" | grep -v "^${ours}$" || true)
+    done
+    if [ -n "$holder" ]; then
+        err "Port ${port} is already used by container(s): ${holder}. If this is the dev stack from the root docker-compose.yml, stop it first: docker compose -p leastaction down"
+    fi
+}
+
 preflight() {
     command -v docker >/dev/null 2>&1 || err "docker is not installed or not on PATH"
     docker info >/dev/null 2>&1 || err "docker daemon is not running"
 
-    # Another stack (e.g. the root docker-compose.yml dev flow) already on our port?
-    local holder
-    holder=$(docker ps --filter "publish=${LEASTACTION_HTTP_PORT}" --format '{{.Names}}' | grep -v '^leastaction-frontend$' || true)
-    if [ -n "$holder" ]; then
-        err "Port ${LEASTACTION_HTTP_PORT} is already used by container(s): ${holder}. If this is the dev stack from the root docker-compose.yml, stop it first: docker compose -p leastaction down"
+    # Another stack (e.g. the root docker-compose.yml dev flow) already on our ports?
+    check_port_free "$LEASTACTION_HTTP_PORT" leastaction-frontend
+    check_port_free "$LEASTACTION_KEYCLOAK_PORT" leastaction-infra-keycloak-1
+}
+
+acquire_dbt_image() {
+    cd "$ROOT"
+    if [ "$BUILD_FROM_SOURCE" = true ]; then
+        build_dbt_image
+        return
+    fi
+    docker image inspect leastaction-dbt:latest >/dev/null 2>&1 && return
+    if pull_or_build "${LEASTACTION_IMAGE_REPO}:dbt" build_dbt_image; then
+        docker tag "${LEASTACTION_IMAGE_REPO}:dbt" leastaction-dbt:latest
     fi
 }
 
@@ -257,6 +287,7 @@ start_infra() {
     # Shared by both slots but mounted by no infra service, so compose won't
     # create it on its own.
     docker volume create leastaction_logs >/dev/null
+    acquire_dbt_image
     infra_compose up -d
     log "Waiting for mongodb..."
     wait_healthy leastaction-infra-mongodb-1 180 || err "mongodb did not become healthy (docker logs leastaction-infra-mongodb-1)"
@@ -264,6 +295,16 @@ start_infra() {
     wait_healthy leastaction-infra-keto-1 180 || err "keto did not become healthy (docker logs leastaction-infra-keto-1)"
     log "Waiting for key generation..."
     wait_exited_ok leastaction-infra-key-init-1 120 || err "key-init did not complete (docker logs leastaction-infra-key-init-1)"
+
+    log "Waiting for keycloak..."
+    wait_healthy leastaction-infra-keycloak-1 300 \
+        || warn "keycloak did not become healthy — SSO login will not work (docker logs leastaction-infra-keycloak-1)"
+    log "Waiting for the demo stack..."
+    wait_healthy leastaction-infra-postgres-demo-1 120 \
+        || warn "postgres-demo did not become healthy — the bundled demo workflows will fail (docker logs leastaction-infra-postgres-demo-1)"
+    wait_healthy leastaction-infra-dbt-demo-1 120 \
+        || warn "dbt-demo did not become healthy — the bundled dbt tasks will fail (docker logs leastaction-infra-dbt-demo-1)"
+
     log "Infrastructure is ready"
 }
 
@@ -337,7 +378,8 @@ teardown_everything() {
 
     if [ "$DELETE_VOLUMES" = true ]; then
         infra_compose down --remove-orphans --volumes 2>/dev/null || true
-        docker volume rm -f leastaction_mongodb_data leastaction_postgres_data leastaction_logs leastaction_keys 2>/dev/null || true
+        docker volume rm -f leastaction_mongodb_data leastaction_postgres_data \
+            leastaction_postgres_demo_data leastaction_logs leastaction_keys 2>/dev/null || true
     else
         infra_compose down --remove-orphans 2>/dev/null || true
     fi

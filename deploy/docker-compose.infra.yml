@@ -80,6 +80,11 @@ services:
       - POSTGRES_DB=keto
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keto"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   keto-migrate:
     image: oryd/keto:v25.4.0
@@ -93,7 +98,8 @@ services:
     command: migrate up -y
     restart: on-failure
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
   keto:
     image: oryd/keto:v25.4.0
@@ -115,9 +121,81 @@ services:
       start_period: 10s
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
       keto-migrate:
         condition: service_completed_successfully
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keto
+      KC_DB_USERNAME: keto
+      KC_DB_PASSWORD: secret
+    ports:
+      - "${LEASTACTION_KEYCLOAK_PORT:-8082}:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    configs:
+      - source: keycloak_realm_import
+        target: /opt/keycloak/data/import/realm-import.json
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /realms/leastaction/.well-known/openid-configuration HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres-demo:
+    image: postgres:15
+    hostname: postgres-demo
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres_demo_db
+    volumes:
+      - postgres_demo_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  dbt-demo:
+    image: leastaction-dbt:latest
+    pull_policy: never
+    hostname: dbt-demo
+    restart: unless-stopped
+    environment:
+      - DBT_PG_HOST=postgres-demo
+      - DBT_PG_PORT=5432
+      - DBT_PG_USER=postgres
+      - DBT_PG_PASSWORD=postgres
+      - DBT_PG_DATABASE=postgres_demo_db
+    depends_on:
+      postgres-demo:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:8001/health'')"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Generate the RSA keypair used to sign JWTs, once, into a persistent volume.
   # Runs only if the keys aren't already there. The backend reads
@@ -140,6 +218,36 @@ services:
       - leastaction_keys:/keys
 
 configs:
+  keycloak_realm_import:
+    content: |
+      {
+        "id": "leastaction",
+        "realm": "leastaction",
+        "enabled": true,
+        "clients": [
+          {
+            "clientId": "leastaction",
+            "name": "leastaction",
+            "enabled": true,
+            "protocol": "openid-connect",
+            "publicClient": false,
+            "bearerOnly": false,
+            "standardFlowEnabled": true,
+            "implicitFlowEnabled": false,
+            "directAccessGrantsEnabled": false,
+            "serviceAccountsEnabled": false,
+            "rootUrl": "${APP_PUBLIC_URL:-http://localhost:8080}",
+            "baseUrl": "${APP_PUBLIC_URL:-http://localhost:8080}",
+            "redirectUris": [
+              "${APP_PUBLIC_URL:-http://localhost:8080}/api/v1/redirect-with-code"
+            ],
+            "webOrigins": [
+              "${APP_PUBLIC_URL:-http://localhost:8080}"
+            ],
+            "secret": "${KEYCLOAK_CLIENT_SECRET:-lJMM4C2cGetVkKvJoEPzlVGrGpP7esG2}"
+          }
+        ]
+      }
   keto_yml:
     content: |
       serve:
@@ -233,5 +341,7 @@ volumes:
     name: leastaction_mongodb_data
   postgres_data:
     name: leastaction_postgres_data
+  postgres_demo_data:
+    name: leastaction_postgres_demo_data
   leastaction_keys:
     name: leastaction_keys

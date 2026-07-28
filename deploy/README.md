@@ -55,17 +55,20 @@ Browser ──► leastaction-frontend :8080   (project leastaction-edge — sta
         leastaction-green-backend :8000        leastaction-blue-backend   (old — drained, removed)
         (project leastaction-green)            (project leastaction-blue)
                  │
-        project leastaction-infra: mongodb · redis · postgres · keto · key-init
+        project leastaction-infra: mongodb · redis · postgres · keto · keycloak
+                                   key-init · postgres-demo · dbt-demo
         shared: network leastaction_network, volumes leastaction_mongodb_data / leastaction_postgres_data
-                / leastaction_logs / leastaction_keys
+                / leastaction_postgres_demo_data / leastaction_logs / leastaction_keys
 ```
 
 Three kinds of compose projects share one Docker network:
 
 1. **`leastaction-infra`** ([docker-compose.infra.yml](docker-compose.infra.yml)) —
-   databases, keto, and the one-time JWT key generation. Started once,
-   untouched by redeploys. Owns the shared volumes, so slots come and go
-   without touching data.
+   databases, keto, keycloak, the one-time JWT key generation, and the bundled
+   demo stack (`postgres-demo` + `dbt-demo`) that the seeded catalog's
+   `postgresql` / `dbt` connections point at. Started once, untouched by
+   redeploys. Owns the shared volumes, so slots come and go without touching
+   data. Keycloak is published on `LEASTACTION_KEYCLOAK_PORT` (default 8082).
 2. **`leastaction-blue` / `leastaction-green`** ([docker-compose.app.yml](docker-compose.app.yml)) —
    the app slots (only one active at a time, both briefly up during a swap):
    backend, three celery workers, change streamers, the one-shot setup helper,
@@ -78,10 +81,14 @@ Three kinds of compose projects share one Docker network:
 
 A deploy runs through these steps:
 
-1. Ensure infra is up and healthy (no-op after the first run).
+1. Ensure infra is up and healthy (no-op after the first run). Keycloak and the
+   demo stack are gated on but not required — if they don't come up the deploy
+   warns and continues, since the app serves without them.
 2. Acquire images: pull `backend` / `frontend` from Docker Hub and pin the
    backend locally as `leastaction-backend:<slot>` (or `docker build` with `--build`,
-   or automatically build if the repo isn't published yet).
+   or automatically build if the repo isn't published yet). The `dbt` image is
+   acquired the same way, but only when missing (or on `--build`), since it
+   backs an infra service rather than a slot.
 3. Start the inactive slot alongside the active one (backend + streamers) and
    wait for its backend healthcheck. **If it never turns healthy, the new
    slot is removed and the active slot keeps serving (exit 1).**
@@ -126,8 +133,15 @@ the swap brings the previous slot back with the same zero-downtime flow.
 ## Notes & caveats
 
 - The root `docker-compose.yml` dev flow and this deploy flow can't run at
-  the same time (both want port 8080). The script detects this and tells you
-  what to stop.
+  the same time (both want ports 8080 and 8082). The script detects this and
+  tells you what to stop.
+- The Keycloak realm is imported on its **first start only** (`--import-realm`
+  skips an existing realm). Changing `APP_PUBLIC_URL`, `KEYCLOAK_CLIENT_SECRET`
+  or the ports afterwards will not update the realm's redirect URIs — edit
+  them in the Keycloak admin console, or wipe the postgres volume.
+- Keycloak runs in `start-dev` mode over plain HTTP and shares the `keto`
+  database, the same as the root dev stack. Put it behind TLS before exposing
+  it beyond a single machine.
 - Both slots' celery workers briefly consume from the same queues during the
   swap — that's by design; tasks are processed exactly once either way.
 - In-flight tasks that outlive `LEASTACTION_DRAIN_TIMEOUT` (default 600s) are killed

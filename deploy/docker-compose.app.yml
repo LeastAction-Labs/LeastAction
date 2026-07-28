@@ -33,6 +33,12 @@ x-backend-env: &backend-env
   # deploy/.env.
   SMTP_USER: ${SMTP_USER:-}
   SMTP_PASS: ${SMTP_PASS:-}
+  # Email 2FA. This env var — not totp_enabled in config/system.yml — is what
+  # load_system_config() ultimately honours; it overwrites the file's value.
+  EMAIL_OTP: ${EMAIL_OTP:-false}
+  KEYCLOAK_SERVER_URL: http://keycloak:8080/
+  KEYCLOAK_REDIRECT_URL: ${KEYCLOAK_PUBLIC_URL:-http://localhost:${LEASTACTION_KEYCLOAK_PORT:-8082}}/realms/leastaction/protocol/openid-connect/auth
+  KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-lJMM4C2cGetVkKvJoEPzlVGrGpP7esG2}
 
 services:
   backend:
