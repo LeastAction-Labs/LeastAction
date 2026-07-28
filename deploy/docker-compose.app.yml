@@ -28,6 +28,11 @@ x-backend-env: &backend-env
   KETO_WRITE_URL: http://keto:4467/admin/relation-tuples/
   MARKETPLACE_URL: ${MARKETPLACE_URL:-https://marketplace.leastactionlabs.com}
   API_CLIENT_BASE_URL: http://leastaction-${LEASTACTION_SLOT:?set by blue-green-run.sh}-backend:8000/api/v1
+  # SMTP login for the email action (src/core/email/service.py reads these via
+  # get_secret). Host/port come from config/system.yml; set the credentials in
+  # deploy/.env.
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASS: ${SMTP_PASS:-}
 
 services:
   backend:
