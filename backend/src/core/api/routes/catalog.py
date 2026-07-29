@@ -19,6 +19,7 @@ from src.core.catalog.api_request import (
     DeleteItemRequest,
     GetItemRevisionsRequest,
     GetItemsFilter,
+    SearchLinksResponse,
     SearchRequest,
 )
 from src.core.catalog.bootstrap import bootstrap_project_structure
@@ -359,6 +360,18 @@ async def search(
             f"user={get_user_laui()} payload={request.model_dump()}",
         )
         response = await item_orchestrator.search(request=request)
+        if isinstance(response, SearchLinksResponse):
+            links = response.links
+            link_lauis_access = await access_reader.batch_check_permissions(
+                permission_to_check=Permission.VIEW,
+                item_lauis=[PydanticObjectId(link.child_laui) for link in links],
+                user_laui=get_user_laui(),
+            )
+            response.links = [
+                link for link, has_access in zip(links, link_lauis_access) if has_access
+            ]
+            return convert_objectid_to_str(response.model_dump())
+
         items = response.items
         item_lauis_access = await access_reader.batch_check_permissions(
             permission_to_check=Permission.VIEW,

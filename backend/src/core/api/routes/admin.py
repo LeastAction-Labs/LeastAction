@@ -12,12 +12,11 @@ from pydantic_mongo import PydanticObjectId
 from src.common.context_vars.user_context import get_root_user_laui, get_user_laui
 from src.common.exceptions import InvalidArgumentError, LAException
 from src.common.logger.logger import log_debug, log_error, log_info
-from src.common.utils import load_system_config, update_system_config
+from src.common.utils import load_system_config
 from src.core.admin.api_request import (
     AdminCreateUserRequest,
     GetSystemAttributesResponse,
     GetUsersRequest,
-    UpdateSystemAttributesRequest,
     UpdateUserPayload,
 )
 from src.core.admin.service import AdminService, get_admin_service
@@ -29,6 +28,11 @@ admin_router = APIRouter()
 
 @admin_router.get("/get/system")
 def get_system_details():
+    """Read-only view of system configuration.
+
+    These attributes are sourced from config/system.yml and environment variables
+    (e.g. AWS / EMAIL_OTP for totp_enabled) and cannot be changed at runtime.
+    """
     try:
         log_info(
             "api",
@@ -57,32 +61,6 @@ def get_system_details():
             "api_traceback",
             "admin_router",
             "get_system_details",
-            f"Unexpected error: {str(e)}\n{traceback.format_exc()}",
-        )
-        raise HTTPException(
-            status_code=500, detail={"message": "Internal server error", "detail": f"{str(e)}"}
-        )
-
-
-@admin_router.post("/update/system")
-def update_system_attributes(request: UpdateSystemAttributesRequest):
-    try:
-        update_system_config(request.model_dump())
-    except LAException as e:
-        log_error(
-            "api_traceback",
-            "admin_router",
-            "update_system_attributes",
-            f"LAException: {e.detail if e.detail else e.message}\n{traceback.format_exc()}",
-        )
-        raise HTTPException(
-            status_code=e.http_status_code, detail={"message": e.message, "detail": e.detail}
-        )
-    except Exception as e:
-        log_error(
-            "api_traceback",
-            "admin_router",
-            "update_system_attributes",
             f"Unexpected error: {str(e)}\n{traceback.format_exc()}",
         )
         raise HTTPException(

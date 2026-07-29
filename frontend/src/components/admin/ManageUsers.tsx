@@ -378,7 +378,7 @@ const ManageUsers = () => {
           >
             User Management
           </Typography>
-          {ssoEnabled && (
+          {!ssoEnabled && (
             <Button
               size="small"
               variant={showCreateForm ? 'outlined' : 'contained'}

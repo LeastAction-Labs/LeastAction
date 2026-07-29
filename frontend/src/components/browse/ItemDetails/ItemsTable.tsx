@@ -1076,7 +1076,7 @@ export default function ItemsTable({
       parentLaui,
       itemName: item.name,
       onSuccess: () => void onSuccess(),
-      isPermanent: !!item.deleted_at,
+      isPermanent: restoreAble || !!item.deleted_at,
     });
   };
 
@@ -1819,29 +1819,64 @@ export default function ItemsTable({
                   Create Usecase
                 </Button>
               )}
+            {restoreAble && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Restore sx={{ fontSize: BUTTON_SIZES.ICON_FONT_SIZE }} />}
+                onClick={() => {
+                  const items = currentItems.filter((i) => selectedTasks.includes(i.laui));
+                  if (items.length === 0) return;
+                  const onSuccess = onDeleteSuccess ?? refreshFilteredList;
+                  setRestoreModalState({
+                    isOpen: true,
+                    items,
+                    onSuccess: () => {
+                      setSelectedTasks([]);
+                      void onSuccess();
+                    },
+                  });
+                }}
+                sx={{
+                  borderColor: 'var(--accent)',
+                  color: 'var(--accent)',
+                  textTransform: 'none',
+                  fontSize: BUTTON_SIZES.FONT_SIZE,
+                  fontWeight: BUTTON_SIZES.FONT_WEIGHT,
+                  height: BUTTON_SIZES.HEIGHT,
+                  padding: BUTTON_SIZES.PADDING,
+                  borderRadius: BUTTON_SIZES.BORDER_RADIUS,
+                  '& .MuiSvgIcon-root': { fontSize: BUTTON_SIZES.ICON_FONT_SIZE },
+                  '&:hover': {
+                    borderColor: 'var(--accent)',
+                    bgcolor: 'rgba(76,175,80,0.08)',
+                  },
+                }}
+              >
+                Restore Selected
+              </Button>
+            )}
             {deletePermission && (
               <Button
                 variant="outlined"
                 size="small"
                 startIcon={<Delete sx={{ fontSize: BUTTON_SIZES.ICON_FONT_SIZE }} />}
                 onClick={() => {
-                  selectedTasks.forEach((laui) => {
-                    const item = currentItems.find((i) => i.laui === laui);
-                    if (item) {
-                      const parentLaui = folderParentLaui ?? '';
-                      const onSuccess = onDeleteSuccess ?? refreshFilteredList;
-                      setDeleteModalState({
-                        isOpen: true,
-                        itemLaui: item.laui,
-                        parentLaui,
-                        itemName: item.name,
-                        onSuccess: () => {
-                          setSelectedTasks([]);
-                          void onSuccess();
-                        },
-                        isPermanent: !!item.deleted_at,
-                      });
-                    }
+                  // Single modal for the whole selection — one setState per item would
+                  // overwrite the previous one and only the last item would be deleted.
+                  const items = currentItems.filter((i) => selectedTasks.includes(i.laui));
+                  if (items.length === 0) return;
+                  const parentLaui = folderParentLaui ?? '';
+                  const onSuccess = onDeleteSuccess ?? refreshFilteredList;
+                  setDeleteModalState({
+                    isOpen: true,
+                    targets: items.map((i) => ({ laui: i.laui, name: i.name })),
+                    parentLaui,
+                    onSuccess: () => {
+                      setSelectedTasks([]);
+                      void onSuccess();
+                    },
+                    isPermanent: restoreAble || items.every((i) => !!i.deleted_at),
                   });
                 }}
                 sx={{

@@ -1272,7 +1272,14 @@ queries:
     # + Std + true WoW from the trailing series it pulls (default 12 weeks).
     # dim_key = product::category::region::subregion; '*' expands one row per value.
     _grand = "dim_product::dim_category::dim_region::dim_subregion"  # grand-total grouping (dim_value='')
-    _summary_cols = ["trend", "std", "dod", "yoy", "lwsd", "share"]  # DoD not WoW: these are daily reports
+    _summary_cols = [
+        "trend",
+        "std",
+        "dod",
+        "yoy",
+        "lwsd",
+        "share",
+    ]  # DoD not WoW: these are daily reports
 
     perf_template = [
         # Company-wide totals (fixed grand-total grouping, no '*') with variance sub-rows.

@@ -3,9 +3,7 @@
 # LeastAction Sustainable Use License (see LICENSE.md) or, for files
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
-from typing import Optional
-
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
 from pydantic_mongo import PydanticObjectId
 
 from src.core.api.common import PaginationRequest, PaginationResponse
@@ -18,11 +16,6 @@ class GetSystemAttributesResponse(BaseModel):
     sso_enabled: bool
     instance_laui: PydanticObjectId
     totp_enabled: bool
-
-
-class UpdateSystemAttributesRequest(BaseModel):
-    sso_enabled: Optional[bool] = None
-    totp_enabled: Optional[bool] = None
 
 
 class GetUsersRequest(PaginationRequest):
