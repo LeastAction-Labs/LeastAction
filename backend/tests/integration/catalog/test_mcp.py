@@ -358,19 +358,23 @@ async def test_all_tools_accessible_with_full_access(
         assert "date_from" in data
         assert "date_to" in data
 
-        # ── Marketplace tools (expect errors since no marketplace in test) ──
-        data = await _call_tool(
-            mcp,
-            "search_marketplace",
-            {
-                "item_type": "operator",
-                "page": 1,
-                "per_page": 5,
-            },
-        )
-        assert "not enabled" not in json.dumps(data)
-        assert "error" in data
+        # ── Marketplace tools ───────────────────────────────────────────
+        # The configured marketplace is a live external service, so point the
+        # tools at an unroutable netloc to keep this test hermetic and to
+        # exercise the failure path deterministically.
+        with patch("src.common.utils.MARKETPLACE_BACKEND_NETLOC", "127.0.0.1:1"):
+            data = await _call_tool(
+                mcp,
+                "search_marketplace",
+                {
+                    "item_type": "operator",
+                    "page": 1,
+                    "per_page": 5,
+                },
+            )
+            assert "not enabled" not in json.dumps(data)
+            assert "error" in data
 
-        data = await _call_tool(mcp, "get_marketplace_item", {"item_laui": "nonexistent"})
-        assert "not enabled" not in json.dumps(data)
-        assert "error" in data
+            data = await _call_tool(mcp, "get_marketplace_item", {"item_laui": "nonexistent"})
+            assert "not enabled" not in json.dumps(data)
+            assert "error" in data

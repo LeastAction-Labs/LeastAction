@@ -18,7 +18,9 @@ _dbt_lock = threading.Lock()
 def _dbt_cmd(args):
     with _dbt_lock:
         return subprocess.run(
-            ["dbt"] + args + ["--project-dir", DBT_PROJECT_DIR, "--profiles-dir", DBT_PROJECT_DIR],
+            ["dbt"]
+            + args
+            + ["--project-dir", DBT_PROJECT_DIR, "--profiles-dir", DBT_PROJECT_DIR],
             capture_output=True,
             text=True,
             timeout=300,
@@ -61,7 +63,10 @@ class Handler(BaseHTTPRequestHandler):
                     content = fh.read()
                 refs = []
                 import re
-                for m in re.finditer(r"\{\{\s*ref\s*\(\s*['\"]([^'\"]+)['\"]\s*\)\s*\}\}", content):
+
+                for m in re.finditer(
+                    r"\{\{\s*ref\s*\(\s*['\"]([^'\"]+)['\"]\s*\)\s*\}\}", content
+                ):
                     refs.append(m.group(1))
                 models.append({"name": f[:-4], "refs": refs})
         self._json_response(200, {"models": models})
@@ -78,12 +83,15 @@ class Handler(BaseHTTPRequestHandler):
                 result = _dbt_cmd(["seed"])
             else:
                 result = _dbt_cmd(["run", "--select", model])
-            self._json_response(200, {
-                "success": result.returncode == 0,
-                "returncode": result.returncode,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-            })
+            self._json_response(
+                200,
+                {
+                    "success": result.returncode == 0,
+                    "returncode": result.returncode,
+                    "stdout": result.stdout,
+                    "stderr": result.stderr,
+                },
+            )
         except subprocess.TimeoutExpired:
             self._json_response(504, {"error": "dbt run timed out", "success": False})
         except Exception as e:
@@ -92,12 +100,15 @@ class Handler(BaseHTTPRequestHandler):
     def _handle_run_seed(self):
         try:
             result = _dbt_cmd(["seed"])
-            self._json_response(200, {
-                "success": result.returncode == 0,
-                "returncode": result.returncode,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-            })
+            self._json_response(
+                200,
+                {
+                    "success": result.returncode == 0,
+                    "returncode": result.returncode,
+                    "stdout": result.stdout,
+                    "stderr": result.stderr,
+                },
+            )
         except subprocess.TimeoutExpired:
             self._json_response(504, {"error": "dbt seed timed out", "success": False})
         except Exception as e:
@@ -112,12 +123,15 @@ class Handler(BaseHTTPRequestHandler):
                 self._json_response(400, {"error": "missing 'model' field"})
                 return
             result = _dbt_cmd(["run", "--select", model])
-            self._json_response(200, {
-                "success": result.returncode == 0,
-                "returncode": result.returncode,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-            })
+            self._json_response(
+                200,
+                {
+                    "success": result.returncode == 0,
+                    "returncode": result.returncode,
+                    "stdout": result.stdout,
+                    "stderr": result.stderr,
+                },
+            )
         except subprocess.TimeoutExpired:
             self._json_response(504, {"error": "dbt run timed out", "success": False})
         except Exception as e:

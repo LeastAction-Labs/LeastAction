@@ -12,7 +12,6 @@ import { type PaginationInterface } from './types';
 
 const API_ENDPOINTS = {
   getSystemAttributes: `${CORE_BACKEND_URL}/api/v1/admin/get/system`,
-  updateSystemAttributes: `${CORE_BACKEND_URL}/api/v1/admin/update/system`,
   adminCreate: `${CORE_BACKEND_URL}/api/v1/admin/user/create`,
   adminList: `${CORE_BACKEND_URL}/api/v1/admin/user/list`,
   adminSetStatus: (userId: string) => `${CORE_BACKEND_URL}/api/v1/admin/user/${userId}/status`,
@@ -33,27 +32,13 @@ export interface SystemAttributes {
   totp_enabled: boolean;
 }
 
-export interface SystemAttributesPayload {
-  ssoEnabled?: boolean;
-  totpEnabled?: boolean;
-}
-
+// System attributes are read-only: they come from config/system.yml and the
+// deployment environment, so there is no update endpoint.
 export async function getSystemAttributes() {
   const data = await httpJson<SystemAttributes>(API_ENDPOINTS.getSystemAttributes, {
     method: 'GET',
   });
   return data;
-}
-
-export async function updateSystemAttributes(data: SystemAttributesPayload) {
-  const response = await httpJson(API_ENDPOINTS.updateSystemAttributes, {
-    method: 'POST',
-    body: {
-      sso_enabled: data.ssoEnabled,
-      totp_enabled: data.totpEnabled,
-    },
-  });
-  return response;
 }
 
 export interface LicenseUploadRequest {

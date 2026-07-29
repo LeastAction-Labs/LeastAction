@@ -104,29 +104,6 @@ def load_system_config():
     return config
 
 
-def update_system_config(request_data: dict):
-    current_file = Path(__file__)
-    project_root = current_file.parent.parent.parent.parent
-    config_path = project_root / "config" / "system.yml"
-
-    if not config_path.exists():
-        raise FileNotFoundError(f"System configuration file not found at {config_path}")
-
-    with open(config_path) as f:
-        # Safe_load prevents arbitrary code execution from malicious YAML files
-        config = yaml.safe_load(f) or {}
-
-    # 2. Update existing attributes or add new ones
-    for field, value in request_data.items():
-        if value is not None:
-            config[field] = value  # Dictionaries handle update/add natively
-
-    # 3. Write the updated data back to the file
-    with open(config_path, "w") as f:
-        # sort_keys=False preserves the order you inserted them
-        yaml.safe_dump(config, f, sort_keys=False, default_flow_style=False)
-
-
 def assign_value_to_keys(source: dict[str, any], replace_with: any) -> dict[str, any]:
     result = {}
     for key, value in source.items():

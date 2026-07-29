@@ -22,10 +22,18 @@ import {
 
 import LinkedItemRow from './LinkedItemRow';
 
+/** A single item targeted by the delete modal. */
+export interface DeleteModalTarget {
+  laui: string;
+  name: string;
+}
+
 export interface DeleteModalData {
   isOpen: boolean;
   itemLaui?: string;
   itemName?: string;
+  /** Multiple targets for a bulk delete; takes precedence over itemLaui/itemName. */
+  targets?: DeleteModalTarget[];
   parentLaui?: string;
   onSuccess?: () => void;
   /** True when the item is already in trash, so this delete is permanent. */
@@ -35,14 +43,24 @@ export interface DeleteModalData {
 export default function DeleteModal() {
   const { catalogType } = useGlobal();
   const { setDeleteModalState, deleteModalState } = useCatalog();
-  const { isOpen, itemName, itemLaui, parentLaui, isPermanent } = deleteModalState;
-  const { showSuccess } = useNotification();
+  const { isOpen, itemName, itemLaui, targets, parentLaui, isPermanent } = deleteModalState;
+  const { showSuccess, showError } = useNotification();
 
   const isMarketplaceCatalog = catalogType === CatalogType.MARKETPLACE;
 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [items, setItems] = useState<any[]>([]);
+
+  // Normalize single- and multi-item callers into one list of targets.
+  const deleteTargets: DeleteModalTarget[] =
+    targets && targets.length > 0
+      ? targets
+      : itemLaui
+        ? [{ laui: itemLaui, name: itemName ?? '' }]
+        : [];
+  const isBulk = deleteTargets.length > 1;
+  const targetLauis = deleteTargets.map((t) => t.laui).join(',');
 
   const handleClose = () => {
     if (!submitting) {
@@ -52,31 +70,48 @@ export default function DeleteModal() {
 
   const handleDelete = async () => {
     setSubmitting(true);
-    try {
-      await deleteCatalogItem(itemLaui!, parentLaui!, isMarketplaceCatalog);
-      showSuccess(isPermanent ? 'Item permanently deleted' : 'Item deleted successfully');
-      handleClose();
+    // Delete sequentially: each delete is a backend transaction over shared links.
+    const failed: string[] = [];
+    let deleted = 0;
+    for (const target of deleteTargets) {
+      try {
+        await deleteCatalogItem(target.laui, parentLaui!, isMarketplaceCatalog);
+        deleted += 1;
+      } catch {
+        failed.push(target.name || target.laui);
+      }
+    }
+    setSubmitting(false);
+
+    if (deleted > 0) {
+      const noun = deleted === 1 ? 'Item' : `${deleted} items`;
+      showSuccess(
+        isPermanent ? `${noun} permanently deleted` : `${noun} moved to trash successfully`,
+      );
+    }
+    if (failed.length > 0) {
+      showError(`Failed to delete ${failed.length} item(s): ${failed.join(', ')}`);
+    }
+    setDeleteModalState({ ...deleteModalState, isOpen: false });
+    if (deleted > 0) {
       deleteModalState.onSuccess?.();
-    } catch {
-      /* ignore */
-    } finally {
-      setSubmitting(false);
     }
   };
 
   useEffect(() => {
-    if (isOpen && itemLaui && !isMarketplaceCatalog) {
+    if (isOpen && deleteTargets.length > 0 && !isMarketplaceCatalog) {
       const loadAssociatedItems = async () => {
         setLoading(true);
         try {
-          const linksResponse = await searchCatalogLinks({
-            child_laui: itemLaui,
-            true_parent: 'false',
-          });
-          const links = linksResponse.links || [];
+          const linkResponses = await Promise.all(
+            deleteTargets.map((target) =>
+              searchCatalogLinks({ child_laui: target.laui, true_parent: 'false' }),
+            ),
+          );
+          const links = linkResponses.flatMap((response: any) => response.links || []);
 
           if (links.length > 0) {
-            const itemLauis = links.map((link: any) => link.parent_laui);
+            const itemLauis = [...new Set(links.map((link: any) => link.parent_laui as string))];
             const itemsResponse = await searchCatalogItems(undefined, false, {
               filters: { item_lauis: itemLauis },
             });
@@ -92,7 +127,7 @@ export default function DeleteModal() {
       };
       void loadAssociatedItems();
     }
-  }, [isOpen, itemLaui]);
+  }, [isOpen, targetLauis]);
 
   const ModalActions = (
     <>
@@ -134,7 +169,13 @@ export default function DeleteModal() {
           px: 1.5,
         }}
       >
-        {submitting ? 'Deleting...' : isPermanent ? 'Delete Permanently' : 'Delete Item'}
+        {submitting
+          ? 'Deleting...'
+          : isPermanent
+            ? 'Delete Permanently'
+            : isBulk
+              ? `Delete ${deleteTargets.length} Items`
+              : 'Delete Item'}
       </Button>
     </>
   );
@@ -148,8 +189,8 @@ export default function DeleteModal() {
         items.length > 0
           ? 'Potential impact on linked items'
           : isPermanent
-            ? 'Permanently delete item'
-            : 'Move item to trash'
+            ? `Permanently delete ${isBulk ? 'items' : 'item'}`
+            : `Move ${isBulk ? 'items' : 'item'} to trash`
       }
       actions={ModalActions}
       loading={loading}
@@ -160,17 +201,39 @@ export default function DeleteModal() {
         <Typography sx={{ color: 'var(--text-primary)', mb: 2 }}>
           {isPermanent ? (
             <>
-              Are you sure you want to permanently delete <strong>{itemName}</strong>? This action
-              cannot be undone.
+              Are you sure you want to permanently delete{' '}
+              <strong>
+                {isBulk ? `these ${deleteTargets.length} items` : deleteTargets[0]?.name}
+              </strong>
+              ? This action cannot be undone.
             </>
           ) : (
             <>
-              Are you sure you want to move item <strong>{itemName}</strong> to trash?
+              Are you sure you want to move {isBulk ? '' : 'item '}
+              <strong>
+                {isBulk ? `these ${deleteTargets.length} items` : deleteTargets[0]?.name}
+              </strong>{' '}
+              to trash?
             </>
           )}
           {items.length > 0 &&
-            ' This item and its children are linked with the items below. These links will be permanently deleted.'}
+            (isBulk
+              ? ' These items and their children are linked with the items below. These links will be permanently deleted.'
+              : ' This item and its children are linked with the items below. These links will be permanently deleted.')}
         </Typography>
+
+        {isBulk && (
+          <Stack spacing={0.5} sx={{ mb: 2, maxHeight: '200px', overflowY: 'auto' }}>
+            {deleteTargets.map((target) => (
+              <Typography
+                key={target.laui}
+                sx={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}
+              >
+                • {target.name}
+              </Typography>
+            ))}
+          </Stack>
+        )}
 
         {items.length > 0 && (
           <Stack spacing={1.5} sx={{ mt: 2, maxH: '300px', overflowY: 'auto' }}>

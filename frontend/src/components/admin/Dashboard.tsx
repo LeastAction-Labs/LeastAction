@@ -57,7 +57,6 @@ import {
   getMcpToolGroups,
   listUsers,
   updateLicense,
-  updateSystemAttributes,
   updateUserMcpTools,
   uploadLicense,
 } from '@/services/admin.service';
@@ -109,10 +108,6 @@ export default function AdminDashboard() {
 
   const [copied, setCopied] = useState(false);
 
-  // System Details tab
-  const [totpEnabled, setTotpEnabled] = useState(false);
-  const [ssoEnabled, setSsoEnabled] = useState(false);
-
   // MCP Tools tab
   const [activeTab, setActiveTab] = useState(0);
   const [userList, setUserList] = useState<UserRecord[]>([]);
@@ -149,13 +144,6 @@ export default function AdminDashboard() {
     void fetchUsers();
     void fetchAllMcpToolsList();
   }, []);
-
-  useEffect(() => {
-    if (systemAttributes) {
-      setTotpEnabled(systemAttributes.totp_enabled);
-      setSsoEnabled(systemAttributes.sso_enabled);
-    }
-  }, [systemAttributes]);
 
   const fetchLicenses = async () => {
     const data = await getLicenses();
@@ -316,30 +304,6 @@ export default function AdminDashboard() {
     await uploadLicense({ licenseId, publicKey });
     setUploadOpen(false);
     await fetchLicenses();
-  };
-
-  const handleToggleTotpEnabled = async () => {
-    const newValue = !totpEnabled;
-    setTotpEnabled(newValue);
-    try {
-      await updateSystemAttributes({ totpEnabled: newValue });
-    } catch (error) {
-      // Revert on error
-      setTotpEnabled(!newValue);
-      console.error('Failed to update TOTP setting:', error);
-    }
-  };
-
-  const handleToggleSsoEnabled = async () => {
-    const newValue = !ssoEnabled;
-    setSsoEnabled(newValue);
-    try {
-      await updateSystemAttributes({ ssoEnabled: newValue });
-    } catch (error) {
-      // Revert on error
-      setSsoEnabled(!newValue);
-      console.error('Failed to update SSO setting:', error);
-    }
   };
 
   // --- License User Table Logic (Search, Pagination, Context Fetching) ---
@@ -1781,17 +1745,20 @@ export default function AdminDashboard() {
 
               <Divider sx={{ borderColor: 'var(--border)' }} />
 
-              {/* Authentication Settings */}
+              {/* Authentication Settings (read-only: set at deploy time) */}
               <Box>
                 <Typography
                   variant="subtitle2"
-                  sx={{ color: 'var(--text-secondary)', mb: 2, fontWeight: 600 }}
+                  sx={{ color: 'var(--text-secondary)', mb: 0.5, fontWeight: 600 }}
                 >
                   Authentication Settings
                 </Typography>
+                <Typography variant="body2" sx={{ color: 'var(--text-secondary)', mb: 2 }}>
+                  These are set at deploy time and cannot be changed from here.
+                </Typography>
 
                 <Stack spacing={2}>
-                  {/* TOTP Enabled Toggle */}
+                  {/* TOTP status */}
                   <Box
                     sx={{
                       display: 'flex',
@@ -1808,29 +1775,26 @@ export default function AdminDashboard() {
                         TOTP (Two-Factor Authentication)
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
-                        Enable time-based one-time password authentication
+                        Emails a one-time code on every login. Controlled by the{' '}
+                        <Box component="code" sx={{ fontFamily: 'monospace' }}>
+                          EMAIL_OTP
+                        </Box>{' '}
+                        environment variable (always on when{' '}
+                        <Box component="code" sx={{ fontFamily: 'monospace' }}>
+                          AWS=true
+                        </Box>
+                        ).
                       </Typography>
                     </Box>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={totpEnabled}
-                          // CHANGE THIS LINE: Wrap the async call and use the void operator
-                          onChange={() => {
-                            void handleToggleTotpEnabled();
-                          }}
-                          sx={{
-                            color: 'var(--text-secondary)',
-                            '&.Mui-checked': { color: 'var(--accent)' },
-                          }}
-                        />
-                      }
-                      label=""
-                      sx={{ m: 0 }}
+                    <Chip
+                      label={systemAttributes?.totp_enabled ? 'Enabled' : 'Disabled'}
+                      size="small"
+                      color={systemAttributes?.totp_enabled ? 'success' : 'default'}
+                      variant={systemAttributes?.totp_enabled ? 'filled' : 'outlined'}
                     />
                   </Box>
 
-                  {/* SSO Enabled Toggle */}
+                  {/* SSO status */}
                   <Box
                     sx={{
                       display: 'flex',
@@ -1847,25 +1811,26 @@ export default function AdminDashboard() {
                         SSO (Single Sign-On)
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'var(--text-secondary)' }}>
-                        Enable single sign-on authentication
+                        Requires a configured identity provider. Set{' '}
+                        <Box component="code" sx={{ fontFamily: 'monospace' }}>
+                          sso_enabled
+                        </Box>{' '}
+                        and{' '}
+                        <Box component="code" sx={{ fontFamily: 'monospace' }}>
+                          urls.sso_url
+                        </Box>{' '}
+                        in{' '}
+                        <Box component="code" sx={{ fontFamily: 'monospace' }}>
+                          config/system.yml
+                        </Box>
+                        .
                       </Typography>
                     </Box>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={ssoEnabled}
-                          // CHANGE THIS LINE: Wrap the async call and use the void operator
-                          onChange={() => {
-                            void handleToggleSsoEnabled();
-                          }}
-                          sx={{
-                            color: 'var(--text-secondary)',
-                            '&.Mui-checked': { color: 'var(--accent)' },
-                          }}
-                        />
-                      }
-                      label=""
-                      sx={{ m: 0 }}
+                    <Chip
+                      label={systemAttributes?.sso_enabled ? 'Enabled' : 'Disabled'}
+                      size="small"
+                      color={systemAttributes?.sso_enabled ? 'success' : 'default'}
+                      variant={systemAttributes?.sso_enabled ? 'filled' : 'outlined'}
                     />
                   </Box>
                 </Stack>
