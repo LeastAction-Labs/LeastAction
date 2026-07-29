@@ -26,6 +26,7 @@ from src.core.catalog.api_request import (
     MultipleTaskResponse,
     SearchItemsFilter,
     SearchItemsResponse,
+    SearchLinksResponse,
     SearchRequest,
     TaskUpdateRequest,
 )
@@ -150,7 +151,7 @@ class ItemOrchestrator:
         result = await self.catalog_service.find_items(request)
         return convert_objectid_to_str(result.model_dump())
 
-    async def search(self, request: SearchRequest) -> SearchItemsResponse:
+    async def search(self, request: SearchRequest) -> SearchItemsResponse | SearchLinksResponse:
         result = await self.catalog_service.search(request)
         return result
 
