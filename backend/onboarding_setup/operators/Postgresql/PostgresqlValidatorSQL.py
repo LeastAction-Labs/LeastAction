@@ -96,7 +96,8 @@ def main(payload, connection, task_object):
         results = []
         checks_passed = 0
         checks_failed = 0
-        
+        failed_critical_names = []
+
         for i, query_config in enumerate(queries):
             check_name = query_config.get('name', f'Check {i+1}')
             sql = query_config.get('sql', '')
@@ -157,7 +158,9 @@ def main(payload, connection, task_object):
                         checks_passed += 1
                     else:
                         checks_failed += 1
-                
+                        if severity == 'critical':
+                            failed_critical_names.append(check_name)
+
                 results.append({
                     'name': check_name,
                     'description': description,
@@ -184,6 +187,8 @@ def main(payload, connection, task_object):
                 })
                 if severity in ['critical', 'warning']:
                     checks_failed += 1
+                    if severity == 'critical':
+                        failed_critical_names.append(check_name)
         
         checks_total = len(queries)
         
@@ -212,20 +217,30 @@ def main(payload, connection, task_object):
             send_report_to_catalog(html_report, report_title, output_parent_laui, task_object)
         
         cursor.close()
-        
+
+        result_payload = {
+            'report_title': report_title,
+            'checks_total': checks_total,
+            'checks_passed': checks_passed,
+            'checks_failed': checks_failed,
+            'output_table': output_table,
+            'catalog_saved': bool(output_parent_laui)
+        }
+
+        if failed_critical_names:
+            return {
+                'status': 'failed',
+                'execution_type': 'sync',
+                'result': result_payload,
+                'error': f"{len(failed_critical_names)} critical check(s) failed: {', '.join(failed_critical_names)}"
+            }
+
         return {
             'status': 'success',
             'execution_type': 'sync',
-            'result': {
-                'report_title': report_title,
-                'checks_total': checks_total,
-                'checks_passed': checks_passed,
-                'checks_failed': checks_failed,
-                'output_table': output_table,
-                'catalog_saved': bool(output_parent_laui)
-            }
+            'result': result_payload
         }
-        
+
     except Exception as e:
         import traceback
         error_msg = f"{str(e)} | {traceback.format_exc()}"
@@ -403,7 +418,8 @@ prompt = (
     "Evaluates pass_condition safely using AST — supports comparisons, boolean ops, row_count. "
     "Generates an HTML report with check results (PASS/FAIL per severity). "
     "Writes the report to output_table in PostgreSQL. Optionally publishes to catalog via output_parent_laui. "
-    "Returns checks_total, checks_passed, checks_failed. Task fails if any critical/warning checks fail."
+    "Returns checks_total, checks_passed, checks_failed. Task fails (status='failed') only if a "
+    "critical check fails; warning-severity failures are reported but do not fail the task."
 )
 
 install_docs = """# PostgresqlValidatorSQL — Install Guide

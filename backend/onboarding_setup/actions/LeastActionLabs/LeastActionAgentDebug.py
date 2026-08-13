@@ -71,7 +71,7 @@ def _search_skill(name, auth_token, backend_host, project_laui=None, account_lau
         items = resp.json().get("items", [])
         return items[0] if items else None
     except Exception as e:
-        log_error("action", "_search_skill", "error", f"Skill search failed for \'{name}\': {str(e)}")
+        log_error("action", "_search_skill", "error", f"Skill search failed for '{name}': {str(e)}")
         return None
 
 
@@ -90,16 +90,16 @@ def _validate_connection(conn_laui, auth_token, backend_host):
     return True, None
 
 
-def _call_agent(prompt, skill_content, conn_laui, chat_laui, auth_token, backend_host):
+def _call_agent(prompt, skill_content, conn_laui, chat_laui, auth_token, backend_host, enable_tools=False):
     try:
-        payload = {"prompt": prompt, "chat_laui": chat_laui, "skill_content": skill_content, "enable_tools": False}
+        payload = {"prompt": prompt, "chat_laui": chat_laui, "skill_content": skill_content, "enable_tools": enable_tools}
         if conn_laui:
             payload["connection_laui"] = conn_laui
         resp = requests.post(
             f"http://{backend_host}:8000/api/v1/ai/agent",
             json=payload,
             headers={"Cookie": f"frontend_token={auth_token}", "Content-Type": "application/json"},
-            timeout=120,
+            timeout=180,
         )
         resp.raise_for_status()
         return resp.json().get("message", "")
@@ -113,12 +113,12 @@ def _write_asset(parent_laui, report_text, label, session_id, auth_token, backen
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         safe = label.replace("/", "_").replace(" ", "_")[:60]
         item_name = f"debug_{safe}_{session_id[:8]}_{ts}"
-        html_body = "<pre style=\'font-family:monospace;white-space:pre-wrap;padding:16px\'>{}</pre>".format(
+        html_body = "<pre style='font-family:monospace;white-space:pre-wrap;padding:16px'>{}</pre>".format(
             report_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         )
         payload = {
             "item_type": "html_report", "name": item_name, "parent_laui": parent_laui,
-            "description": f"Failure triage report - session {session_id[:8]}", "html": html_body,
+            "description": f"Schema check report - session {session_id[:8]}", "html": html_body,
         }
         if project_laui:
             payload["project_laui"] = project_laui
@@ -131,7 +131,7 @@ def _write_asset(parent_laui, report_text, label, session_id, auth_token, backen
             timeout=30,
         )
         resp.raise_for_status()
-        log_info("action", "_write_asset", "created", f"Report {resp.json().get(\'item_laui\',\'?\')} created under {parent_laui}")
+        log_info("action", "_write_asset", "created", f"Report {resp.json().get('item_laui','?')} created under {parent_laui}")
         return True
     except Exception as e:
         log_error("action", "_write_asset", "error", f"Failed to create report asset: {str(e)}")
@@ -170,8 +170,8 @@ def _send_slack(webhook_url, label, report_text):
         summary = report_text[:2800] + ("\\n...(truncated)" if len(report_text) > 2800 else "")
         resp = requests.post(
             webhook_url,
-            json={"text": f":rotating_light: *Task Failed: {label}*",
-                  "blocks": [{"type": "header", "text": {"type": "plain_text", "text": f"Task Failed: {label}"}},
+            json={"text": f":rotating_light: *Schema check: {label}*",
+                  "blocks": [{"type": "header", "text": {"type": "plain_text", "text": f"Schema check: {label}"}},
                              {"type": "section", "text": {"type": "mrkdwn", "text": summary}}]},
             timeout=15,
         )
@@ -200,6 +200,9 @@ def run(
     ai_connection=None,
     prompt=None,
     include_task_context=True,
+    enable_tools=False,
+    source_connection_laui=None,
+    source_table=None,
     **kwargs,
 ):
     try:
@@ -217,10 +220,9 @@ def run(
         account_laui = (current_task.get("account_laui") or least_action_action_object.get("account_laui")) or None
         notify = notify or {}
 
-        # In post_action mode, skip entirely if task succeeded
-        if task_name and not wf_laui and task_state == "success":
-            log_info("action", "run", "skipped", f"Task \'{task_name}\' succeeded - no report needed")
-            return True
+        # NOTE: unlike the reactive version, this does NOT skip on task success —
+        # a schema/contract check via live inspect_data is meant to run every time,
+        # since drift (e.g. a precision change) doesn't make the load itself fail.
 
         # Connection: injected by backend (post_action mode) or passed as ai_connection (standalone/workflow)
         conn_laui = least_action_action_object.get("connection_laui") or ai_connection
@@ -229,10 +231,10 @@ def run(
         label = task_name if task_name else (f"wf:{wf_laui[:8]}" if wf_laui else "audit")
 
         log_info("action", "run", "start",
-            f"LeastActionAgentDebug | mode={mode} | label={label} | state={task_state} | conn={conn_laui}"
+            f"LeastActionAgentDebug | mode={mode} | label={label} | state={task_state} | conn={conn_laui} | enable_tools={enable_tools}"
         )
 
-        # Collect failing task context
+        # Collect task context (payload/state) as before
         task_context = ""
         if include_task_context and task_name and current_task:
             task_laui_val = current_task.get("laui")
@@ -266,7 +268,7 @@ def run(
             for skill_name in skill_names:
                 skill_item = _search_skill(skill_name, auth_token, backend_host, project_laui, account_laui)
                 if skill_item:
-                    skill_sections.append(f"## Skill: {skill_name}\\n\\n{skill_item.get(\'content\', \'\')}")
+                    skill_sections.append(f"## Skill: {skill_name}\\n\\n{skill_item.get('content', '')}")
                 else:
                     skill_sections.append(f"## Skill: {skill_name}\\n\\n(not found in catalog)")
         combined_skill_content = "\\n\\n".join(skill_sections)
@@ -277,14 +279,30 @@ def run(
             if workflow_tasks_context:
                 parts.append(f"## Pipeline Tasks\\n\\n{workflow_tasks_context}")
             if task_context:
-                parts.append(f"## Failing Task State\\n\\n```json\\n{task_context}\\n```")
+                parts.append(f"## Task State\\n\\n```json\\n{task_context}\\n```")
+            agent_prompt = "\\n\\n".join(parts)
+        elif mode == "post_action" and enable_tools and source_connection_laui and source_table:
+            parts = [
+                f"You are a data contract auditor. Task `{task_name}` just finished (state: {task_state}) loading data "
+                f"into `{source_table}`.\\n\\n"
+                f"Using the inspect_data tool, query the live schema of `{source_table}` on connection_laui "
+                f"`{source_connection_laui}` (via information_schema.columns) and compare it against the contract/skill "
+                "reference below. Flag ANY drift versus what the contract specifies — renamed or missing columns, "
+                "type changes, and precision/scale changes (numeric_precision, numeric_scale) even if the column name "
+                "and base type are unchanged. For a precision/scale change specifically: state whether it is a "
+                "widening (contract violation, no data loss) or a narrowing (contract violation AND a correctness "
+                "risk — existing values may be rounded or truncated on write, silently corrupting downstream metrics). "
+                "Be concise: 3-6 sentences. State exactly what you found via the tool call, not what you'd expect.",
+            ]
+            if task_context:
+                parts.append(f"## Task State\\n\\n```json\\n{task_context}\\n```")
             agent_prompt = "\\n\\n".join(parts)
         elif mode == "post_action" and task_context:
             agent_prompt = "\\n\\n".join([
-                f"Task `{task_name}` has failed (state: {task_state}). "
-                "Analyse the task payload and last run output to identify the root cause. "
-                "Be concise - 3-5 sentences. State what failed and why. No fix recommendations.",
-                f"## Failing Task State\\n\\n```json\\n{task_context}\\n```",
+                f"Task `{task_name}` finished (state: {task_state}). "
+                "Analyse the task payload and last run output to identify anything worth flagging. "
+                "Be concise - 3-5 sentences.",
+                f"## Task State\\n\\n```json\\n{task_context}\\n```",
             ])
         elif mode == "workflow_audit" and workflow_tasks_context:
             agent_prompt = "\\n\\n".join([
@@ -295,7 +313,7 @@ def run(
                 f"## Pipeline Tasks\\n\\n{workflow_tasks_context}",
             ])
         else:
-            parts = [f"Task `{task_name}` has failed. Produce a structured debug report with root cause."]
+            parts = [f"Task `{task_name}` finished. Produce a structured report."]
             if task_context:
                 parts.append(f"## Task State\\n\\n```json\\n{task_context}\\n```")
             agent_prompt = "\\n\\n".join(parts)
@@ -307,8 +325,8 @@ def run(
             if not ok:
                 log_error("action", "run", "connection_not_ready", conn_err)
                 raise ValueError(conn_err)
-            log_info("action", "run", "calling_agent", "Calling AI agent")
-            result = _call_agent(agent_prompt, combined_skill_content or None, conn_laui, chat_laui, auth_token, backend_host)
+            log_info("action", "run", "calling_agent", f"Calling AI agent (enable_tools={enable_tools})")
+            result = _call_agent(agent_prompt, combined_skill_content or None, conn_laui, chat_laui, auth_token, backend_host, enable_tools=enable_tools)
             if result:
                 analysis = result
                 log_info("action", "run", "agent_response", f"Agent analysis received ({len(analysis)} chars)")
@@ -321,7 +339,7 @@ def run(
         # Build report
         ts = datetime.now(timezone.utc).isoformat()
         report_lines = [
-            "# LeastAction Failure Triage Report" if mode == "post_action" else "# LeastAction Audit Report",
+            "# LeastAction Schema Check Report" if mode == "post_action" else "# LeastAction Audit Report",
             f"**Mode:** {mode}  ",
             f"**Task:** {label}  ",
             f"**State:** {task_state}  " if task_state else "",
@@ -329,8 +347,6 @@ def run(
             f"**Generated:** {ts}  ",
             "", "---", "", "## Analysis", "", analysis,
         ]
-        if task_context:
-            report_lines += ["", "---", "", "## Task State", "", "```json", task_context, "```"]
         report_text = "\\n".join(report_lines)
         log_info("action", "run", "report_built", f"Report built ({len(report_text)} chars)")
 
@@ -340,14 +356,14 @@ def run(
             ap = notify.get("asset_project_laui") or project_laui
             aa = notify.get("asset_account_laui") or account_laui
             if _write_asset(notify["asset_laui"], report_text, label, session_id, auth_token, backend_host, ap, aa):
-                log_info("action", "run", "asset_saved", f"Report saved under {notify[\'asset_laui\']}")
+                log_info("action", "run", "asset_saved", f"Report saved under {notify['asset_laui']}")
                 dispatched = True
             else:
-                log_error("action", "run", "asset_failed", f"Failed to save under {notify[\'asset_laui\']}")
+                log_error("action", "run", "asset_failed", f"Failed to save under {notify['asset_laui']}")
         if notify.get("email"):
             smtp_cfg = notify.get("smtp", {})
-            if _send_email(notify["email"], f"[LeastAction FAILURE] {label} ({task_state})", report_text, smtp_cfg.get("host", ""), smtp_cfg.get("port", 587), smtp_cfg.get("user", ""), smtp_cfg.get("password", ""), smtp_cfg.get("from_addr", smtp_cfg.get("user", ""))):
-                log_info("action", "run", "email_sent", f"Report emailed to {notify[\'email\']}")
+            if _send_email(notify["email"], f"[LeastAction] {label} ({task_state})", report_text, smtp_cfg.get("host", ""), smtp_cfg.get("port", 587), smtp_cfg.get("user", ""), smtp_cfg.get("password", ""), smtp_cfg.get("from_addr", smtp_cfg.get("user", ""))):
+                log_info("action", "run", "email_sent", f"Report emailed to {notify['email']}")
                 dispatched = True
         if notify.get("slack_url"):
             if _send_slack(notify["slack_url"], label, report_text):
@@ -369,13 +385,14 @@ def run(
 
 action_variables = {
     "skill_names": [
-        "DBT_Postgresql_Sales_Pipelines_Skill",
-        "DBT_Postgresql_Sales_Data_Contract",
+        "DBT_Postgresql_Sales_Pipelines_Skill.md",
+        "DBT_Postgresql_Sales_Data_Contract.md",
     ],
     "chat_laui": "6a4b9eb10c4230f658a985eb",       # AnthropicAgentV2
     "ai_connection": "6a4b9dfb0a091f56877109b0",    # ClaudeApiDebug connection
     "wf_laui": "6a469b4dd878a3d63dca2542",           # dbt_sales_reporting workflow (standalone/audit mode)
     "prompt": "",                                     # custom audit instructions; leave empty for defaults
+    "enable_tools": False,                            # set True + source_connection_laui/source_table for live inspect_data checks
     "notify": {
         "asset_laui": "6a4b8e85d5b78ff7c7d136ea",   # DebugReports folder
         "asset_project_laui": "6a469b2dd878a3d63dca2508",
@@ -388,9 +405,11 @@ action_variables = {
 connection = {}
 
 description = (
-    "AI-powered debug/audit action. In post_action mode: fires only on task failure, "
-    "produces a concise 3-5 sentence triage report, saves to asset. Slack/email optional. "
-    "In standalone mode: full workflow audit with schema drift, contract mismatch, cascade impact analysis."
+    "AI-powered post-load schema/contract check. On post_action mode: after every source-load "
+    "run, uses inspect_data (via tool-calling) to query information_schema and the live table "
+    "itself, comparing against the named skill/contract, and flags drift (renames, precision/scale "
+    "changes, etc.) whether or not the load itself succeeded. In standalone mode: full workflow "
+    "audit with schema drift, contract mismatch, cascade impact analysis."
 )
 
 guide_docs = """# LeastActionAgentDebug — Action Guide
@@ -399,7 +418,7 @@ guide_docs = """# LeastActionAgentDebug — Action Guide
 
 | Mode | Trigger | Behaviour |
 |------|---------|-----------|
-| `post_action` | Attached to a task | Skips on success. On failure: collects task state, calls AI for root cause (3-5 sentences), saves report to asset |
+| `post_action` | Attached to a task | Fires on every completion, success or failure. With `enable_tools=True` + `source_connection_laui` + `source_table`, calls `inspect_data` live against the source table and reasons about drift versus the named skill/contract. Without tool-calling, reasons from task state + skill content only |
 | `workflow_audit` | Run standalone with `wf_laui` | Fetches all tasks in the workflow, full schema drift + contract audit |
 | `standalone` | Run standalone without `wf_laui` | Generic audit with whatever context is available |
 
@@ -410,7 +429,10 @@ guide_docs = """# LeastActionAgentDebug — Action Guide
 | `ai_connection` | yes | LAUI of the Claude connection |
 | `chat_laui` | yes | LAUI of the agent chat item |
 | `wf_laui` | no | Workflow LAUI — triggers workflow_audit mode when set |
-| `skill_names` | no | Skills to pass as reference to the AI |
+| `skill_names` | no | Skills to pass as reference to the AI. Lookup is an EXACT name match — must include the file's `.md` suffix, e.g. `DBT_Postgresql_Sales_Data_Contract.md` |
+| `enable_tools` | no | When `True` in `post_action` mode with `source_connection_laui` + `source_table` set, calls `inspect_data` live against the source table before reasoning |
+| `source_connection_laui` | no | Connection LAUI for the live `inspect_data` lookup (only used when `enable_tools=True`) |
+| `source_table` | no | Table name for the live `inspect_data` lookup (only used when `enable_tools=True`) |
 | `prompt` | no | Custom audit instructions; overrides built-in prompts |
 | `notify.asset_laui` | no | Folder to save the HTML report (always written if set) |
 | `notify.email` | no | Email address — only sent if key is present |
@@ -418,8 +440,15 @@ guide_docs = """# LeastActionAgentDebug — Action Guide
 
 ## Post-action behaviour
 
-- Task **succeeds** → exits immediately, no AI call, no report
-- Task **fails** → AI analyses payload + last run output → saves report to asset → optionally emails/slacks
+- Fires on **every** completion, success or failure — this does not skip on success, because
+  drift (e.g. a precision change) doesn't make the load itself fail.
+- With `enable_tools=True`: calls `inspect_data` against `source_table` live, compares the
+  actual schema to the named skill/contract, and distinguishes a non-lossy widening (contract
+  violation, no data loss) from a lossy narrowing (contract violation AND a correctness risk).
+- Without `enable_tools`: reasons from the task's payload/last-run-output and the skill content
+  alone, no live query.
+- Report is always written to `notify.asset_laui` if set; email/Slack are additional, optional
+  channels — set the corresponding key to also dispatch there.
 """
 
 publisher = "LeastAction"
@@ -427,10 +456,10 @@ publisher = "LeastAction"
 metadata = {
     "service": "LeastAction",
     "category": "Debug",
-    "tags": ["debug", "agent", "ai", "pipeline", "triage", "audit", "post_action"],
+    "tags": ["debug", "agent", "ai", "pipeline", "triage", "audit", "post_action", "inspect_data", "data-contract"],
 }
 
 version_details = {
-    "version": "2.0.0",
+    "version": "3.0.0",
     "core": ["0.*"],
 }

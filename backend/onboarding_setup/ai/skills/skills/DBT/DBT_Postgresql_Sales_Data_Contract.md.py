@@ -4,19 +4,24 @@
 # marked EE, the LeastAction Enterprise Edition License (see LICENSE_EE.md).
 # Use of this file outside those terms is not permitted.
 skill = {
-    "description": "Data contract enforcement for fact_sales_daily — schema, PK, nullability, domain, volume, and referential integrity checks via PostgresqlValidatorSQL.",
+    "description": "Data contract for fact_sales_daily — schema, precision/scale, PK, nullability, domain, volume, and referential integrity guarantees. Read by LeastActionAgentDebug on every load, live, via inspect_data.",
     "content": """\
 # Data Contract — fact_sales_daily
 
 ## Contract summary
-Enforces data quality guarantees on the `fact_sales_daily` table before downstream
-dbt models consume it. Run after Task 00 (seed) succeeds.
+States the data quality guarantees `fact_sales_daily` must hold for every downstream
+dbt model, validation task, and report that reads it. This is read live: after every
+run of `00_fact_sales_daily`, `LeastActionAgentDebug` queries the table's actual schema
+via `inspect_data` (`information_schema.columns`) and reasons about it against this
+document — it does not wait for a separate gate task, and it runs whether or not the
+load itself succeeded, because most drift here doesn't fail the load.
 
 ## Contract clauses
 
 | Clause | Check | Severity |
 |--------|-------|----------|
 | Schema — required columns | `sale_id`, `sale_date`, `revenue`, `units_sold`, `cost`, `product_id`, `category_name`, `region_name`, `store_id` exist with expected types | critical |
+| Schema — `revenue` and `cost` are `NUMERIC(15,2)` | `numeric_precision = 15`, `numeric_scale = 2`. **Any change to precision or scale is a BREAKING contract change**, even if the column name and base type are unchanged. A scale INCREASE (e.g. to `(15,4)`) is non-lossy but still breaks the contract — downstream consumers expecting 2-decimal currency values will silently receive 4-decimal ones. A scale DECREASE (e.g. to `(15,1)` or lower) is lossy: existing values are rounded or truncated on write, silently corrupting revenue and profit figures for every downstream metric | critical |
 | Schema — `product_name` is VARCHAR(100) | `character_maximum_length = 100`; **changing the length is a BREAKING contract change** (consumer sign-off + deprecation notice) | critical |
 | Primary key — `sale_id` unique | No duplicate `sale_id` values | critical |
 | Nullability — NOT NULL columns | `sale_date`, `revenue`, `units_sold`, `cost`, `product_id`, `category_name`, `region_name`, `store_id` have no NULLs | critical |
@@ -52,6 +57,16 @@ queries:
       WHERE ic.column_name IS NULL
     severity: critical
     pass_condition: 'missing == 0'
+    display: scalar
+
+  - name: 'Schema — revenue/cost precision is NUMERIC(15,2)'
+    description: 'Any drift in precision or scale is a breaking contract change (see clause table above)'
+    sql: |
+      SELECT COUNT(*) AS mismatch FROM information_schema.columns
+      WHERE table_name='fact_sales_daily' AND column_name IN ('revenue','cost')
+        AND (numeric_precision <> 15 OR numeric_scale <> 2)
+    severity: critical
+    pass_condition: 'mismatch == 0'
     display: scalar
 
   - name: 'Primary key — sale_id unique'
@@ -122,14 +137,21 @@ queries:
 ```
 
 ## How to use
-- **As a standalone task:** Create a task with operator `PostgresqlValidatorSQL`, connection
-  `dbt_postgresql`, and the YAML payload above. Add `LeastActionCheckIfParentsAreDone`
-  pointing to `00_fact_sales_daily`.
-- **As a gate:** Attach as a post-action on `00_fact_sales_daily`. If a critical check fails, chain
-  `LeastActionSkipSubtree` to prevent bad data from flowing into the dbt models.
-- **In the seeded pipeline** this runs as task `00b_sales_contract` — the full 12-clause contract above
-  (schema+types incl the `product_name` VARCHAR(100) length, PK, nullability, domain bands, referential,
-  freshness, volume band).
+- **As a live, per-run check (the primary mechanism in this pipeline):** attach
+  `LeastActionAgentDebug` as a `post_action` on `00_fact_sales_daily` with
+  `enable_tools=True`, `source_connection_laui` pointing at `dbt_postgresql`, and
+  `source_table="fact_sales_daily"`. On every run of the load task — success or
+  failure — the agent calls `inspect_data` against `information_schema.columns` and
+  reasons about the live schema against this document directly. No separate task,
+  no schedule to keep in sync with the load.
+- **As a standalone deterministic task (optional, not seeded by default):** Create a
+  task with operator `PostgresqlValidatorSQL`, connection `dbt_postgresql`, and the
+  YAML payload above; add `LeastActionCheckIfParentsAreDone` pointing to
+  `00_fact_sales_daily`. A 10-query deterministic SQL check (schema+types incl. the
+  precision/scale check, PK, nullability, domain bands, volume, referential),
+  independent of the AI-driven live check above. Unlike the AI check, this one can
+  enforce a hard stop on the checks it covers — useful if a specific clause needs to
+  block downstream tasks outright rather than just be reasoned about and reported.
 
 ## Connection
 Uses `dbt_postgresql` (same as the seed and report tasks).

@@ -1086,91 +1086,6 @@ WHERE d.units >= 1;
 """,
         },
         {
-            "name": "00b_sales_contract",
-            "operator_laui": validator_operator_laui,
-            "connection_laui": pg_connection_laui,
-            "payload": """
-report_title: 'Data Contract — fact_sales_daily'
-output_table: 'sales_contract_reports'
-
-queries:
-  - name: 'Schema — required columns & types'
-    sql: "SELECT COUNT(*) AS missing FROM (VALUES ('sale_id','bigint'),('sale_date','date'),('revenue','numeric'),('units_sold','integer'),('cost','numeric'),('product_id','character varying'),('category_name','character varying'),('region_name','character varying'),('store_id','character varying')) AS c(col, typ) LEFT JOIN information_schema.columns ic ON ic.table_name='fact_sales_daily' AND ic.column_name=c.col AND ic.data_type=c.typ WHERE ic.column_name IS NULL"
-    severity: critical
-    pass_condition: 'missing == 0'
-    display: scalar
-
-  - name: 'Schema — product_name is VARCHAR(100)'
-    description: 'The contracted max length; changing it is a breaking contract change (needs consumer sign-off).'
-    sql: "SELECT count(*) AS mismatch FROM information_schema.columns WHERE table_name='fact_sales_daily' AND column_name='product_name' AND character_maximum_length <> 100"
-    severity: critical
-    pass_condition: 'mismatch == 0'
-    display: scalar
-
-  - name: 'Primary key — sale_id unique'
-    sql: "SELECT sale_id, COUNT(*) AS dupes FROM fact_sales_daily GROUP BY sale_id HAVING COUNT(*) > 1 LIMIT 5"
-    severity: critical
-    pass_condition: 'row_count == 0'
-    display: table
-
-  - name: 'Nullability — required NOT NULL'
-    sql: "SELECT COUNT(*) AS null_rows FROM fact_sales_daily WHERE sale_date IS NULL OR revenue IS NULL OR units_sold IS NULL OR cost IS NULL OR product_id IS NULL OR category_name IS NULL OR region_name IS NULL OR store_id IS NULL"
-    severity: critical
-    pass_condition: 'null_rows == 0'
-    display: scalar
-
-  - name: 'Domain — revenue & profit non-negative'
-    sql: "SELECT COUNT(*) AS bad FROM fact_sales_daily WHERE revenue < 0 OR cost < 0 OR revenue < cost"
-    severity: warning
-    pass_condition: 'bad == 0'
-    display: scalar
-
-  - name: 'Domain — units_sold positive'
-    sql: "SELECT COUNT(*) AS bad FROM fact_sales_daily WHERE units_sold <= 0"
-    severity: warning
-    pass_condition: 'bad == 0'
-    display: scalar
-
-  - name: 'Domain — per-row revenue within a sane ceiling'
-    description: 'Guards against a source fan-out inflating a single product/store/day.'
-    sql: "SELECT COUNT(*) AS bad FROM fact_sales_daily WHERE revenue > 500000"
-    severity: warning
-    pass_condition: 'bad == 0'
-    display: scalar
-
-  - name: 'Referential — category_name in the allowed set'
-    sql: "SELECT COUNT(*) AS bad FROM fact_sales_daily WHERE category_name NOT IN ('Electronics','Peripherals','Audio','Lighting','Furniture')"
-    severity: warning
-    pass_condition: 'bad == 0'
-    display: scalar
-
-  - name: 'Referential — region_name in the allowed set'
-    sql: "SELECT COUNT(*) AS bad FROM fact_sales_daily WHERE region_name NOT IN ('North America','Europe','Asia Pacific','Latin America','Middle East')"
-    severity: warning
-    pass_condition: 'bad == 0'
-    display: scalar
-
-  - name: 'Referential — product_id format Pnnn'
-    sql: "SELECT COUNT(*) AS bad FROM fact_sales_daily WHERE product_id !~ '^P[0-9]{3}$'"
-    severity: warning
-    pass_condition: 'bad == 0'
-    display: scalar
-
-  - name: 'Freshness — multi-year span present'
-    sql: "SELECT (MAX(sale_date) - MIN(sale_date)) AS span_days FROM fact_sales_daily"
-    severity: critical
-    pass_condition: 'span_days >= 1400'
-    display: scalar
-
-  - name: 'Volume — row count within the expected band'
-    sql: "SELECT COUNT(*) AS row_count FROM fact_sales_daily"
-    severity: critical
-    pass_condition: 'row_count >= 100000 and row_count <= 2000000'
-    display: scalar
-""",
-            "depends_on": "00_fact_sales_daily",
-        },
-        {
             "name": "01_cube_aggregation",
             "operator_laui": dbt_operator_laui,
             "connection_laui": dbt_connection_laui,
@@ -1489,23 +1404,40 @@ queries:
         debug_action_laui = all_items["action"].get("LeastActionLabs/LeastActionAgentDebug")
         post_actions = []
         if debug_action_laui and debug_reports_folder_laui and ai_connection_laui and ai_chat_laui:
+            debug_action_variables = {
+                "skill_names": [
+                    "DBT_Postgresql_Sales_Pipelines_Skill.md",
+                    "DBT_Postgresql_Sales_Data_Contract.md",
+                ],
+                "chat_laui": ai_chat_laui,
+                "ai_connection": ai_connection_laui,
+                "notify": {
+                    "asset_laui": debug_reports_folder_laui,
+                    "asset_project_laui": project_laui,
+                    "asset_account_laui": account_laui,
+                    # Optional, not required: leave blank and the report only lands
+                    # as the catalog asset above. Point either one wherever the user
+                    # wants and it fires alongside the asset write on every run.
+                    "email": "",       # e.g. "you@example.com" (+ notify.smtp for host/user/password)
+                    "slack_url": "",   # e.g. "https://hooks.slack.com/services/..."
+                },
+            }
+            # The load task is the only one checked live: it's where the seed writes
+            # fact_sales_daily, so it's the only task where a schema/contract check has
+            # a live table worth querying via inspect_data the moment the load finishes.
+            if task_name == "00_fact_sales_daily":
+                debug_action_variables.update(
+                    {
+                        "enable_tools": True,
+                        "source_connection_laui": pg_connection_laui,
+                        "source_table": "fact_sales_daily",
+                    }
+                )
             post_actions = [
                 {
                     "laui": debug_action_laui,
                     "name": "LeastActionAgentDebug",
-                    "action_variables": {
-                        "skill_names": [
-                            "DBT_Postgresql_Sales_Pipelines_Skill",
-                            "DBT_Postgresql_Sales_Data_Contract",
-                        ],
-                        "chat_laui": ai_chat_laui,
-                        "ai_connection": ai_connection_laui,
-                        "notify": {
-                            "asset_laui": debug_reports_folder_laui,
-                            "asset_project_laui": project_laui,
-                            "asset_account_laui": account_laui,
-                        },
-                    },
+                    "action_variables": debug_action_variables,
                 }
             ]
 
