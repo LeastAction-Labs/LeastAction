@@ -191,6 +191,41 @@ def _dump(obj):
         return str(obj)
 
 
+STRUCTURED_OUTPUT_INSTRUCTION = (
+    "Respond with ONLY a single JSON object, no prose before or after it and no markdown "
+    "code fences, in exactly this shape:\\n"
+    '{"drift_detected": true or false, "severity": "none" or "warning" or "critical", '
+    '"analysis": "your findings, 3-6 sentences"}\\n'
+    "drift_detected is false only when everything checked out clean. severity is \\\"none\\\" "
+    "for a clean result, \\\"warning\\\" for a non-breaking issue, \\\"critical\\\" for a breaking "
+    "or correctness-risking issue. Put your full findings in the analysis field — that is the "
+    "only place your reasoning is shown to the reader."
+)
+
+
+def _parse_verdict(result_text):
+    """Parse the model's structured JSON response.
+    Returns (drift_detected, severity, analysis). Strips an optional wrapping
+    ```json fence first, since models sometimes add one despite being told not
+    to. Falls back to drift_detected=True on anything unparsable, so a
+    malformed response never silently swallows a real alert.
+    """
+    text = result_text.strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.startswith("json"):
+            text = text[4:]
+        text = text.strip()
+    try:
+        verdict = json.loads(text)
+        drift_detected = bool(verdict.get("drift_detected", True))
+        severity = str(verdict.get("severity", "unknown"))
+        analysis = str(verdict.get("analysis") or result_text)
+        return drift_detected, severity, analysis
+    except Exception:
+        return True, "unknown", result_text
+
+
 def run(
     least_action_action_object,
     skill_names=None,
@@ -201,7 +236,6 @@ def run(
     prompt=None,
     include_task_context=True,
     enable_tools=False,
-    source_connection_laui=None,
     source_table=None,
     **kwargs,
 ):
@@ -223,6 +257,11 @@ def run(
         # NOTE: unlike the reactive version, this does NOT skip on task success —
         # a schema/contract check via live inspect_data is meant to run every time,
         # since drift (e.g. a precision change) doesn't make the load itself fail.
+
+        # The connection to inspect_data live is the same one the task itself loaded
+        # data through — already on the task object, so there's no separate variable
+        # for it (it would just be duplicating what's already known).
+        source_connection_laui = current_task.get("connection_laui")
 
         # Connection: injected by backend (post_action mode) or passed as ai_connection (standalone/workflow)
         conn_laui = least_action_action_object.get("connection_laui") or ai_connection
@@ -273,16 +312,13 @@ def run(
                     skill_sections.append(f"## Skill: {skill_name}\\n\\n(not found in catalog)")
         combined_skill_content = "\\n\\n".join(skill_sections)
 
-        # Build agent prompt
+        # Build agent prompt. Every branch below sets `task_instruction` — what the
+        # agent is being asked to actually go do — and STRUCTURED_OUTPUT_INSTRUCTION
+        # is appended once, uniformly, so every mode returns the same parseable shape.
         if prompt:
-            parts = [prompt]
-            if workflow_tasks_context:
-                parts.append(f"## Pipeline Tasks\\n\\n{workflow_tasks_context}")
-            if task_context:
-                parts.append(f"## Task State\\n\\n```json\\n{task_context}\\n```")
-            agent_prompt = "\\n\\n".join(parts)
+            task_instruction = prompt
         elif mode == "post_action" and enable_tools and source_connection_laui and source_table:
-            parts = [
+            task_instruction = (
                 f"You are a data contract auditor. Task `{task_name}` just finished (state: {task_state}) loading data "
                 f"into `{source_table}`.\\n\\n"
                 f"Using the inspect_data tool, query the live schema of `{source_table}` on connection_laui "
@@ -292,34 +328,35 @@ def run(
                 "and base type are unchanged. For a precision/scale change specifically: state whether it is a "
                 "widening (contract violation, no data loss) or a narrowing (contract violation AND a correctness "
                 "risk — existing values may be rounded or truncated on write, silently corrupting downstream metrics). "
-                "Be concise: 3-6 sentences. State exactly what you found via the tool call, not what you'd expect.",
-            ]
-            if task_context:
-                parts.append(f"## Task State\\n\\n```json\\n{task_context}\\n```")
-            agent_prompt = "\\n\\n".join(parts)
+                "State exactly what you found via the tool call, not what you'd expect."
+            )
         elif mode == "post_action" and task_context:
-            agent_prompt = "\\n\\n".join([
+            task_instruction = (
                 f"Task `{task_name}` finished (state: {task_state}). "
-                "Analyse the task payload and last run output to identify anything worth flagging. "
-                "Be concise - 3-5 sentences.",
-                f"## Task State\\n\\n```json\\n{task_context}\\n```",
-            ])
+                "Analyse the task payload and last run output to identify anything worth flagging."
+            )
         elif mode == "workflow_audit" and workflow_tasks_context:
-            agent_prompt = "\\n\\n".join([
+            task_instruction = (
                 "You are a data pipeline analyst. Perform a schema drift and consistency audit.\\n\\n"
                 "Compare each task payload against the skill reference. Identify schema drift, broken references, "
-                "contract mismatches, and cascade impact.\\n\\n"
-                "For each issue: task name, exact drift, severity (critical/warning), recommended fix.",
-                f"## Pipeline Tasks\\n\\n{workflow_tasks_context}",
-            ])
+                "contract mismatches, and cascade impact."
+            )
         else:
-            parts = [f"Task `{task_name}` finished. Produce a structured report."]
-            if task_context:
-                parts.append(f"## Task State\\n\\n```json\\n{task_context}\\n```")
-            agent_prompt = "\\n\\n".join(parts)
+            task_instruction = f"Task `{task_name}` finished. Produce a structured report."
+
+        parts = [task_instruction, STRUCTURED_OUTPUT_INSTRUCTION]
+        if workflow_tasks_context:
+            parts.append(f"## Pipeline Tasks\\n\\n{workflow_tasks_context}")
+        if task_context:
+            parts.append(f"## Task State\\n\\n```json\\n{task_context}\\n```")
+        agent_prompt = "\\n\\n".join(parts)
 
         # Call agent
         analysis = "(No agent configured)"
+        # Default true: if the agent call fails or returns nothing, treat it as worth
+        # surfacing rather than silently swallowing a real issue.
+        drift_detected = True
+        severity = "unknown"
         if conn_laui and chat_laui:
             ok, conn_err = _validate_connection(conn_laui, auth_token, backend_host)
             if not ok:
@@ -328,8 +365,8 @@ def run(
             log_info("action", "run", "calling_agent", f"Calling AI agent (enable_tools={enable_tools})")
             result = _call_agent(agent_prompt, combined_skill_content or None, conn_laui, chat_laui, auth_token, backend_host, enable_tools=enable_tools)
             if result:
-                analysis = result
-                log_info("action", "run", "agent_response", f"Agent analysis received ({len(analysis)} chars)")
+                drift_detected, severity, analysis = _parse_verdict(result)
+                log_info("action", "run", "agent_response", f"Agent analysis received ({len(analysis)} chars) | drift_detected={drift_detected} | severity={severity}")
             else:
                 analysis = "(Agent call failed - see logs)"
                 log_error("action", "run", "agent_failed", "Agent returned no response")
@@ -345,12 +382,16 @@ def run(
             f"**State:** {task_state}  " if task_state else "",
             f"**Session:** {session_id}  ",
             f"**Generated:** {ts}  ",
-            "", "---", "", "## Analysis", "", analysis,
+            f"**Drift detected:** {drift_detected} ({severity})  ",
         ]
+        report_lines += ["", "---", "", "## Analysis", "", analysis]
         report_text = "\\n".join(report_lines)
         log_info("action", "run", "report_built", f"Report built ({len(report_text)} chars)")
 
-        # Route output: asset always; slack/email only if configured
+        # Report is always written as a catalog asset, every run, regardless of the
+        # verdict. Email/Slack are alerting channels, not a copy of the asset write —
+        # they only fire when the agent actually flagged drift, so a clean run stays
+        # quiet instead of paging someone for nothing.
         dispatched = False
         if notify.get("asset_laui"):
             ap = notify.get("asset_project_laui") or project_laui
@@ -360,12 +401,14 @@ def run(
                 dispatched = True
             else:
                 log_error("action", "run", "asset_failed", f"Failed to save under {notify['asset_laui']}")
-        if notify.get("email"):
+        if not drift_detected:
+            log_info("action", "run", "alert_skipped", "No drift detected — email/Slack skipped, asset still written")
+        if drift_detected and notify.get("email"):
             smtp_cfg = notify.get("smtp", {})
-            if _send_email(notify["email"], f"[LeastAction] {label} ({task_state})", report_text, smtp_cfg.get("host", ""), smtp_cfg.get("port", 587), smtp_cfg.get("user", ""), smtp_cfg.get("password", ""), smtp_cfg.get("from_addr", smtp_cfg.get("user", ""))):
+            if _send_email(notify["email"], f"[LeastAction] {severity.upper()}: {label} ({task_state})", report_text, smtp_cfg.get("host", ""), smtp_cfg.get("port", 587), smtp_cfg.get("user", ""), smtp_cfg.get("password", ""), smtp_cfg.get("from_addr", smtp_cfg.get("user", ""))):
                 log_info("action", "run", "email_sent", f"Report emailed to {notify['email']}")
                 dispatched = True
-        if notify.get("slack_url"):
+        if drift_detected and notify.get("slack_url"):
             if _send_slack(notify["slack_url"], label, report_text):
                 log_info("action", "run", "slack_sent", "Report posted to Slack")
                 dispatched = True
@@ -392,7 +435,7 @@ action_variables = {
     "ai_connection": "6a4b9dfb0a091f56877109b0",    # ClaudeApiDebug connection
     "wf_laui": "6a469b4dd878a3d63dca2542",           # dbt_sales_reporting workflow (standalone/audit mode)
     "prompt": "",                                     # custom audit instructions; leave empty for defaults
-    "enable_tools": False,                            # set True + source_connection_laui/source_table for live inspect_data checks
+    "enable_tools": False,                            # set True + source_table for live inspect_data checks (uses the task's own connection)
     "notify": {
         "asset_laui": "6a4b8e85d5b78ff7c7d136ea",   # DebugReports folder
         "asset_project_laui": "6a469b2dd878a3d63dca2508",
@@ -418,7 +461,7 @@ guide_docs = """# LeastActionAgentDebug — Action Guide
 
 | Mode | Trigger | Behaviour |
 |------|---------|-----------|
-| `post_action` | Attached to a task | Fires on every completion, success or failure. With `enable_tools=True` + `source_connection_laui` + `source_table`, calls `inspect_data` live against the source table and reasons about drift versus the named skill/contract. Without tool-calling, reasons from task state + skill content only |
+| `post_action` | Attached to a task | Fires on every completion, success or failure. With `enable_tools=True` + `source_table`, calls `inspect_data` live against the source table — using the connection the task itself loaded through — and reasons about drift versus the named skill/contract. Without tool-calling, reasons from task state + skill content only |
 | `workflow_audit` | Run standalone with `wf_laui` | Fetches all tasks in the workflow, full schema drift + contract audit |
 | `standalone` | Run standalone without `wf_laui` | Generic audit with whatever context is available |
 
@@ -430,8 +473,7 @@ guide_docs = """# LeastActionAgentDebug — Action Guide
 | `chat_laui` | yes | LAUI of the agent chat item |
 | `wf_laui` | no | Workflow LAUI — triggers workflow_audit mode when set |
 | `skill_names` | no | Skills to pass as reference to the AI. Lookup is an EXACT name match — must include the file's `.md` suffix, e.g. `DBT_Postgresql_Sales_Data_Contract.md` |
-| `enable_tools` | no | When `True` in `post_action` mode with `source_connection_laui` + `source_table` set, calls `inspect_data` live against the source table before reasoning |
-| `source_connection_laui` | no | Connection LAUI for the live `inspect_data` lookup (only used when `enable_tools=True`) |
+| `enable_tools` | no | When `True` in `post_action` mode with `source_table` set, calls `inspect_data` live against the source table before reasoning, using the task's own connection |
 | `source_table` | no | Table name for the live `inspect_data` lookup (only used when `enable_tools=True`) |
 | `prompt` | no | Custom audit instructions; overrides built-in prompts |
 | `notify.asset_laui` | no | Folder to save the HTML report (always written if set) |
@@ -442,13 +484,19 @@ guide_docs = """# LeastActionAgentDebug — Action Guide
 
 - Fires on **every** completion, success or failure — this does not skip on success, because
   drift (e.g. a precision change) doesn't make the load itself fail.
-- With `enable_tools=True`: calls `inspect_data` against `source_table` live, compares the
-  actual schema to the named skill/contract, and distinguishes a non-lossy widening (contract
+- With `enable_tools=True`: calls `inspect_data` against `source_table` live — via the same
+  connection the task itself loaded through, no separate connection variable needed — compares
+  the actual schema to the named skill/contract, and distinguishes a non-lossy widening (contract
   violation, no data loss) from a lossy narrowing (contract violation AND a correctness risk).
 - Without `enable_tools`: reasons from the task's payload/last-run-output and the skill content
   alone, no live query.
-- Report is always written to `notify.asset_laui` if set; email/Slack are additional, optional
-  channels — set the corresponding key to also dispatch there.
+- Every mode asks the agent to respond with a single JSON object —
+  `{"drift_detected": ..., "severity": ..., "analysis": ...}` — parsed directly with
+  `json.loads`, no regex or fenced-block scanning involved.
+- The catalog asset (`notify.asset_laui`) is written on **every** run regardless of the verdict —
+  a clean match still leaves a record. Email and Slack only fire when `drift_detected` is true,
+  so a clean run doesn't page anyone; if the model's response isn't valid JSON,
+  `drift_detected` defaults to `true` so a real issue is never silently swallowed.
 """
 
 publisher = "LeastAction"
