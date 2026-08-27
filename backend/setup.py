@@ -1418,8 +1418,8 @@ queries:
                     # Optional, not required: leave blank and the report only lands
                     # as the catalog asset above. Point either one wherever the user
                     # wants and it fires alongside the asset write on every run.
-                    "email": "",       # e.g. "you@example.com" (+ notify.smtp for host/user/password)
-                    "slack_url": "",   # e.g. "https://hooks.slack.com/services/..."
+                    "email": "",  # e.g. "you@example.com" (+ notify.smtp for host/user/password)
+                    "slack_url": "",  # e.g. "https://hooks.slack.com/services/..."
                 },
             }
             # The load task is the only one checked live: it's where the seed writes
