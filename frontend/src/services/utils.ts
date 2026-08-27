@@ -67,6 +67,8 @@ async function parseFieldsBySchema(itemData: any, itemType: string): Promise<any
             // Keep the original value if parsing fails
             result[key] = value;
           }
+        } else if (expectedType === 'string') {
+          result[key] = JSON.stringify(value);
         } else {
           result[key] = value;
         }

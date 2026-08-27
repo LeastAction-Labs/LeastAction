@@ -254,11 +254,12 @@ export async function createCatalogLink(linkData: any): Promise<any> {
 export async function runAction(actionData: any, preSessionId?: string): Promise<TaskRunResponse> {
   //console.log('Running action with data:', actionData);
   if (!actionData.item_type) actionData.item_type = 'action';
+  const cleanedData = await preprocessItemData(actionData);
   const sessionId = preSessionId || crypto.randomUUID();
   try {
     const { data } = await httpJsonWithSession<TaskRunResponse>(API_ENDPOINTS.action.create_run, {
       method: 'POST',
-      body: actionData,
+      body: cleanedData,
       headers: { 'X-Session-ID': sessionId },
     });
     //console.log('Action run response:', data, 'Session ID:', sessionId);
