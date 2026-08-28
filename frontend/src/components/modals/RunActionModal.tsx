@@ -102,16 +102,21 @@ export default function RunActionModal({
           preSessionId,
         );
       } else {
+        const { item_laui } = await runAction({
+          ...runActionModalData.operatorData,
+          name: name,
+          description: description,
+          parent_laui: selectedWorkflow,
+          project_laui: selectedProject,
+          connection_laui: selectedConnection || null,
+          account_laui: accountLaui || localStorage.getItem('la_account_laui'),
+          action_variables: actionVariablesFormValues,
+        });
         await runAction(
           {
-            ...runActionModalData.operatorData,
-            name: name,
-            description: description,
-            parent_laui: selectedWorkflow,
-            project_laui: selectedProject,
-            connection_laui: selectedConnection || null,
-            account_laui: accountLaui || localStorage.getItem('la_account_laui'),
+            item_laui: item_laui,
             action_variables: actionVariablesFormValues,
+            connection_laui: selectedConnection || null,
           },
           preSessionId,
         );
@@ -253,7 +258,7 @@ export default function RunActionModal({
                 disabled={loading}
                 required={true}
                 fieldType="Project"
-                sx={{ mb: 2 }}
+                sx={{ mb: 2, mt: 2 }}
               />
             </>
           )}

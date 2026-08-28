@@ -14,7 +14,7 @@ async def validate_access_for_create_run(
 ):
     task_api = True if api_request.url.path.startswith("/api/v1/task") else False
 
-    if hasattr(request, "item_laui"):
+    if getattr(request, "item_laui", None):
         if task_api:
             await access_reader.check_item_edit_access(request.item_laui, get_user_laui())
             return request
@@ -27,7 +27,7 @@ async def validate_access_for_create_run(
     item_lauis_with_permissions = []
 
     for key in keys:
-        if hasattr(request, key):
+        if getattr(request, key, None):
             if key == "parent_laui":
                 item_lauis_with_permissions.append((getattr(request, key), Permission.EDIT))
             item_lauis_with_permissions.append((getattr(request, key), Permission.VIEW))
