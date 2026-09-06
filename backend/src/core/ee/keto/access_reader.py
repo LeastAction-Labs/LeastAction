@@ -222,7 +222,7 @@ class AccessReader:
 
         child_objects = set()
 
-        for is_child, index in enumerate(results):
+        for index, is_child in enumerate(results):
             if is_child:
                 child_objects.add(relation_tuples_to_check[index].object)
 
